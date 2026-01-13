@@ -252,13 +252,16 @@ export default function ContractsPage() {
     const groupContracts = (contracts: Contract[]): Record<ContractGroupKeys, Record<string, Contract[]>> => {
       return (Object.keys(contractGroups) as ContractGroupKeys[]).reduce((acc, groupKey) => {
           const contractsInGroup = contracts.filter(c => c.group === groupKey);
-          if (contractsInGroup.length > 0) {
-            const subGroups = contractsInGroup.reduce((subAcc, contract) => {
-                (subAcc[contract.subGroup] = subAcc[contract.subGroup] || []).push(contract);
-                return subAcc;
-            }, {} as Record<string, Contract[]>);
+          
+          const subGroups = contractsInGroup.reduce((subAcc, contract) => {
+              (subAcc[contract.subGroup] = subAcc[contract.subGroup] || []).push(contract);
+              return subAcc;
+          }, {} as Record<string, Contract[]>);
+
+          if (Object.keys(subGroups).length > 0) {
             acc[groupKey] = subGroups;
           }
+          
           return acc;
       }, {} as Record<ContractGroupKeys, Record<string, Contract[]>>);
     };
@@ -302,12 +305,25 @@ export default function ContractsPage() {
              <Accordion type="multiple" className="w-full">
                 {(Object.keys(contractGroups) as ContractGroupKeys[]).map((groupKey) => {
                     const contractsInGroup = groupedDrafts[groupKey];
-                    if (!contractsInGroup || Object.keys(contractsInGroup).length === 0) return null;
+                    if (!contractsInGroup) {
+                         const groupHasContracts = draftContracts.some(c => c.group === groupKey);
+                         if (!groupHasContracts) {
+                            return (
+                                <AccordionItem value={contractGroups[groupKey]} key={groupKey} disabled>
+                                    <AccordionTrigger className="text-base font-headline hover:no-underline opacity-50 cursor-not-allowed">
+                                        <div className='flex justify-between items-center w-full pr-4'>
+                                            <span>{contractGroups[groupKey]} (0)</span>
+                                        </div>
+                                    </AccordionTrigger>
+                                </AccordionItem>
+                            );
+                         }
+                    }
                     return (
                         <ContractGroupAccordion 
                             key={groupKey} 
                             title={contractGroups[groupKey]} 
-                            contracts={contractsInGroup}
+                            contracts={contractsInGroup || {}}
                             onApprove={approveTender}
                         />
                     );
@@ -319,12 +335,25 @@ export default function ContractsPage() {
             <Accordion type="multiple" className="w-full">
                 {(Object.keys(contractGroups) as ContractGroupKeys[]).map((groupKey) => {
                     const contractsInGroup = groupedApproved[groupKey];
-                    if (!contractsInGroup || Object.keys(contractsInGroup).length === 0) return null;
+                     if (!contractsInGroup) {
+                         const groupHasContracts = approvedContracts.some(c => c.group === groupKey);
+                         if (!groupHasContracts) {
+                            return (
+                                <AccordionItem value={contractGroups[groupKey]} key={groupKey} disabled>
+                                    <AccordionTrigger className="text-base font-headline hover:no-underline opacity-50 cursor-not-allowed">
+                                        <div className='flex justify-between items-center w-full pr-4'>
+                                            <span>{contractGroups[groupKey]} (0)</span>
+                                        </div>
+                                    </AccordionTrigger>
+                                </AccordionItem>
+                            );
+                         }
+                    }
                     return (
                         <ContractGroupAccordion 
                             key={groupKey} 
                             title={contractGroups[groupKey]} 
-                            contracts={contractsInGroup}
+                            contracts={contractsInGroup || {}}
                         />
                     );
                 })}
@@ -336,3 +365,5 @@ export default function ContractsPage() {
     </Card>
   );
 }
+
+    
