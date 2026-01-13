@@ -73,7 +73,7 @@ const initialApprovedContracts = [
     { id: 'SOZ-002', project: 'Eskişehir Villa Projesi', client: 'Yılmaz Ailesi', startDate: '2024-06-15', value: '₺3,200,000' },
 ];
 
-const TenderRow = ({ tender }: { tender: DraftContract }) => {
+const TenderRow = ({ tender, onApprove }: { tender: DraftContract, onApprove: (tenderId: string) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
     const budget = tender.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
     const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
@@ -82,9 +82,9 @@ const TenderRow = ({ tender }: { tender: DraftContract }) => {
         <Collapsible asChild>
             <>
                 <TableRow className={cn("cursor-pointer", isOpen && "bg-muted/50")}>
-                    <CollapsibleTrigger asChild>
-                        <TableCell className="font-medium" colSpan={5}>
-                             <div className="flex items-center">
+                     <CollapsibleTrigger asChild className="w-full" onClick={() => setIsOpen(!isOpen)}>
+                        <td colSpan={5} className="p-0">
+                            <div className="flex items-center p-4">
                                 {isOpen ? <ChevronUp className="h-4 w-4 mr-2"/> : <ChevronDown className="h-4 w-4 mr-2" />}
                                 <span className="font-medium w-28">{tender.id}</span>
                                 <span className='flex-1'>{tender.name}</span>
@@ -92,10 +92,10 @@ const TenderRow = ({ tender }: { tender: DraftContract }) => {
                                 <span className="w-28 text-center">{tender.date}</span>
                                 <span className="w-32 text-right">{formatCurrency(budget)}</span>
                             </div>
-                        </TableCell>
+                        </td>
                     </CollapsibleTrigger>
                     <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove(tender.id); }}>
                             <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
                             Onayla
                         </Button>
@@ -163,7 +163,7 @@ export default function ContractsPage() {
             value: new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(budget),
             originalTenderId: tenderToApprove.id
         };
-        setApprovedContracts([...approvedContracts, newContract]);
+        setApprovedContracts(prev => [...prev, newContract].sort((a, b) => a.id.localeCompare(b.id)));
     };
     
     const groupedDrafts = (Object.keys(contractGroups) as ContractGroupKeys[]).reduce((acc, groupKey) => {
@@ -225,19 +225,9 @@ export default function ContractsPage() {
                                             </AccordionTrigger>
                                             <AccordionContent>
                                                 <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead className='w-28'>İhale Kodu</TableHead>
-                                                            <TableHead>Proje Adı</TableHead>
-                                                            <TableHead className='w-28 text-center'>Durum</TableHead>
-                                                            <TableHead className='w-28 text-center'>İhale Tarihi</TableHead>
-                                                            <TableHead className='w-32 text-right'>Bütçe</TableHead>
-                                                            <TableHead className="w-24 text-right">İşlemler</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
                                                     <TableBody>
                                                         {contracts.map((tender) => (
-                                                            <TenderRow key={tender.id} tender={tender} />
+                                                            <TenderRow key={tender.id} tender={tender} onApprove={approveTender} />
                                                         ))}
                                                     </TableBody>
                                                 </Table>
