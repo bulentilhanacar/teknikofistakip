@@ -25,7 +25,7 @@ interface ProjectContextType {
     updateContractItem: (contractId: string, updatedItem: ContractItem, originalPoz: string) => void;
     deleteContractItem: (contractId: string, itemPoz: string) => void;
     addDeduction: (deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => void;
-    saveProgressPayment: (contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], selectedDeductionIds: string[]) => void;
+    saveProgressPayment: (contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], selectedDeductionIds: string[], date: Date) => void;
     updateProgressPaymentStatus: (month: string, contractId: string, status: ProgressPaymentStatus) => void;
     getDashboardData: () => any;
     getContractsByProject: () => Contract[];
@@ -417,18 +417,18 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         });
     }, [selectedProjectId]);
 
-    const saveProgressPayment = useCallback((contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], selectedDeductionIds: string[]) => {
+    const saveProgressPayment = useCallback((contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], selectedDeductionIds: string[], date: Date) => {
         if (!selectedProjectId) return;
 
         setProjectData(prev => {
             const contractHistory = prev.progressPayments[selectedProjectId]?.[contractId] || [];
             const lastPayment = contractHistory.length > 0 ? contractHistory[contractHistory.length - 1] : null;
             const newPaymentNumber = (lastPayment?.progressPaymentNumber || 0) + 1;
-            const currentMonth = format(new Date(), 'yyyy-MM');
+            const currentMonth = format(date, 'yyyy-MM');
 
             const newPayment: ProgressPayment = {
                 progressPaymentNumber: newPaymentNumber,
-                date: new Date().toISOString().split('T')[0],
+                date: format(date, 'yyyy-MM-dd'),
                 totalAmount: cumulativeSubTotal,
                 items: progressItems.map(item => ({
                     id: item.id,

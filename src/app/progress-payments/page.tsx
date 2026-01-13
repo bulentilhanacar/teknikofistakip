@@ -8,9 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
-import { Paperclip } from 'lucide-react';
+import { Paperclip, Calendar as CalendarIcon } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProgressPayment, ProgressItem, Deduction } from '@/context/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
 
 
 export default function ProgressPaymentsPage() {
@@ -19,6 +24,7 @@ export default function ProgressPaymentsPage() {
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
   const [selectedDeductionIds, setSelectedDeductionIds] = useState<string[]>([]);
+  const [progressDate, setProgressDate] = useState<Date | undefined>(new Date());
 
   const availableContracts = useMemo(() => {
     return getContractsByProject()
@@ -51,12 +57,14 @@ export default function ProgressPaymentsPage() {
     setSelectedContractId(null);
     setProgressItems([]);
     setSelectedDeductionIds([]);
+    setProgressDate(new Date());
   }, [selectedProject]);
 
 
   const handleContractChange = (contractId: string) => {
     setSelectedContractId(contractId);
     setSelectedDeductionIds([]);
+    setProgressDate(new Date());
     const projectContracts = getContractsByProject();
     const contract = projectContracts.find(c => c.id === contractId);
     
@@ -155,8 +163,8 @@ export default function ProgressPaymentsPage() {
   }, [progressItems, lastProgressPayment, selectedDeductionIds, availableDeductions]);
 
   const handleSaveProgressPayment = () => {
-    if (!selectedProject || !selectedContractId) return;
-    saveProgressPayment(selectedContractId, summary.cumulativeSubTotal, progressItems, selectedDeductionIds);
+    if (!selectedProject || !selectedContractId || !progressDate) return;
+    saveProgressPayment(selectedContractId, summary.cumulativeSubTotal, progressItems, selectedDeductionIds, progressDate);
     // Formu sıfırla
     handleContractChange(selectedContractId);
     setSelectedDeductionIds([]);
@@ -189,21 +197,50 @@ export default function ProgressPaymentsPage() {
           <CardDescription>{selectedProject.name} | Sözleşme seçerek yeni bir hakediş raporu oluşturun.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <Select onValueChange={handleContractChange} value={selectedContractId || ""}>
-              <SelectTrigger className="w-full sm:w-[400px]">
-                <SelectValue placeholder="Hakediş yapılacak sözleşmeyi seçin" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.keys(availableContracts).length > 0 ? Object.keys(availableContracts).map(contractId => (
-                    <SelectItem key={contractId} value={contractId}>{`${contractId}: ${availableContracts[contractId].name}`}</SelectItem>
-                )) : (
-                    <div className="p-4 text-sm text-muted-foreground">Bu proje için onaylı sözleşme bulunmuyor.</div>
-                )}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-2">
-                <Input value={`Hakediş No: ${(lastProgressPayment?.progressPaymentNumber || 0) + 1}`} className="w-full sm:w-[200px]" disabled />
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
+            <div className='md:col-span-1'>
+                <Label htmlFor='contract'>Sözleşme</Label>
+                <Select onValueChange={handleContractChange} value={selectedContractId || ""} name="contract">
+                <SelectTrigger>
+                    <SelectValue placeholder="Hakediş yapılacak sözleşmeyi seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                    {Object.keys(availableContracts).length > 0 ? Object.keys(availableContracts).map(contractId => (
+                        <SelectItem key={contractId} value={contractId}>{`${contractId}: ${availableContracts[contractId].name}`}</SelectItem>
+                    )) : (
+                        <div className="p-4 text-sm text-muted-foreground">Bu proje için onaylı sözleşme bulunmuyor.</div>
+                    )}
+                </SelectContent>
+                </Select>
+            </div>
+            <div>
+                <Label>Hakediş No</Label>
+                <Input value={`Hakediş No: ${(lastProgressPayment?.progressPaymentNumber || 0) + 1}`} disabled />
+            </div>
+            <div>
+                <Label>Hakediş Tarihi</Label>
+                <Popover>
+                    <PopoverTrigger asChild>
+                    <Button
+                        variant={"outline"}
+                        className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !progressDate && "text-muted-foreground"
+                        )}
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {progressDate ? format(progressDate, "PPP") : <span>Tarih seçin</span>}
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={progressDate}
+                            onSelect={setProgressDate}
+                            initialFocus
+                        />
+                    </PopoverContent>
+                </Popover>
             </div>
           </div>
         </CardContent>
