@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 
 // Projelerin sözleşme verilerini simüle ediyoruz
 const projectContractData: Record<string, any> = {
@@ -153,11 +155,10 @@ export default function ProgressPaymentsPage() {
     const vat = currentSubTotal * 0.20;
     const grossTotal = currentSubTotal + vat;
     
-    // Kesintiler bu hakedişin brüt tutarı üzerinden hesaplanır
     const stampDutyAmount = grossTotal * deductions.stampDuty;
     const ssiAmount = currentSubTotal * deductions.ssi;
     
-    const currentPaymentTotal = grossTotal - stampDutyAmount - ssiAmount;
+    const currentPaymentTotal = grossTotal; // Kesintiler düşülmüyor.
 
     return {
       cumulativeSubTotal,
@@ -330,7 +331,7 @@ export default function ProgressPaymentsPage() {
           <div className="grid md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Kesintiler</CardTitle>
+                <CardTitle className="font-headline">Kesinti Oranları</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                  <div className="flex items-center gap-4">
@@ -350,11 +351,19 @@ export default function ProgressPaymentsPage() {
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between"><span>Toplam Tutar (Kümülatif):</span><span className='font-semibold'>{formatCurrency(summary.cumulativeSubTotal)}</span></div>
                 <div className="flex justify-between"><span>Önceki Hakedişler Toplamı:</span><span>- {formatCurrency(summary.totalPreviousAmount)}</span></div>
-                <div className="flex justify-between border-t mt-2 pt-2"><span>Bu Ayki İmalat Toplamı:</span><span className='font-semibold'>{formatCurrency(summary.currentSubTotal)}</span></div>
+                <div className="flex justify-between border-t mt-2 pt-2"><span>Bu Ayki İmalat Toplamı (KDV Hariç):</span><span className='font-semibold'>{formatCurrency(summary.currentSubTotal)}</span></div>
                 <div className="flex justify-between"><span>KDV (%20):</span><span>+ {formatCurrency(summary.vat)}</span></div>
-                <div className="flex justify-between text-destructive"><span>Damga Vergisi (%{deductions.stampDuty * 100}):</span><span>- {formatCurrency(summary.stampDutyAmount)}</span></div>
-                <div className="flex justify-between text-destructive"><span>SGK Kesintisi (%{deductions.ssi * 100}):</span><span>- {formatCurrency(summary.ssiAmount)}</span></div>
-                <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span className="font-headline">Bu Ay Ödenecek Tutar:</span><span className='text-xl'>{formatCurrency(summary.currentPaymentTotal)}</span></div>
+                <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span className="font-headline">Bu Ay Ödenecek Tutar (KDV Dahil):</span><span className='text-xl'>{formatCurrency(summary.currentPaymentTotal)}</span></div>
+                <div className="border-t mt-4 pt-4 space-y-2">
+                    <div className="flex justify-between text-muted-foreground"><span>Hesaplanan Damga Vergisi (%{(deductions.stampDuty * 100).toFixed(3)}):</span><span>{formatCurrency(summary.stampDutyAmount)}</span></div>
+                    <div className="flex justify-between text-muted-foreground"><span>Hesaplanan SGK Kesintisi (%{(deductions.ssi * 100).toFixed(2)}):</span><span>{formatCurrency(summary.ssiAmount)}</span></div>
+                    <Alert variant="default" className="mt-2">
+                        <Info className="h-4 w-4" />
+                        <AlertDescription>
+                            Hesaplanan kesintiler bilgi amaçlıdır ve ödenecek tutardan düşülmemiştir. Bu tutarlar ayrı bir hesapta takip edilmelidir.
+                        </AlertDescription>
+                    </Alert>
+                </div>
               </CardContent>
             </Card>
           </div>
