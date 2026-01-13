@@ -2,6 +2,7 @@
 
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback } from 'react';
 import { Contract, ContractGroupKeys, ContractItem, Deduction, ProgressPayment, ProgressItem as ContextProgressItem, AllProjectData, ProgressPaymentStatus } from './types';
+import { format } from 'date-fns';
 
 
 // Proje ve veri tiplerini tanımlıyoruz
@@ -25,7 +26,7 @@ interface ProjectContextType {
     deleteContractItem: (contractId: string, itemPoz: string) => void;
     addDeduction: (deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => void;
     saveProgressPayment: (contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], selectedDeductionIds: string[]) => void;
-    updateProgressPaymentStatus: (contractId: string, status: ProgressPaymentStatus) => void;
+    updateProgressPaymentStatus: (month: string, contractId: string, status: ProgressPaymentStatus) => void;
     getDashboardData: () => any;
     getContractsByProject: () => Contract[];
 }
@@ -115,10 +116,16 @@ const initialDeductionsData: Record<string, Deduction[]> = {
     "proje-ankara": []
 };
 
-const initialProgressStatuses: Record<string, Record<string, ProgressPaymentStatus>> = {
+const initialProgressStatuses: Record<string, Record<string, Record<string, ProgressPaymentStatus>>> = {
     "proje-istanbul": {
-        "SOZ-001": "sahada",
-        "SOZ-002": "pas_gec"
+        "2024-08": {
+            "SOZ-001": "sahada",
+            "SOZ-002": "pas_gec"
+        },
+        "2024-09": {
+            "SOZ-001": "yok",
+            "SOZ-002": "yok"
+        }
     },
     "proje-ankara": {}
 };
@@ -159,8 +166,19 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             dashboard: projectDashboardData,
             progressStatuses: initialProgressStatuses,
         };
-        // Ensure progressStatuses is always an object, even if storedData is partial or malformed
-        return { ...defaultData, ...storedData, progressStatuses: { ...defaultData.progressStatuses, ...(storedData?.progressStatuses || {}) } };
+        // Deep merge to ensure nested objects are not overwritten
+        const merged = { 
+            ...defaultData, 
+            ...storedData,
+            progressStatuses: { ...defaultData.progressStatuses, ...(storedData?.progressStatuses || {}) }
+        };
+        // Ensure every project has a progressStatuses entry
+         Object.keys(merged.contracts).forEach(projectId => {
+            if (!merged.progressStatuses[projectId]) {
+                merged.progressStatuses[projectId] = {};
+            }
+        });
+        return merged;
     });
 
     const [isLoaded, setIsLoaded] = useState(false);
@@ -168,9 +186,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     useEffect(() => {
         setIsLoaded(true);
         if (!selectedProjectId && projects.length > 0) {
-            setSelectedProjectId(projects[0].id);
+            const initialId = getInitialState('selectedProjectId', projects[0].id);
+            setSelectedProjectId(initialId);
         }
-    }, [projects, selectedProjectId]);
+    }, []);
 
     useEffect(() => {
         if(isLoaded) {
@@ -405,6 +424,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             const contractHistory = prev.progressPayments[selectedProjectId]?.[contractId] || [];
             const lastPayment = contractHistory.length > 0 ? contractHistory[contractHistory.length - 1] : null;
             const newPaymentNumber = (lastPayment?.progressPaymentNumber || 0) + 1;
+            const currentMonth = format(new Date(), 'yyyy-MM');
 
             const newPayment: ProgressPayment = {
                 progressPaymentNumber: newPaymentNumber,
@@ -424,8 +444,15 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 selectedDeductionIds.includes(d.id) ? { ...d, appliedInPaymentNumber: newPaymentNumber } : d
             );
             
-            const newProgressStatuses = { ...(prev.progressStatuses[selectedProjectId] || {}) };
-            newProgressStatuses[contractId] = 'yok';
+            const projectStatuses = prev.progressStatuses[selectedProjectId] || {};
+            const monthStatuses = projectStatuses[currentMonth] || {};
+            const newProgressStatuses = { 
+                ...projectStatuses,
+                [currentMonth]: {
+                    ...monthStatuses,
+                    [contractId]: 'odendi' as ProgressPaymentStatus
+                }
+             };
 
 
             return {
@@ -437,18 +464,20 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         });
     }, [selectedProjectId]);
     
-    const updateProgressPaymentStatus = useCallback((contractId: string, status: ProgressPaymentStatus) => {
+    const updateProgressPaymentStatus = useCallback((month: string, contractId: string, status: ProgressPaymentStatus) => {
         if (!selectedProjectId) return;
         
         setProjectData(prev => {
             const projectStatuses = prev.progressStatuses[selectedProjectId] || {};
-            const updatedStatuses = { ...projectStatuses, [contractId]: status };
+            const monthStatuses = projectStatuses[month] || {};
+            const updatedMonthStatuses = { ...monthStatuses, [contractId]: status };
+            const updatedProjectStatuses = { ...projectStatuses, [month]: updatedMonthStatuses };
 
             return {
                 ...prev,
                 progressStatuses: {
                     ...prev.progressStatuses,
-                    [selectedProjectId]: updatedStatuses,
+                    [selectedProjectId]: updatedProjectStatuses,
                 }
             }
         });
@@ -475,8 +504,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const selectedProject = useMemo(() => {
         if (!isLoaded) return null;
         const project = projects.find(p => p.id === selectedProjectId) || projects[0] || null;
-        if (project?.id !== selectedProjectId) {
-            setSelectedProjectId(project?.id || null);
+        if (project && project.id !== selectedProjectId) {
+           // This avoids state update during render if the selected ID from storage is invalid
+           // The check in useEffect will handle setting a valid ID.
         }
         return project;
     }, [selectedProjectId, projects, isLoaded]);

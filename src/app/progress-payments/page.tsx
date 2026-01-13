@@ -37,13 +37,13 @@ export default function ProgressPaymentsPage() {
   }, [selectedProject, selectedContractId, projectData]);
 
   const lastProgressPayment = useMemo(() => {
-    return contractProgressHistory.length > 0 ? contractProgressHistory[contractProgressHistory.length - 1] : null;
+    return contractProgressHistory.length > 0 ? contractProgressHistory.sort((a, b) => b.progressPaymentNumber - a.progressPaymentNumber)[0] : null;
   }, [contractProgressHistory]);
   
   const availableDeductions = useMemo(() => {
       if (!selectedProject || !selectedContractId) return [];
       const allDeductions = projectData.deductions[selectedProject.id] || [];
-      return allDeductions.filter(d => d.contractId === selectedContractId && d.appliedInPaymentNumber === null);
+      return allDeductions.filter(d => (d.contractId === selectedContractId || d.contractId === "all") && d.appliedInPaymentNumber === null);
   }, [selectedProject, selectedContractId, projectData]);
 
 
@@ -62,7 +62,7 @@ export default function ProgressPaymentsPage() {
     
     if (contract) {
        const history = (selectedProject && projectData.progressPayments[selectedProject.id]?.[contractId]) || [];
-       const lastPayment = history.length > 0 ? history[history.length - 1] : null;
+       const lastPayment = history.length > 0 ? history.sort((a,b) => b.progressPaymentNumber - a.progressPaymentNumber)[0] : null;
 
        setProgressItems(contract.items.map((item: any) => {
          const previousItem = lastPayment?.items.find(pi => pi.id === item.poz);
@@ -77,7 +77,7 @@ export default function ProgressPaymentsPage() {
             contractQuantity: item.quantity,
             previousCumulativeQuantity: previousCumulativeQuantity,
             currentCumulativeQuantity: previousCumulativeQuantity,
-            currentCumulativePercentage: percentage
+            currentCumulativePercentage: isNaN(parseFloat(percentage)) ? "0.00" : percentage,
          };
        }));
     } else {
@@ -87,6 +87,8 @@ export default function ProgressPaymentsPage() {
 
   const handlePercentageChange = (itemId: string, percentageStr: string) => {
     const percentage = parseFloat(percentageStr);
+    if (percentage > 100) return;
+
     setProgressItems(items =>
       items.map(item => {
         if (item.id === itemId) {
@@ -97,6 +99,24 @@ export default function ProgressPaymentsPage() {
       })
     );
   };
+  
+    const handleQuantityChange = (itemId: string, quantityStr: string) => {
+      const quantity = parseFloat(quantityStr);
+      
+      setProgressItems(items =>
+        items.map(item => {
+          if (item.id === itemId) {
+            const newCumulativeQuantity = isNaN(quantity) ? item.previousCumulativeQuantity : quantity;
+            if (newCumulativeQuantity > item.contractQuantity) return item; // Don't allow more than contract quantity
+            if (newCumulativeQuantity < item.previousCumulativeQuantity) return item; // Don't allow less than previous
+
+            const newPercentage = item.contractQuantity > 0 ? ((newCumulativeQuantity / item.contractQuantity) * 100).toFixed(2) : "0.00";
+            return { ...item, currentCumulativePercentage: newPercentage, currentCumulativeQuantity: newCumulativeQuantity };
+          }
+          return item;
+        })
+      );
+    };
 
   const handleDeductionSelectionChange = (deductionId: string, isSelected: boolean) => {
       setSelectedDeductionIds(prev => 
@@ -118,6 +138,9 @@ export default function ProgressPaymentsPage() {
         .reduce((sum, d) => sum + d.amount, 0);
 
     const finalPaymentAmount = currentPaymentGross - totalSelectedDeductions;
+    
+    const hasProgress = progressItems.some(item => item.currentCumulativeQuantity > item.previousCumulativeQuantity);
+
 
     return {
       cumulativeSubTotal,
@@ -126,7 +149,8 @@ export default function ProgressPaymentsPage() {
       vat,
       currentPaymentGross,
       totalSelectedDeductions,
-      finalPaymentAmount
+      finalPaymentAmount,
+      hasProgress,
     };
   }, [progressItems, lastProgressPayment, selectedDeductionIds, availableDeductions]);
 
@@ -135,6 +159,7 @@ export default function ProgressPaymentsPage() {
     saveProgressPayment(selectedContractId, summary.cumulativeSubTotal, progressItems, selectedDeductionIds);
     // Formu sıfırla
     handleContractChange(selectedContractId);
+    setSelectedDeductionIds([]);
   };
 
   const formatCurrency = (amount: number) => {
@@ -247,13 +272,24 @@ export default function ProgressPaymentsPage() {
                                     type="number"
                                     value={item.currentCumulativePercentage}
                                     onChange={(e) => handlePercentageChange(item.id, e.target.value)}
-                                    min="0"
+                                    min={item.contractQuantity > 0 ? (item.previousCumulativeQuantity / item.contractQuantity * 100).toFixed(2) : "0"}
+                                    max="100"
                                     step="0.01"
                                 />
                                 <span className="ml-1">%</span>
                             </div>
                         </TableCell>
-                        <TableCell>{item.currentCumulativeQuantity.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}</TableCell>
+                        <TableCell>
+                           <Input 
+                                className="w-24"
+                                type="number"
+                                value={item.currentCumulativeQuantity.toFixed(2)}
+                                onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                                min={item.previousCumulativeQuantity}
+                                max={item.contractQuantity}
+                                step="0.01"
+                           />
+                        </TableCell>
                         <TableCell className='font-semibold'>{(item.currentCumulativeQuantity - item.previousCumulativeQuantity).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}</TableCell>
                         <TableCell className="text-right font-bold">{formatCurrency((item.currentCumulativeQuantity - item.previousCumulativeQuantity) * item.unitPrice)}</TableCell>
                       </TableRow>
@@ -279,15 +315,15 @@ export default function ProgressPaymentsPage() {
                           <TableHeader>
                               <TableRow>
                                   <TableHead className="w-[50px]"></TableHead>
-                                  <TableHead>Tarih</TableHead>
                                   <TableHead>Açıklama</TableHead>
+                                  <TableHead>Sözleşme</TableHead>
                                   <TableHead>Tür</TableHead>
                                   <TableHead className="text-right">Tutar</TableHead>
                               </TableRow>
                           </TableHeader>
                           <TableBody>
                               {availableDeductions.map(deduction => (
-                                  <TableRow key={deduction.id}>
+                                  <TableRow key={deduction.id} className={selectedDeductionIds.includes(deduction.id) ? "bg-muted/50" : ""}>
                                       <TableCell>
                                           <Checkbox
                                               id={`ded-${deduction.id}`}
@@ -295,8 +331,8 @@ export default function ProgressPaymentsPage() {
                                               onCheckedChange={(checked) => handleDeductionSelectionChange(deduction.id, !!checked)}
                                           />
                                       </TableCell>
-                                      <TableCell>{deduction.date}</TableCell>
                                       <TableCell className="font-medium">{deduction.description}</TableCell>
+                                       <TableCell>{deduction.contractId === "all" ? "Proje Geneli" : deduction.contractId}</TableCell>
                                       <TableCell>
                                           <Badge variant={deduction.type === 'muhasebe' ? 'secondary' : 'outline'}>
                                               {deduction.type === 'muhasebe' ? 'Muhasebe' : 'Tutanaklı'}
@@ -331,7 +367,7 @@ export default function ProgressPaymentsPage() {
           </div>
 
           <div className="flex justify-end">
-            <Button size="lg" onClick={handleSaveProgressPayment}>Hakedişi Kaydet ve Raporla</Button>
+            <Button size="lg" onClick={handleSaveProgressPayment} disabled={!summary.hasProgress}>Hakedişi Kaydet ve Raporla</Button>
           </div>
         </>
       )}

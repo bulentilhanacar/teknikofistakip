@@ -1,15 +1,39 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
 import type { ProgressPaymentStatus, Contract } from '@/context/types';
+import { format, addMonths, subMonths } from 'date-fns';
+import { tr } from 'date-fns/locale';
+
+// Helper to generate month options
+const getMonthOptions = () => {
+    const options = [];
+    const now = new Date();
+    for (let i = -6; i <= 6; i++) {
+        const date = addMonths(now, i);
+        options.push({
+            value: format(date, 'yyyy-MM'),
+            label: format(date, 'MMMM yyyy', { locale: tr }),
+        });
+    }
+    return options.reverse();
+};
 
 export default function ProgressTrackingPage() {
   const { selectedProject, projectData, updateProgressPaymentStatus } = useProject();
+  const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
+  const monthOptions = useMemo(() => getMonthOptions(), []);
+
+  useEffect(() => {
+    // Reset to current month when project changes
+    setSelectedMonth(format(new Date(), 'yyyy-MM'));
+  }, [selectedProject]);
+
 
   const approvedContracts = useMemo(() => {
     if (!selectedProject || !projectData) return [];
@@ -19,8 +43,9 @@ export default function ProgressTrackingPage() {
   const getContractProgressInfo = (contract: Contract) => {
     const history = selectedProject ? projectData.progressPayments[selectedProject.id]?.[contract.id] : [];
     const lastPayment = history && history.length > 0 ? history[history.length - 1] : null;
-    const projectStatuses = (selectedProject && projectData.progressStatuses) ? projectData.progressStatuses[selectedProject.id] : {};
-    const currentStatus = projectStatuses?.[contract.id] || 'yok';
+
+    const projectStatusesForMonth = (selectedProject && projectData.progressStatuses[selectedProject.id]?.[selectedMonth]) || {};
+    const currentStatus = projectStatusesForMonth[contract.id] || 'yok';
 
     return {
       lastPaymentNumber: lastPayment?.progressPaymentNumber || 0,
@@ -32,7 +57,7 @@ export default function ProgressTrackingPage() {
 
   const handleStatusChange = (contractId: string, status: ProgressPaymentStatus) => {
       if(selectedProject) {
-        updateProgressPaymentStatus(contractId, status);
+        updateProgressPaymentStatus(selectedMonth, contractId, status);
       }
   };
 
@@ -44,11 +69,22 @@ export default function ProgressTrackingPage() {
     switch(status) {
         case 'sahada': return 'secondary';
         case 'imzada': return 'default';
-        case 'onayda': return 'destructive';
+        case 'onayda': return 'accent';
+        case 'odendi': return 'destructive';
         case 'pas_gec': return 'outline';
         default: return 'outline';
     }
   }
+  
+  const statusLabels: Record<ProgressPaymentStatus, string> = {
+      'yok': '(Durum Yok)',
+      'sahada': 'Sahada',
+      'imzada': 'İmzada',
+      'onayda': 'Onayda',
+      'odendi': 'Ödendi',
+      'pas_gec': 'Bu Ay Pas Geçildi'
+  };
+
 
   if (!selectedProject) {
     return (
@@ -67,9 +103,21 @@ export default function ProgressTrackingPage() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="font-headline">Hakediş Takip</CardTitle>
-        <CardDescription>{selectedProject.name} | Onaylı sözleşmelerin hakediş durumlarını ve ilerlemelerini takip edin.</CardDescription>
+      <CardHeader className="flex-row items-center justify-between">
+        <div>
+            <CardTitle className="font-headline">Hakediş Takip</CardTitle>
+            <CardDescription>{selectedProject.name} | Sözleşmelerin aylık hakediş durumlarını takip edin.</CardDescription>
+        </div>
+         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Ay Seçin..." />
+            </SelectTrigger>
+            <SelectContent>
+                {monthOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
       </CardHeader>
       <CardContent>
         <Table>
@@ -77,8 +125,8 @@ export default function ProgressTrackingPage() {
             <TableRow>
               <TableHead className="w-[150px]">Sözleşme No</TableHead>
               <TableHead>Sözleşme Adı</TableHead>
-              <TableHead className="w-[200px]">Son Hakediş Durumu</TableHead>
-              <TableHead className="w-[250px] text-center">Sonraki Hakediş Durumu</TableHead>
+              <TableHead className="w-[200px]">Genel Hakediş Durumu</TableHead>
+              <TableHead className="w-[250px] text-center">{monthOptions.find(m => m.value === selectedMonth)?.label} Durumu</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -100,15 +148,19 @@ export default function ProgressTrackingPage() {
                   </TableCell>
                   <TableCell className="text-right">
                      <Select value={progressInfo.status} onValueChange={(value) => handleStatusChange(contract.id, value as ProgressPaymentStatus)}>
-                        <SelectTrigger>
+                        <SelectTrigger className={cn(
+                            "w-full",
+                            progressInfo.status === 'sahada' && "bg-secondary/50 border-secondary-foreground/50",
+                            progressInfo.status === 'imzada' && "bg-primary/80 text-primary-foreground border-primary-foreground/50",
+                            progressInfo.status === 'onayda' && "bg-accent/80 text-accent-foreground border-accent-foreground/50",
+                            progressInfo.status === 'odendi' && "bg-destructive/80 text-destructive-foreground border-destructive-foreground/50",
+                        )}>
                             <SelectValue placeholder="Durum Seçin..." />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="yok">(Durum Yok)</SelectItem>
-                            <SelectItem value="sahada">Sahada</SelectItem>
-                            <SelectItem value="imzada">İmzada</SelectItem>
-                            <SelectItem value="onayda">Onayda</SelectItem>
-                            <SelectItem value="pas_gec">Bu Ay Hakediş Yok</SelectItem>
+                            {Object.entries(statusLabels).map(([value, label]) => (
+                                <SelectItem key={value} value={value}>{label}</SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                   </TableCell>
