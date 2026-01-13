@@ -19,13 +19,14 @@ export default function ProgressTrackingPage() {
   const getContractProgressInfo = (contract: Contract) => {
     const history = selectedProject ? projectData.progressPayments[selectedProject.id]?.[contract.id] : [];
     const lastPayment = history && history.length > 0 ? history[history.length - 1] : null;
-    const currentStatus = selectedProject ? projectData.progressStatuses[selectedProject.id]?.[contract.id] : 'yok';
+    const projectStatuses = selectedProject ? projectData.progressStatuses[selectedProject.id] : {};
+    const currentStatus = projectStatuses?.[contract.id] || 'yok';
 
     return {
       lastPaymentNumber: lastPayment?.progressPaymentNumber || 0,
       lastPaymentAmount: lastPayment?.totalAmount || 0,
       nextPaymentNumber: (lastPayment?.progressPaymentNumber || 0) + 1,
-      status: currentStatus || 'yok'
+      status: currentStatus
     };
   };
 
