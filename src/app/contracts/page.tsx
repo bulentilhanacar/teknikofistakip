@@ -5,70 +5,68 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, CheckCircle, ChevronDown } from "lucide-react";
+import { PlusCircle, CheckCircle, ChevronDown, MoreHorizontal, Edit, Trash2 } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useProject } from '@/context/project-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Contract, ContractGroupKeys, ContractItem, contractGroups } from '@/context/types';
 
 
-const AddItemDialog = ({ contract, onAddItem }: { contract: Contract, onAddItem: (contractId: string, item: ContractItem) => void }) => {
+const ItemDialog = ({ contractId, item, onSave, children, mode }: { contractId: string, item?: ContractItem, onSave: (contractId: string, item: ContractItem, originalPoz?: string) => void, children: React.ReactNode, mode: 'add' | 'edit' }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [newItem, setNewItem] = useState<Omit<ContractItem, 'quantity' | 'unitPrice'> & { quantity: string, unitPrice: string }>({
-        poz: '',
-        description: '',
-        unit: '',
-        quantity: '',
-        unitPrice: ''
-    });
+    const [formData, setFormData] = useState<Omit<ContractItem, 'quantity' | 'unitPrice'> & { quantity: string, unitPrice: string }>(
+        item ? { ...item, quantity: String(item.quantity), unitPrice: String(item.unitPrice) } : { poz: '', description: '', unit: '', quantity: '', unitPrice: '' }
+    );
+
+    const handleOpenChange = (open: boolean) => {
+        if (open) {
+            setFormData(item ? { ...item, quantity: String(item.quantity), unitPrice: String(item.unitPrice) } : { poz: '', description: '', unit: '', quantity: '', unitPrice: '' });
+        }
+        setIsOpen(open);
+    };
 
     const handleSave = () => {
-        const item: ContractItem = {
-            ...newItem,
-            quantity: parseFloat(newItem.quantity) || 0,
-            unitPrice: parseFloat(newItem.unitPrice) || 0,
+        const newItem: ContractItem = {
+            ...formData,
+            quantity: parseFloat(formData.quantity) || 0,
+            unitPrice: parseFloat(formData.unitPrice) || 0,
         };
-        onAddItem(contract.id, item);
+        onSave(contractId, newItem, item?.poz);
         setIsOpen(false);
-        setNewItem({ poz: '', description: '', unit: '', quantity: '', unitPrice: '' });
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Yeni Kalem Ekle
-                </Button>
-            </DialogTrigger>
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+            <DialogTrigger asChild>{children}</DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Yeni Kalem Ekle: {contract.name}</DialogTitle>
+                    <DialogTitle>{mode === 'add' ? 'Yeni Kalem Ekle' : 'Kalemi Düzenle'}</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="poz" className="text-right">Poz No</Label>
-                        <Input id="poz" value={newItem.poz} onChange={(e) => setNewItem({ ...newItem, poz: e.target.value })} className="col-span-3" />
+                        <Input id="poz" value={formData.poz} onChange={(e) => setFormData({ ...formData, poz: e.target.value })} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="description" className="text-right">Açıklama</Label>
-                        <Input id="description" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} className="col-span-3" />
+                        <Input id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="unit" className="text-right">Birim</Label>
-                        <Input id="unit" value={newItem.unit} onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })} className="col-span-3" />
+                        <Input id="unit" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="quantity" className="text-right">Miktar</Label>
-                        <Input id="quantity" type="number" value={newItem.quantity} onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })} className="col-span-3" />
+                        <Input id="quantity" type="number" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} className="col-span-3" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="unitPrice" className="text-right">Birim Fiyat</Label>
-                        <Input id="unitPrice" type="number" value={newItem.unitPrice} onChange={(e) => setNewItem({ ...newItem, unitPrice: e.target.value })} className="col-span-3" />
+                        <Input id="unitPrice" type="number" value={formData.unitPrice} onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })} className="col-span-3" />
                     </div>
                 </div>
                 <DialogFooter>
@@ -81,7 +79,7 @@ const AddItemDialog = ({ contract, onAddItem }: { contract: Contract, onAddItem:
 };
 
 
-const ContractRow = ({ contract, onApprove, onAddItem }: { contract: Contract, onApprove?: (contractId: string) => void, onAddItem?: (contractId: string, item: ContractItem) => void }) => {
+const ContractRow = ({ contract, onApprove, onAddItem, onUpdateItem, onDeleteItem }: { contract: Contract, onApprove?: (contractId: string) => void, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void }) => {
     const budget = contract.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
     const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
     const isApproved = contract.status === 'Onaylandı';
@@ -119,7 +117,14 @@ const ContractRow = ({ contract, onApprove, onAddItem }: { contract: Contract, o
                             <div className="p-4 bg-muted/50">
                                 <div className="flex justify-between items-center mb-2">
                                     <h4 className='text-base font-semibold pl-2'>Sözleşme Detayları</h4>
-                                    {onAddItem && <AddItemDialog contract={contract} onAddItem={onAddItem} />}
+                                    {onAddItem && (
+                                       <ItemDialog contractId={contract.id} onSave={(id, item) => onAddItem(id, item)} mode="add">
+                                            <Button variant="outline" size="sm">
+                                                <PlusCircle className="mr-2 h-4 w-4" />
+                                                Yeni Kalem Ekle
+                                            </Button>
+                                       </ItemDialog>
+                                    )}
                                 </div>
                                  {contract.items.length > 0 ? (
                                     <Table>
@@ -131,22 +136,55 @@ const ContractRow = ({ contract, onApprove, onAddItem }: { contract: Contract, o
                                                 <TableHead className='text-right'>Miktar</TableHead>
                                                 <TableHead className='text-right'>Birim Fiyat</TableHead>
                                                 <TableHead className="text-right">Tutar</TableHead>
+                                                {!isApproved && <TableHead className="w-[100px] text-center">İşlemler</TableHead>}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {contract.items.map((item, index) => (
-                                                <TableRow key={`${item.poz}-${index}`}>
+                                            {contract.items.map((item) => (
+                                                <TableRow key={item.poz}>
                                                     <TableCell>{item.poz}</TableCell>
                                                     <TableCell>{item.description}</TableCell>
                                                     <TableCell>{item.unit}</TableCell>
                                                     <TableCell className='text-right'>{item.quantity.toLocaleString('tr-TR')}</TableCell>
                                                     <TableCell className='text-right'>{formatCurrency(item.unitPrice)}</TableCell>
                                                     <TableCell className="text-right">{formatCurrency(item.quantity * item.unitPrice)}</TableCell>
+                                                    {!isApproved && (
+                                                        <TableCell className="text-center">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <ItemDialog contractId={contract.id} item={item} onSave={(id, updatedItem, originalPoz) => onUpdateItem(id, updatedItem, originalPoz!)} mode="edit">
+                                                                     <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                                        <Edit className="h-4 w-4" />
+                                                                     </Button>
+                                                                </ItemDialog>
+
+                                                                <AlertDialog>
+                                                                    <AlertDialogTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </AlertDialogTrigger>
+                                                                    <AlertDialogContent>
+                                                                        <AlertDialogHeader>
+                                                                            <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                                                            <AlertDialogDescription>
+                                                                                "{item.description}" kalemini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                                                            </AlertDialogDescription>
+                                                                        </AlertDialogHeader>
+                                                                        <AlertDialogFooter>
+                                                                            <AlertDialogCancel>İptal</AlertDialogCancel>
+                                                                            <AlertDialogAction onClick={() => onDeleteItem(contract.id, item.poz)}>Sil</AlertDialogAction>
+                                                                        </AlertDialogFooter>
+                                                                    </AlertDialogContent>
+                                                                </AlertDialog>
+                                                            </div>
+                                                        </TableCell>
+                                                    )}
                                                 </TableRow>
                                             ))}
                                             <TableRow className="font-bold bg-muted">
-                                                <TableCell colSpan={5} className="text-right">Toplam Tutar</TableCell>
+                                                <TableCell colSpan={!isApproved ? 6 : 5} className="text-right">Toplam Tutar</TableCell>
                                                 <TableCell className="text-right">{formatCurrency(budget)}</TableCell>
+                                                {!isApproved && <TableCell></TableCell>}
                                             </TableRow>
                                         </TableBody>
                                     </Table>
@@ -162,7 +200,7 @@ const ContractRow = ({ contract, onApprove, onAddItem }: { contract: Contract, o
     )
 }
 
-const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, groupKey, onAddItem }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void, onAddDraft?: (group: ContractGroupKeys, name: string, subGroup: string) => void, groupKey: ContractGroupKeys, onAddItem?: (contractId: string, item: ContractItem) => void }) => {
+const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, groupKey, onAddItem, onUpdateItem, onDeleteItem }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void, onAddDraft?: (group: ContractGroupKeys, name: string, subGroup: string) => void, groupKey: ContractGroupKeys, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void }) => {
     const totalContractsInGroup = Object.values(contracts).reduce((sum, list) => sum + list.length, 0);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [draftName, setDraftName] = useState('');
@@ -210,7 +248,7 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, group
                                 <AccordionContent>
                                      <Table>
                                         {contractList.map((contract) => (
-                                            <ContractRow key={contract.id} contract={contract} onApprove={onApprove} onAddItem={onAddItem} />
+                                            <ContractRow key={contract.id} contract={contract} onApprove={onApprove} onAddItem={onAddItem} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} />
                                         ))}
                                     </Table>
                                 </AccordionContent>
@@ -262,7 +300,7 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, group
 
 
 export default function ContractsPage() {
-    const { selectedProject, projectData, approveTender, addDraftTender, addItemToContract } = useProject();
+    const { selectedProject, projectData, approveTender, addDraftTender, addItemToContract, updateContractItem, deleteContractItem } = useProject();
 
     const { draftContracts, approvedContracts } = useMemo(() => {
         if (!selectedProject || !projectData) {
@@ -350,6 +388,8 @@ export default function ContractsPage() {
                             onApprove={approveTender}
                             onAddDraft={addDraftTender}
                             onAddItem={addItemToContract}
+                            onUpdateItem={updateContractItem}
+                            onDeleteItem={deleteContractItem}
                             groupKey={groupKey}
                         />
                     );
@@ -367,6 +407,8 @@ export default function ContractsPage() {
                             title={contractGroups[groupKey]} 
                             contracts={contractsInGroup || {}}
                             groupKey={groupKey}
+                            onUpdateItem={updateContractItem}
+                            onDeleteItem={deleteContractItem}
                         />
                     );
                 })}

@@ -21,6 +21,8 @@ interface ProjectContextType {
     approveTender: (tenderId: string) => void;
     addDraftTender: (group: ContractGroupKeys, name: string, subGroup: string) => void;
     addItemToContract: (contractId: string, item: ContractItem) => void;
+    updateContractItem: (contractId: string, updatedItem: ContractItem, originalPoz: string) => void;
+    deleteContractItem: (contractId: string, itemPoz: string) => void;
     addDeduction: (deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => void;
     saveProgressPayment: (contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], selectedDeductionIds: string[]) => void;
     getDashboardData: () => any;
@@ -300,6 +302,65 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             };
         });
     }, [selectedProjectId]);
+    
+    const updateContractItem = useCallback((contractId: string, updatedItem: ContractItem, originalPoz: string) => {
+        if (!selectedProjectId) return;
+
+        setProjectData(prevData => {
+            const projectContracts = prevData.contracts[selectedProjectId];
+            if (!projectContracts) return prevData;
+
+            const updateItems = (contracts: Contract[]) => 
+                contracts.map(c => {
+                    if (c.id === contractId) {
+                        const newItems = c.items.map(item => item.poz === originalPoz ? updatedItem : item);
+                        return { ...c, items: newItems };
+                    }
+                    return c;
+                });
+            
+            return {
+                ...prevData,
+                contracts: {
+                    ...prevData.contracts,
+                    [selectedProjectId]: {
+                        drafts: updateItems(projectContracts.drafts),
+                        approved: updateItems(projectContracts.approved),
+                    }
+                }
+            };
+        });
+    }, [selectedProjectId]);
+
+    const deleteContractItem = useCallback((contractId: string, itemPoz: string) => {
+        if (!selectedProjectId) return;
+
+        setProjectData(prevData => {
+            const projectContracts = prevData.contracts[selectedProjectId];
+            if (!projectContracts) return prevData;
+
+            const updateItems = (contracts: Contract[]) =>
+                contracts.map(c => {
+                    if (c.id === contractId) {
+                        const newItems = c.items.filter(item => item.poz !== itemPoz);
+                        return { ...c, items: newItems };
+                    }
+                    return c;
+                });
+
+            return {
+                ...prevData,
+                contracts: {
+                    ...prevData.contracts,
+                    [selectedProjectId]: {
+                        drafts: updateItems(projectContracts.drafts),
+                        approved: updateItems(projectContracts.approved),
+                    }
+                }
+            };
+        });
+    }, [selectedProjectId]);
+
 
     const addDeduction = useCallback((deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => {
         if (!selectedProjectId) return;
@@ -392,6 +453,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         approveTender,
         addDraftTender,
         addItemToContract,
+        updateContractItem,
+        deleteContractItem,
         addDeduction,
         saveProgressPayment,
         getDashboardData,
