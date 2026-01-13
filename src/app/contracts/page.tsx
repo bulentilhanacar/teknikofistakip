@@ -24,6 +24,7 @@ const contractGroups = {
   "sosyal-tesisler": "Sosyal Tesisler"
 };
 
+
 type ContractGroupKeys = keyof typeof contractGroups;
 
 interface ContractItem {
@@ -84,38 +85,38 @@ const initialContractsData: Record<string, {drafts: Contract[], approved: Contra
 
 
 const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: (contractId: string) => void }) => {
-    const [isOpen, setIsOpen] = useState(false);
     const budget = contract.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
     const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
     const isApproved = contract.status === 'Onaylandı';
 
     return (
-        <Collapsible>
-                <TableRow className={cn("cursor-pointer", isOpen && "bg-muted/50")}>
+        <Collapsible asChild>
+            <>
+                <TableRow>
                     <CollapsibleTrigger asChild>
-                       <td colSpan={onApprove ? 6 : 7} className="p-0">
-                             <div className="flex items-center p-4 w-full" onClick={() => setIsOpen(!isOpen)}>
-                                {isOpen ? <ChevronUp className="h-4 w-4 mr-2"/> : <ChevronDown className="h-4 w-4 mr-2" />}
+                        <td colSpan={onApprove ? 7 : 6} className="p-0">
+                            <div className="flex items-center p-4 w-full cursor-pointer">
+                                <ChevronDown className="h-4 w-4 mr-2 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                                 <span className="font-medium w-28">{contract.id}</span>
                                 <span className='flex-1'>{contract.name}</span>
                                 <Badge variant={isApproved ? "default" : "secondary"} className="w-28 justify-center">{contract.status}</Badge>
                                 <span className="w-28 text-center">{contract.date}</span>
                                 <span className="w-32 text-right">{formatCurrency(budget)}</span>
-                                 {onApprove && (
-                                    <div className="w-28 text-right">
-                                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove && onApprove(contract.id); }}>
-                                            <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
-                                            Onayla
-                                        </Button>
-                                    </div>
-                                )}
                             </div>
                         </td>
                     </CollapsibleTrigger>
+                    {onApprove && (
+                        <td className="p-0 text-right w-28">
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove && onApprove(contract.id); }}>
+                                <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
+                                Onayla
+                            </Button>
+                        </td>
+                    )}
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={7} className="p-0">
+                        <TableCell colSpan={onApprove ? 7 : 6} className="p-0">
                             <div className="p-4 bg-background">
                                 <h4 className='text-base font-semibold mb-2 pl-2'>Sözleşme Detayları</h4>
                                  {contract.items.length > 0 ? (
@@ -154,14 +155,28 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
                         </TableCell>
                     </TableRow>
                 </CollapsibleContent>
+            </>
         </Collapsible>
     )
 }
 
 const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void}) => {
     const totalContractsInGroup = Object.values(contracts).reduce((sum, list) => sum + list.length, 0);
-    const hasSubGroups = Object.keys(contracts).length > 0;
+    
+    const hasContent = totalContractsInGroup > 0 || !!onApprove;
 
+    if (!hasContent) {
+        return (
+            <AccordionItem value={title} disabled>
+                <AccordionTrigger className="text-base font-headline hover:no-underline opacity-50">
+                    <div className='flex justify-between items-center w-full pr-4'>
+                        <span>{title} (0)</span>
+                    </div>
+                </AccordionTrigger>
+            </AccordionItem>
+        );
+    }
+    
     return (
         <AccordionItem value={title}>
             <AccordionTrigger className="text-base font-headline hover:no-underline">
@@ -170,7 +185,7 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
                 </div>
             </AccordionTrigger>
             <AccordionContent>
-                {hasSubGroups || onApprove ? (
+                {Object.keys(contracts).length > 0 ? (
                     <Accordion type="multiple" className="w-full pl-4 border-l">
                     {Object.entries(contracts).map(([subGroup, contractList]) => (
                         <AccordionItem value={subGroup} key={subGroup}>
@@ -194,18 +209,18 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
                             </AccordionContent>
                         </AccordionItem>
                     ))}
-                     {onApprove && (
-                        <div className="pt-2 pl-2 mt-2 border-t">
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); /* TODO: Add new sub-group logic */ }}>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Yeni Alt Başlık Ekle
-                            </Button>
-                        </div>
-                     )}
                     </Accordion>
                 ) : (
-                    <div className="text-center text-muted-foreground p-4">Bu grupta alt başlık bulunmuyor.</div>
+                     <div className="text-center text-muted-foreground p-4">Bu grupta alt başlık bulunmuyor.</div>
                 )}
+                 {onApprove && (
+                    <div className="pt-2 pl-6 mt-2 border-t">
+                        <Button variant="ghost" size="sm">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Yeni Taslak Ekle
+                        </Button>
+                    </div>
+                 )}
             </AccordionContent>
         </AccordionItem>
     );
