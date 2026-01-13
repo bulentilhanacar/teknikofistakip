@@ -46,7 +46,7 @@ interface Deduction {
 }
 
 const newDeductionInitialState = {
-    contractId: '',
+    contractId: 'all',
     type: 'muhasebe' as 'muhasebe' | 'tutanakli',
     date: new Date().toISOString().split('T')[0],
     amount: '',
@@ -64,7 +64,7 @@ export default function DeductionsPage() {
     useEffect(() => {
         if (selectedProject) {
             setAvailableContracts(projectContractData[selectedProject.id] || {});
-            setNewDeduction(prev => ({ ...prev, contractId: '' }));
+            setNewDeduction(prev => ({ ...prev, contractId: 'all' }));
         } else {
             setAvailableContracts({});
             setNewDeduction(newDeductionInitialState);
@@ -75,7 +75,7 @@ export default function DeductionsPage() {
         if (!selectedProject) return [];
         const allDeductions = (deductions[selectedProject.id] || []).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        if (!newDeduction.contractId) {
+        if (newDeduction.contractId === 'all') {
             return allDeductions;
         }
         return allDeductions.filter(d => d.contractId === newDeduction.contractId);
@@ -88,8 +88,8 @@ export default function DeductionsPage() {
     };
 
     const handleAddDeduction = () => {
-        if (!selectedProject || !newDeduction.contractId || !newDeduction.amount || !newDeduction.description || !date) {
-            alert("Lütfen tüm alanları doldurun.");
+        if (!selectedProject || !newDeduction.contractId || newDeduction.contractId === 'all' || !newDeduction.amount || !newDeduction.description || !date) {
+            alert("Lütfen bir sözleşme seçin ve tüm alanları doldurun.");
             return;
         }
 
@@ -155,7 +155,7 @@ export default function DeductionsPage() {
                                         <SelectValue placeholder="Sözleşme seçin..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">Tüm Sözleşmeler</SelectItem>
+                                        <SelectItem value="all">Tüm Sözleşmeler</SelectItem>
                                         {Object.keys(availableContracts).length > 0 ? Object.keys(availableContracts).map(contractId => (
                                             <SelectItem key={contractId} value={contractId}>{`${contractId}: ${availableContracts[contractId].name}`}</SelectItem>
                                         )) : (
@@ -212,7 +212,7 @@ export default function DeductionsPage() {
                             <Label htmlFor="amount">Tutar (TRY)</Label>
                             <Input id="amount" type="number" placeholder="Örn: 5000" value={newDeduction.amount} onChange={(e) => handleInputChange(e, 'amount')} />
                         </div>
-                        <Button className="w-full" onClick={handleAddDeduction} disabled={!newDeduction.contractId}>
+                        <Button className="w-full" onClick={handleAddDeduction} disabled={!newDeduction.contractId || newDeduction.contractId === 'all'}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Kesintiyi Kaydet
                         </Button>
@@ -224,7 +224,7 @@ export default function DeductionsPage() {
                 <CardHeader>
                     <CardTitle className="font-headline">Mevcut Kesintiler</CardTitle>
                     <CardDescription>
-                        {newDeduction.contractId ? `${newDeduction.contractId} sözleşmesine ait kesintiler.` : `Projedeki tüm kesintiler.`}
+                        {newDeduction.contractId !== 'all' ? `${newDeduction.contractId} sözleşmesine ait kesintiler.` : `Projedeki tüm kesintiler.`}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -262,7 +262,7 @@ export default function DeductionsPage() {
                             )) : (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center">
-                                       {newDeduction.contractId
+                                       {newDeduction.contractId !== 'all'
                                             ? "Seçili sözleşme için kesinti bulunmuyor."
                                             : "Bu proje için henüz kesinti eklenmemiş."}
                                     </TableCell>
