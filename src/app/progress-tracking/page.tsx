@@ -19,7 +19,7 @@ export default function ProgressTrackingPage() {
   const getContractProgressInfo = (contract: Contract) => {
     const history = selectedProject ? projectData.progressPayments[selectedProject.id]?.[contract.id] : [];
     const lastPayment = history && history.length > 0 ? history[history.length - 1] : null;
-    const projectStatuses = selectedProject ? projectData.progressStatuses[selectedProject.id] : {};
+    const projectStatuses = (selectedProject && projectData.progressStatuses) ? projectData.progressStatuses[selectedProject.id] : {};
     const currentStatus = projectStatuses?.[contract.id] || 'yok';
 
     return {

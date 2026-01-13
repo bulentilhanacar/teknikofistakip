@@ -150,13 +150,18 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const [projects, setProjects] = useState<Project[]>(() => getInitialState('projects', defaultProjects));
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => getInitialState('selectedProjectId', null));
     
-    const [projectData, setProjectData] = useState<AllProjectData>(() => getInitialState('allProjectData', {
-        contracts: initialContractsData,
-        progressPayments: initialProgressHistory,
-        deductions: initialDeductionsData,
-        dashboard: projectDashboardData,
-        progressStatuses: initialProgressStatuses,
-    }));
+    const [projectData, setProjectData] = useState<AllProjectData>(() => {
+        const storedData = getInitialState<AllProjectData | null>('allProjectData', null);
+        const defaultData = {
+            contracts: initialContractsData,
+            progressPayments: initialProgressHistory,
+            deductions: initialDeductionsData,
+            dashboard: projectDashboardData,
+            progressStatuses: initialProgressStatuses,
+        };
+        // Ensure progressStatuses is always an object, even if storedData is partial or malformed
+        return { ...defaultData, ...storedData, progressStatuses: { ...defaultData.progressStatuses, ...(storedData?.progressStatuses || {}) } };
+    });
 
     const [isLoaded, setIsLoaded] = useState(false);
 
