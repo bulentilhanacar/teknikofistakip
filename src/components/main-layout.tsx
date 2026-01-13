@@ -8,7 +8,6 @@ import {
   Calculator,
   FileSignature,
   LayoutDashboard,
-  ShieldAlert,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -38,7 +37,6 @@ const menuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
   { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
   { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
-  { href: "/risk-analysis", label: "Risk Analizi", icon: ShieldAlert },
 ];
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
