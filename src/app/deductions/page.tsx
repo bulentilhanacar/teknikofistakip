@@ -16,34 +16,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Deduction } from '@/context/types';
 
-// Örnek veri setleri
-const projectContractData: Record<string, any> = {
-  "proje-istanbul": {
-    "SOZ-001": { name: "İstanbul Ofis Binası - Betonarme" },
-    "SOZ-002": { name: 'Eskişehir Villa Projesi - Lamine Parke' },
-  },
-  "proje-ankara": {}
-};
-
-const initialDeductionsData: Record<string, Deduction[]> = {
-    "proje-istanbul": [
-        { id: 'DED-001', contractId: 'SOZ-001', type: 'muhasebe', date: '2024-07-15', amount: 5000, description: 'Teminat Mektubu Komisyonu', appliedInPaymentNumber: null },
-        { id: 'DED-002', contractId: 'SOZ-001', type: 'tutanakli', date: '2024-07-18', amount: 12500, description: 'Hatalı imalat tespiti', appliedInPaymentNumber: 1 },
-        { id: 'DED-003', contractId: 'SOZ-002', type: 'muhasebe', date: '2024-07-25', amount: 2500, description: 'Damga Vergisi', appliedInPaymentNumber: null },
-    ],
-    "proje-ankara": []
-};
-
-interface Deduction {
-    id: string;
-    contractId: string;
-    type: 'muhasebe' | 'tutanakli';
-    date: string; 
-    amount: number;
-    description: string;
-    appliedInPaymentNumber: number | null; 
-}
 
 const newDeductionInitialState = {
     contractId: 'all',
@@ -54,33 +28,38 @@ const newDeductionInitialState = {
 };
 
 export default function DeductionsPage() {
-    const { selectedProject } = useProject();
-    const [deductions, setDeductions] = useState(initialDeductionsData);
-    const [availableContracts, setAvailableContracts] = useState<Record<string, any>>({});
+    const { selectedProject, projectData, addDeduction, getContractsByProject } = useProject();
     const [newDeduction, setNewDeduction] = useState(newDeductionInitialState);
     const [date, setDate] = useState<Date | undefined>(new Date());
     
+    const availableContracts = useMemo(() => {
+        return getContractsByProject()
+            .filter(c => c.status === 'Onaylandı')
+            .reduce((acc, c) => {
+                acc[c.id] = { name: c.name };
+                return acc;
+            }, {} as Record<string, {name: string}>);
+    }, [selectedProject, projectData]);
+
 
     useEffect(() => {
         if (selectedProject) {
-            setAvailableContracts(projectContractData[selectedProject.id] || {});
             setNewDeduction(prev => ({ ...prev, contractId: 'all' }));
         } else {
-            setAvailableContracts({});
             setNewDeduction(newDeductionInitialState);
         }
     }, [selectedProject]);
     
     const projectDeductions = useMemo(() => {
-        if (!selectedProject) return [];
-        const allDeductions = (deductions[selectedProject.id] || []).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        if (!selectedProject || !projectData) return [];
+        const allDeductions = (projectData.deductions[selectedProject.id] || []).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         if (newDeduction.contractId === 'all') {
             return allDeductions;
         }
         return allDeductions.filter(d => d.contractId === newDeduction.contractId);
 
-    }, [selectedProject, deductions, newDeduction.contractId]);
+    }, [selectedProject, projectData, newDeduction.contractId]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | string, field: keyof typeof newDeduction) => {
         const value = typeof e === 'string' ? e : e.target.value;
@@ -93,23 +72,15 @@ export default function DeductionsPage() {
             return;
         }
 
-        const newEntry: Deduction = {
-            id: `DED-${String(Date.now()).slice(-5)}`,
+        const newEntry: Omit<Deduction, 'id' | 'appliedInPaymentNumber'> = {
             contractId: newDeduction.contractId,
             type: newDeduction.type,
             date: format(date, 'yyyy-MM-dd'),
             amount: parseFloat(newDeduction.amount),
             description: newDeduction.description,
-            appliedInPaymentNumber: null
         };
         
-        setDeductions(prev => {
-            const updatedProjectDeductions = [...(prev[selectedProject.id] || []), newEntry];
-            return {
-                ...prev,
-                [selectedProject.id]: updatedProjectDeductions
-            };
-        });
+        addDeduction(newEntry);
 
         // Formu temizle, sadece kontrat seçimi kalsın
         setNewDeduction(prev => ({

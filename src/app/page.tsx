@@ -27,59 +27,6 @@ import { Badge } from "@/components/ui/badge";
 import { useProject } from "@/context/project-context";
 import { useMemo } from "react";
 
-// Proje bazlı verileri simüle ediyoruz
-const projectDashboardData: Record<string, any> = {
-  "proje-istanbul": {
-    stats: {
-      totalProgressPayment: 1324000,
-      activeContracts: 12,
-      pendingTenders: 5,
-      upcomingPayments: 3,
-      upcomingPaymentsTotal: 175000,
-    },
-    chartData: [
-      { month: "Ocak", income: 186000, expense: 80000 },
-      { month: "Şubat", income: 305000, expense: 200000 },
-      { month: "Mart", income: 237000, expense: 120000 },
-      { month: "Nisan", income: 173000, expense: 190000 },
-      { month: "Mayıs", income: 209000, expense: 130000 },
-      { month: "Haziran", income: 214000, expense: 140000 },
-    ],
-    reminders: [
-      { id: 1, title: "Proje A İhale Tarihi", date: "2024-08-15", type: "İhale" },
-      { id: 2, title: "Sözleşme B İmza", date: "2024-08-20", type: "Sözleşme" },
-      { id: 3, title: "Proje C Hakediş Ödemesi", date: "2024-09-01", type: "Hakediş" },
-    ],
-  },
-  "proje-ankara": {
-    stats: {
-      totalProgressPayment: 850000,
-      activeContracts: 8,
-      pendingTenders: 2,
-      upcomingPayments: 1,
-      upcomingPaymentsTotal: 95000,
-    },
-    chartData: [
-      { month: "Ocak", income: 120000, expense: 50000 },
-      { month: "Şubat", income: 210000, expense: 150000 },
-      { month: "Mart", income: 180000, expense: 90000 },
-      { month: "Nisan", income: 150000, expense: 110000 },
-      { month: "Mayıs", income: 110000, expense: 80000 },
-      { month: "Haziran", income: 190000, expense: 120000 },
-    ],
-    reminders: [
-      { id: 1, title: "Ankara Hafriyat İhalesi", date: "2024-09-10", type: "İhale" },
-      { id: 2, title: "Ankara Zemin Etüdü Ödemesi", date: "2024-09-15", type: "Hakediş" },
-    ],
-  }
-};
-
-const emptyData = {
-  stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 },
-  chartData: [],
-  reminders: [],
-};
-
 
 const chartConfig = {
   income: {
@@ -94,14 +41,11 @@ const chartConfig = {
 
 
 export default function Home() {
-  const { selectedProject } = useProject();
+  const { selectedProject, getDashboardData } = useProject();
   
   const data = useMemo(() => {
-    if (!selectedProject || !projectDashboardData[selectedProject.id]) {
-      return emptyData;
-    }
-    return projectDashboardData[selectedProject.id];
-  }, [selectedProject]);
+    return getDashboardData();
+  }, [selectedProject, getDashboardData]);
 
 
   return (

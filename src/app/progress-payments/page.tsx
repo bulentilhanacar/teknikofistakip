@@ -8,154 +8,73 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, Paperclip } from 'lucide-react';
-import { Label } from '@/components/ui/label';
+import { Paperclip } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-
-// Projelerin sözleşme verilerini simüle ediyoruz
-const projectContractData: Record<string, any> = {
-  "proje-istanbul": {
-    "SOZ-001": {
-        name: "İstanbul Ofis Binası - Betonarme",
-        items: [
-          { id: 'Y.16.050/01', description: 'Betonarme Kalıbı', unit: 'm²', unitPrice: 350, contractQuantity: 1200 },
-          { id: '15.140.1001', description: 'C30/37 Hazır Beton', unit: 'm³', unitPrice: 2800, contractQuantity: 800 },
-          { id: '23.215.1105', description: 'İç Duvar Boyası', unit: 'm²', unitPrice: 120, contractQuantity: 2500 },
-          { id: '18.195.1101', description: 'Seramik Yer Karosu', unit: 'm²', unitPrice: 450, contractQuantity: 600 },
-        ]
-    },
-    "SOZ-002": {
-        name: 'Eskişehir Villa Projesi - Lamine Parke',
-        items: [
-           { id: '25.115.1402', description: 'Lamine Parke', unit: 'm²', unitPrice: 1800, contractQuantity: 450 },
-        ]
-    },
-  },
-  "proje-ankara": {
-      // Ankara projesi için henüz onaylı sözleşme yok
-  }
-};
-
-// Hakediş geçmişini saklamak için yeni veri yapısı
-const initialProgressHistory: Record<string, Record<string, ProgressPayment[]>> = {
-    "proje-istanbul": {
-        "SOZ-001": [
-            {
-                progressPaymentNumber: 1,
-                date: "2024-07-20",
-                totalAmount: 227500,
-                items: [
-                    { id: 'Y.16.050/01', cumulativeQuantity: 500 },
-                    { id: '15.140.1001', cumulativeQuantity: 200 },
-                    { id: '23.215.1105', cumulativeQuantity: 0 },
-                    { id: '18.195.1101', cumulativeQuantity: 0 },
-                ],
-                appliedDeductionIds: []
-            }
-        ]
-    }
-};
-
-// Kesinti verilerini simüle ediyoruz
-const initialDeductionsData: Record<string, Deduction[]> = {
-    "proje-istanbul": [
-        { id: 'DED-001', contractId: 'SOZ-001', type: 'muhasebe', date: '2024-07-15', amount: 5000, description: 'Teminat Mektubu Komisyonu', appliedInPaymentNumber: null },
-        { id: 'DED-002', contractId: 'SOZ-001', type: 'tutanakli', date: '2024-07-18', amount: 12500, description: 'Hatalı imalat tespiti', appliedInPaymentNumber: null },
-        { id: 'DED-003', contractId: 'SOZ-002', type: 'muhasebe', date: '2024-07-25', amount: 2500, description: 'Damga Vergisi', appliedInPaymentNumber: null },
-    ],
-    "proje-ankara": []
-};
-
-
-interface ProgressItem {
-  id: string;
-  description: string;
-  unit: string;
-  unitPrice: number;
-  contractQuantity: number;
-  previousCumulativeQuantity: number;
-  currentCumulativeQuantity: number;
-  currentCumulativePercentage: string; // Yüzde girişi için string
-}
-
-interface ProgressPayment {
-    progressPaymentNumber: number;
-    date: string;
-    totalAmount: number;
-    items: {
-        id: string;
-        cumulativeQuantity: number;
-    }[];
-    appliedDeductionIds: string[];
-}
-
-interface Deduction {
-    id: string;
-    contractId: string;
-    type: 'muhasebe' | 'tutanakli';
-    date: string; 
-    amount: number;
-    description: string;
-    appliedInPaymentNumber: number | null; 
-}
+import { ProgressPayment, ProgressItem, Deduction } from '@/context/types';
 
 
 export default function ProgressPaymentsPage() {
-  const { selectedProject } = useProject();
-  const [availableContracts, setAvailableContracts] = useState<Record<string, any>>({});
-  const [selectedContract, setSelectedContract] = useState<string | null>(null);
+  const { selectedProject, projectData, saveProgressPayment, getContractsByProject } = useProject();
+  
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
-  const [progressHistory, setProgressHistory] = useState(initialProgressHistory);
-  const [deductionsData, setDeductionsData] = useState(initialDeductionsData);
   const [selectedDeductionIds, setSelectedDeductionIds] = useState<string[]>([]);
+
+  const availableContracts = useMemo(() => {
+    return getContractsByProject()
+        .filter(c => c.status === 'Onaylandı')
+        .reduce((acc, c) => {
+            acc[c.id] = { name: c.name };
+            return acc;
+        }, {} as Record<string, {name: string}>);
+  }, [selectedProject, projectData, getContractsByProject]);
   
   const contractProgressHistory = useMemo(() => {
-    if (selectedProject && selectedContract && progressHistory[selectedProject.id]) {
-        return progressHistory[selectedProject.id][selectedContract] || [];
+    if (selectedProject && selectedContractId && projectData.progressPayments[selectedProject.id]) {
+        return projectData.progressPayments[selectedProject.id][selectedContractId] || [];
     }
     return [];
-  }, [selectedProject, selectedContract, progressHistory]);
+  }, [selectedProject, selectedContractId, projectData]);
 
   const lastProgressPayment = useMemo(() => {
     return contractProgressHistory.length > 0 ? contractProgressHistory[contractProgressHistory.length - 1] : null;
   }, [contractProgressHistory]);
   
   const availableDeductions = useMemo(() => {
-      if (!selectedProject || !selectedContract) return [];
-      const allDeductions = deductionsData[selectedProject.id] || [];
-      return allDeductions.filter(d => d.contractId === selectedContract && d.appliedInPaymentNumber === null);
-  }, [selectedProject, selectedContract, deductionsData]);
+      if (!selectedProject || !selectedContractId) return [];
+      const allDeductions = projectData.deductions[selectedProject.id] || [];
+      return allDeductions.filter(d => d.contractId === selectedContractId && d.appliedInPaymentNumber === null);
+  }, [selectedProject, selectedContractId, projectData]);
 
 
   useEffect(() => {
-    if (selectedProject && projectContractData[selectedProject.id]) {
-        setAvailableContracts(projectContractData[selectedProject.id]);
-    } else {
-        setAvailableContracts({});
-    }
-    setSelectedContract(null);
+    setSelectedContractId(null);
     setProgressItems([]);
     setSelectedDeductionIds([]);
   }, [selectedProject]);
 
 
   const handleContractChange = (contractId: string) => {
-    setSelectedContract(contractId);
+    setSelectedContractId(contractId);
     setSelectedDeductionIds([]);
-    const contract = availableContracts[contractId];
+    const projectContracts = getContractsByProject();
+    const contract = projectContracts.find(c => c.id === contractId);
     
     if (contract) {
-       const history = (selectedProject && progressHistory[selectedProject.id]?.[contractId]) || [];
+       const history = (selectedProject && projectData.progressPayments[selectedProject.id]?.[contractId]) || [];
        const lastPayment = history.length > 0 ? history[history.length - 1] : null;
 
        setProgressItems(contract.items.map((item: any) => {
-         const previousItem = lastPayment?.items.find(pi => pi.id === item.id);
+         const previousItem = lastPayment?.items.find(pi => pi.id === item.poz);
          const previousCumulativeQuantity = previousItem?.cumulativeQuantity || 0;
-         const percentage = item.contractQuantity > 0 ? (previousCumulativeQuantity / item.contractQuantity * 100).toFixed(2) : "0.00";
+         const percentage = item.quantity > 0 ? (previousCumulativeQuantity / item.quantity * 100).toFixed(2) : "0.00";
          
          return { 
-            ...item, 
+            id: item.poz,
+            description: item.description,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
+            contractQuantity: item.quantity,
             previousCumulativeQuantity: previousCumulativeQuantity,
             currentCumulativeQuantity: previousCumulativeQuantity,
             currentCumulativePercentage: percentage
@@ -211,50 +130,11 @@ export default function ProgressPaymentsPage() {
     };
   }, [progressItems, lastProgressPayment, selectedDeductionIds, availableDeductions]);
 
-  const saveProgressPayment = () => {
-    if (!selectedProject || !selectedContract) return;
-
-    const newPaymentNumber = (lastProgressPayment?.progressPaymentNumber || 0) + 1;
-
-    const newPayment: ProgressPayment = {
-        progressPaymentNumber: newPaymentNumber,
-        date: new Date().toISOString().split('T')[0],
-        totalAmount: summary.cumulativeSubTotal,
-        items: progressItems.map(item => ({
-            id: item.id,
-            cumulativeQuantity: item.currentCumulativeQuantity,
-        })),
-        appliedDeductionIds: selectedDeductionIds,
-    };
-    
-    // Hakediş geçmişini güncelle
-    setProgressHistory(prev => {
-        const newProjectHistory = { ...(prev[selectedProject.id] || {}) };
-        const newContractHistory = [...(newProjectHistory[selectedContract] || []), newPayment];
-        newProjectHistory[selectedContract] = newContractHistory;
-        
-        return {
-            ...prev,
-            [selectedProject.id]: newProjectHistory
-        };
-    });
-
-    // Kesinti verilerini güncelle (kullanıldı olarak işaretle)
-    setDeductionsData(prev => {
-        const newProjectDeductions = (prev[selectedProject.id] || []).map(d => {
-            if (selectedDeductionIds.includes(d.id)) {
-                return { ...d, appliedInPaymentNumber: newPaymentNumber };
-            }
-            return d;
-        });
-        return {
-            ...prev,
-            [selectedProject.id]: newProjectDeductions
-        };
-    });
-    
+  const handleSaveProgressPayment = () => {
+    if (!selectedProject || !selectedContractId) return;
+    saveProgressPayment(selectedContractId, summary.cumulativeSubTotal, progressItems, selectedDeductionIds);
     // Formu sıfırla
-    handleContractChange(selectedContract);
+    handleContractChange(selectedContractId);
   };
 
   const formatCurrency = (amount: number) => {
@@ -285,7 +165,7 @@ export default function ProgressPaymentsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-4">
-            <Select onValueChange={handleContractChange} value={selectedContract || ""}>
+            <Select onValueChange={handleContractChange} value={selectedContractId || ""}>
               <SelectTrigger className="w-full sm:w-[400px]">
                 <SelectValue placeholder="Hakediş yapılacak sözleşmeyi seçin" />
               </SelectTrigger>
@@ -304,7 +184,7 @@ export default function ProgressPaymentsPage() {
         </CardContent>
       </Card>
       
-      {selectedContract && (
+      {selectedContractId && (
         <>
           {contractProgressHistory.length > 0 && (
             <Card>
@@ -451,7 +331,7 @@ export default function ProgressPaymentsPage() {
           </div>
 
           <div className="flex justify-end">
-            <Button size="lg" onClick={saveProgressPayment}>Hakedişi Kaydet ve Raporla</Button>
+            <Button size="lg" onClick={handleSaveProgressPayment}>Hakedişi Kaydet ve Raporla</Button>
           </div>
         </>
       )}

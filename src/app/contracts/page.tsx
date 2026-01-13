@@ -13,77 +13,8 @@ import { useProject } from '@/context/project-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Contract, ContractGroupKeys, ContractItem, contractGroups } from '@/context/types';
 
-const contractGroups = {
-  "reklam": "Reklam ve Tanıtım",
-  "tedarikler": "Tedarikler",
-  "kaba-isler": "Kaba İşler",
-  "ince-isler": "İnce İşler",
-  "elektrik": "Elektrik İşleri",
-  "mekanik": "Mekanik İşleri",
-  "yalitim": "Yalıtım İşleri",
-  "peyzaj": "Peyzaj İşleri",
-  "sosyal-tesisler": "Sosyal Tesisler"
-};
-
-
-type ContractGroupKeys = keyof typeof contractGroups;
-
-interface ContractItem {
-    poz: string;
-    description: string;
-    unit: string;
-    quantity: number;
-    unitPrice: number;
-}
-
-interface Contract {
-    id: string;
-    name: string;
-    group: ContractGroupKeys;
-    subGroup: string;
-    status: string;
-    date: string;
-    items: ContractItem[];
-}
-
-const initialContractsData: Record<string, {drafts: Contract[], approved: Contract[]}> = {
-    "proje-istanbul": {
-        drafts: [
-            { id: 'IHALE-005', name: 'Tanıtım Filmi Çekimi', group: 'reklam', subGroup: 'Dijital Medya', status: 'Teklif Alındı', date: '2024-09-20', items: [
-                { poz: 'RF-01', description: 'Prodüksiyon', unit: 'gün', quantity: 5, unitPrice: 15000 },
-                { poz: 'RF-02', description: 'Post-Prodüksiyon', unit: 'gün', quantity: 10, unitPrice: 7500 },
-            ]},
-            { id: 'IHALE-006', name: 'Genel Vitrifiye Malzemeleri', group: 'tedarikler', subGroup: 'Sıhhi Tesisat Malzemeleri', status: 'Hazırlık', date: '2024-10-05', items: [
-                { poz: 'VIT-01', description: 'Klozet Takımı', unit: 'adet', quantity: 120, unitPrice: 4500 },
-                { poz: 'VIT-02', description: 'Lavabo ve Batarya', unit: 'adet', quantity: 150, unitPrice: 3500 },
-            ]},
-        ],
-        approved: [
-            { id: 'SOZ-001', name: 'İstanbul Ofis Binası - Betonarme', group: 'kaba-isler', subGroup: 'Betonarme ve Çelik', status: 'Onaylandı', date: '2024-08-10', items: [
-              { poz: '15.150.1005', description: 'Makine ile Kazı', unit: 'm³', quantity: 8000, unitPrice: 175 },
-              { poz: 'C30', description: 'C30 Beton', unit: 'm³', quantity: 2500, unitPrice: 3200 },
-            ]},
-            { id: 'SOZ-002', name: 'Eskişehir Villa Projesi - Lamine Parke', group: 'ince-isler', subGroup: 'Zemin Kaplamaları', status: 'Onaylandı', date: '2024-06-15', items: [
-               { poz: '25.115.1402', description: 'Lamine Parke', unit: 'm²', quantity: 450, unitPrice: 1800 },
-            ]},
-        ]
-    },
-    "proje-ankara": {
-        drafts: [
-            { id: 'IHALE-001', name: 'Ankara Konut Projesi - Hafriyat', group: 'kaba-isler', subGroup: 'Hafriyat İşleri', status: 'Değerlendirmede', date: '2024-09-15', items: [
-              { poz: '15.150.1005', description: 'Makine ile Kazı', unit: 'm³', quantity: 5000, unitPrice: 180 },
-              { poz: '15.160.1002', description: 'Dolgu Serme ve Sıkıştırma', unit: 'm³', quantity: 2500, unitPrice: 240 },
-            ]},
-            { id: 'IHALE-003', name: 'İzmir AVM İnşaatı - Çelik Konstrüksiyon', group: 'kaba-isler', subGroup: 'Betonarme ve Çelik', status: 'Hazırlık', date: '2024-10-01', items: [
-               { poz: '23.014', description: 'Çelik Kolon Montajı', unit: 'ton', quantity: 150, unitPrice: 45000 },
-               { poz: '23.015', description: 'Çelik Kiriş Montajı', unit: 'ton', quantity: 200, unitPrice: 42000 },
-            ]},
-            { id: 'IHALE-007', name: 'Alçıpan ve Boya İşleri', group: 'ince-isler', subGroup: 'Boya ve Kaplama', status: 'Değerlendirmede', date: '2024-09-25', items: [] },
-        ],
-        approved: []
-    }
-}
 
 const AddItemDialog = ({ contract, onAddItem }: { contract: Contract, onAddItem: (contractId: string, item: ContractItem) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -203,8 +134,8 @@ const ContractRow = ({ contract, onApprove, onAddItem }: { contract: Contract, o
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {contract.items.map(item => (
-                                                <TableRow key={item.poz}>
+                                            {contract.items.map((item, index) => (
+                                                <TableRow key={`${item.poz}-${index}`}>
                                                     <TableCell>{item.poz}</TableCell>
                                                     <TableCell>{item.description}</TableCell>
                                                     <TableCell>{item.unit}</TableCell>
@@ -331,103 +262,19 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, group
 
 
 export default function ContractsPage() {
-    const { selectedProject } = useProject();
-    const [projectContracts, setProjectContracts] = useState(initialContractsData);
+    const { selectedProject, projectData, approveTender, addDraftTender, addItemToContract } = useProject();
 
     const { draftContracts, approvedContracts } = useMemo(() => {
-        if (!selectedProject || !projectContracts[selectedProject.id]) {
+        if (!selectedProject || !projectData) {
             return { draftContracts: [], approvedContracts: [] };
         }
+        const currentProjectContracts = projectData.contracts[selectedProject.id] || { drafts: [], approved: [] };
         return {
-            draftContracts: projectContracts[selectedProject.id].drafts,
-            approvedContracts: projectContracts[selectedProject.id].approved
+            draftContracts: currentProjectContracts.drafts,
+            approvedContracts: currentProjectContracts.approved
         };
-    }, [selectedProject, projectContracts]);
+    }, [selectedProject, projectData]);
 
-
-    const approveTender = (tenderId: string) => {
-        if (!selectedProject) return;
-
-        const tenderToApprove = draftContracts.find(t => t.id === tenderId);
-        if (!tenderToApprove) return;
-
-        const newIdNumber = (approvedContracts.length + Object.keys(projectContracts).reduce((acc, key) => acc + projectContracts[key].approved.length, 0) + 1);
-        const newContractId = `SOZ-${String(newIdNumber).padStart(3, '0')}`;
-
-        const newApprovedContract = {
-            ...tenderToApprove,
-            id: newContractId,
-            status: 'Onaylandı',
-            date: new Date().toISOString().split('T')[0],
-        };
-
-        setProjectContracts(prevData => {
-            const currentProjectData = prevData[selectedProject.id] || { drafts: [], approved: [] };
-            const updatedDrafts = currentProjectData.drafts.filter(t => t.id !== tenderId);
-            const updatedApproved = [...currentProjectData.approved, newApprovedContract].sort((a, b) => a.id.localeCompare(b.id));
-            
-            return {
-                ...prevData,
-                [selectedProject.id]: {
-                    drafts: updatedDrafts,
-                    approved: updatedApproved
-                }
-            }
-        });
-    };
-
-    const addDraftTender = (group: ContractGroupKeys, name: string, subGroup: string) => {
-        if (!selectedProject) return;
-
-        const newIdNumber = (draftContracts.length + Object.keys(projectContracts).reduce((acc, key) => acc + projectContracts[key].drafts.length, 0) + 8);
-        const newTenderId = `IHALE-${String(newIdNumber).padStart(3, '0')}`;
-
-        const newDraft = {
-            id: newTenderId,
-            name,
-            group,
-            subGroup,
-            status: 'Hazırlık',
-            date: new Date().toISOString().split('T')[0],
-            items: []
-        };
-
-        setProjectContracts(prevData => {
-            const currentProjectData = prevData[selectedProject.id] || { drafts: [], approved: [] };
-            const updatedDrafts = [...currentProjectData.drafts, newDraft].sort((a, b) => a.id.localeCompare(b.id));
-            
-            return {
-                ...prevData,
-                [selectedProject.id]: {
-                    drafts: updatedDrafts,
-                    approved: currentProjectData.approved
-                }
-            }
-        });
-    };
-
-    const addItemToContract = (contractId: string, item: ContractItem) => {
-         if (!selectedProject) return;
-
-        setProjectContracts(prevData => {
-            const currentProjectData = prevData[selectedProject.id] || { drafts: [], approved: [] };
-            const updatedDrafts = currentProjectData.drafts.map(draft => {
-                if (draft.id === contractId) {
-                    return { ...draft, items: [...draft.items, item] };
-                }
-                return draft;
-            });
-
-            return {
-                ...prevData,
-                [selectedProject.id]: {
-                    drafts: updatedDrafts,
-                    approved: currentProjectData.approved
-                }
-            };
-        });
-    };
-    
     const groupContracts = (contracts: Contract[]): Record<ContractGroupKeys, Record<string, Contract[]>> => {
       const allGroups = (Object.keys(contractGroups) as ContractGroupKeys[]).reduce((acc, groupKey) => {
           acc[groupKey] = {};
@@ -443,7 +290,6 @@ export default function ContractsPage() {
         }
       });
 
-      // Alt grupları doldur
       for (const groupKey in allGroups) {
           const typedGroupKey = groupKey as ContractGroupKeys;
           const subGroups = Array.from(new Set(contracts.filter(c => c.group === typedGroupKey).map(c => c.subGroup)));
@@ -453,7 +299,6 @@ export default function ContractsPage() {
               }
           });
       }
-
 
       return allGroups;
     };
