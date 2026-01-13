@@ -90,8 +90,7 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
     const isApproved = contract.status === 'Onaylandı';
 
     return (
-        <Collapsible asChild>
-            <>
+        <Collapsible>
                 <TableRow className={cn("cursor-pointer", isOpen && "bg-muted/50")}>
                     <CollapsibleTrigger asChild>
                        <td colSpan={onApprove ? 6 : 7} className="p-0">
@@ -155,13 +154,13 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
                         </TableCell>
                     </TableRow>
                 </CollapsibleContent>
-             </>
         </Collapsible>
     )
 }
 
 const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void}) => {
     const totalContractsInGroup = Object.values(contracts).reduce((sum, list) => sum + list.length, 0);
+    const hasSubGroups = Object.keys(contracts).length > 0;
 
     return (
         <AccordionItem value={title}>
@@ -171,7 +170,7 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
                 </div>
             </AccordionTrigger>
             <AccordionContent>
-                {Object.keys(contracts).length > 0 || onApprove ? (
+                {hasSubGroups || onApprove ? (
                     <Accordion type="multiple" className="w-full pl-4 border-l">
                     {Object.entries(contracts).map(([subGroup, contractList]) => (
                         <AccordionItem value={subGroup} key={subGroup}>
@@ -205,7 +204,7 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
                      )}
                     </Accordion>
                 ) : (
-                     <div className="text-center text-muted-foreground p-4">Bu grupta alt başlık bulunmuyor.</div>
+                    <div className="text-center text-muted-foreground p-4">Bu grupta alt başlık bulunmuyor.</div>
                 )}
             </AccordionContent>
         </AccordionItem>
@@ -255,18 +254,20 @@ export default function ContractsPage() {
     };
     
     const groupContracts = (contracts: Contract[]): Record<ContractGroupKeys, Record<string, Contract[]>> => {
-      return (Object.keys(contractGroups) as ContractGroupKeys[]).reduce((acc, groupKey) => {
-          const contractsInGroup = contracts.filter(c => c.group === groupKey);
-          
-          const subGroups = contractsInGroup.reduce((subAcc, contract) => {
-              (subAcc[contract.subGroup] = subAcc[contract.subGroup] || []).push(contract);
-              return subAcc;
-          }, {} as Record<string, Contract[]>);
-
-          acc[groupKey] = subGroups;
-          
+      const allGroups = (Object.keys(contractGroups) as ContractGroupKeys[]).reduce((acc, groupKey) => {
+          acc[groupKey] = {};
           return acc;
       }, {} as Record<ContractGroupKeys, Record<string, Contract[]>>);
+
+      return contracts.reduce((acc, contract) => {
+          if (acc[contract.group]) {
+              if (!acc[contract.group][contract.subGroup]) {
+                  acc[contract.group][contract.subGroup] = [];
+              }
+              acc[contract.group][contract.subGroup].push(contract);
+          }
+          return acc;
+      }, allGroups);
     };
     
     const groupedDrafts = groupContracts(draftContracts);
