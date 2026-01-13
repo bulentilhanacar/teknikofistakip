@@ -61,7 +61,7 @@ function ProjectSelector() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="w-full justify-between border border-sidebar-border text-sidebar-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          className="w-full justify-between text-sidebar-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <span className="truncate group-data-[collapsible=icon]:hidden">
             {selectedProject?.name ?? "Proje Seçin"}
