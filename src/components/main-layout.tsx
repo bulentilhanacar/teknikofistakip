@@ -35,9 +35,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { SiteHeader } from "./site-header";
@@ -56,25 +53,20 @@ const projectMenuItems = [
   { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
 ];
 
-function AddProjectDialog() {
-    const { addProject } = useProject();
-    const [isOpen, setIsOpen] = React.useState(false);
+
+function AddProjectDialog({ isOpen, onOpenChange, onSave }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onSave: (name: string) => void }) {
     const [name, setName] = React.useState("");
 
     const handleSave = () => {
         if (name.trim()) {
-            addProject(name.trim());
+            onSave(name.trim());
             setName("");
-            setIsOpen(false);
+            onOpenChange(false);
         }
     };
     
     return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DropdownMenuItem onSelect={() => setIsOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                <span>Yeni Proje Ekle</span>
-            </DropdownMenuItem>
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
              <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Yeni Proje Ekle</DialogTitle>
@@ -94,49 +86,70 @@ function AddProjectDialog() {
     )
 }
 
-function RenameProjectDialog({ project, onSelect }: { project: {id: string, name: string}, onSelect: () => void }) {
-    const { updateProjectName } = useProject();
-    const [name, setName] = React.useState(project.name);
+function RenameProjectDialog({ project, isOpen, onOpenChange, onSave }: { project: {id: string, name: string} | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onSave: (id: string, newName: string) => void }) {
+    const [name, setName] = React.useState("");
+
+    React.useEffect(() => {
+        if (project) {
+            setName(project.name);
+        }
+    }, [project]);
 
     const handleSave = () => {
-        if (name.trim()) {
-            updateProjectName(project.id, name.trim());
-            onSelect(); // This will close the parent dialog
+        if (name.trim() && project) {
+            onSave(project.id, name.trim());
+            onOpenChange(false);
         }
     };
     
+    if (!project) return null;
+
     return (
-        <DialogContent onClick={(e) => e.stopPropagation()}>
-            <DialogHeader>
-                <DialogTitle>Proje Adını Değiştir</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Yeni Proje Adı</Label>
-                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Proje Adını Değiştir</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">Yeni Proje Adı</Label>
+                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
+                    </div>
                 </div>
-            </div>
-            <DialogFooter>
-                <Button type="button" variant="secondary" onClick={onSelect}>İptal</Button>
-                <Button type="submit" onClick={handleSave}>Kaydet</Button>
-            </DialogFooter>
-        </DialogContent>
+                <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="secondary">İptal</Button></DialogClose>
+                    <Button type="submit" onClick={handleSave}>Kaydet</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }
 
 function ProjectSelector() {
-  const { projects, selectedProject, selectProject, deleteProject } = useProject();
+  const { projects, selectedProject, selectProject, deleteProject, addProject, updateProjectName } = useProject();
+  const [isAddOpen, setIsAddOpen] = React.useState(false);
   const [isRenameOpen, setIsRenameOpen] = React.useState(false);
   const [projectToRename, setProjectToRename] = React.useState<{id: string, name: string} | null>(null);
-
 
   const handleRenameClick = (project: {id: string, name: string}) => {
     setProjectToRename(project);
     setIsRenameOpen(true);
   }
+  
+  const handleSaveRename = (id: string, newName: string) => {
+      updateProjectName(id, newName);
+      setIsRenameOpen(false);
+      setProjectToRename(null);
+  }
+
+  const handleSaveAdd = (name: string) => {
+      addProject(name);
+      setIsAddOpen(false);
+  }
+
 
   return (
-    <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
+    <>
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button
@@ -158,18 +171,18 @@ function ProjectSelector() {
                     <button className="flex-1 text-left" onClick={() => selectProject(project.id)}>
                     {project.name}
                     </button>
-                    <DropdownMenu>
+                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-6 w-6 p-0 opacity-0 group-hover/item:opacity-100 data-[state=open]:opacity-100">
                                 <MoreHorizontal className="h-4 w-4"/>
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent side="right" align="start" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuContent side="right" align="start">
                             <DropdownMenuItem onSelect={() => handleRenameClick(project)}>
                                 <Edit className="mr-2 h-4 w-4"/>
                                 <span>Yeniden Adlandır</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => deleteProject(project.id)}>
+                            <DropdownMenuItem onSelect={() => deleteProject(project.id)} className="text-destructive">
                                 <Trash className="mr-2 h-4 w-4"/>
                                 <span>Sil</span>
                             </DropdownMenuItem>
@@ -178,11 +191,16 @@ function ProjectSelector() {
                 </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <AddProjectDialog />
+                <DropdownMenuItem onSelect={() => setIsAddOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    <span>Yeni Proje Ekle</span>
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
-        {projectToRename && <RenameProjectDialog project={projectToRename} onSelect={() => setIsRenameOpen(false)} />}
-    </Dialog>
+        
+        <AddProjectDialog isOpen={isAddOpen} onOpenChange={setIsAddOpen} onSave={handleSaveAdd} />
+        <RenameProjectDialog project={projectToRename} isOpen={isRenameOpen} onOpenChange={setIsRenameOpen} onSave={handleSaveRename} />
+    </>
   );
 }
 
