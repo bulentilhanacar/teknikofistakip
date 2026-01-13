@@ -1,30 +1,34 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { useProject } from '@/context/project-context';
 
 // Projelerin sözleşme verilerini simüle ediyoruz
-const projectData: Record<string, any> = {
-  "SOZ-001": {
-    name: "İstanbul Ofis Binası",
-    items: [
-      { id: 'Y.16.050/01', description: 'Betonarme Kalıbı', unit: 'm²', unitPrice: 350, contractQuantity: 1200 },
-      { id: '15.140.1001', description: 'C30/37 Hazır Beton', unit: 'm³', unitPrice: 2800, contractQuantity: 800 },
-      { id: '23.215.1105', description: 'İç Duvar Boyası', unit: 'm²', unitPrice: 120, contractQuantity: 2500 },
-      { id: '18.195.1101', description: 'Seramik Yer Karosu', unit: 'm²', unitPrice: 450, contractQuantity: 600 },
-    ]
+const projectContractData: Record<string, any> = {
+  "proje-istanbul": {
+    "SOZ-001": {
+        name: "İstanbul Ofis Binası - Betonarme",
+        items: [
+          { id: 'Y.16.050/01', description: 'Betonarme Kalıbı', unit: 'm²', unitPrice: 350, contractQuantity: 1200 },
+          { id: '15.140.1001', description: 'C30/37 Hazır Beton', unit: 'm³', unitPrice: 2800, contractQuantity: 800 },
+          { id: '23.215.1105', description: 'İç Duvar Boyası', unit: 'm²', unitPrice: 120, contractQuantity: 2500 },
+          { id: '18.195.1101', description: 'Seramik Yer Karosu', unit: 'm²', unitPrice: 450, contractQuantity: 600 },
+        ]
+    },
+    "SOZ-002": {
+        name: 'Eskişehir Villa Projesi - Lamine Parke',
+        items: [
+           { id: '25.115.1402', description: 'Lamine Parke', unit: 'm²', unitPrice: 1800, contractQuantity: 450 },
+        ]
+    },
   },
-  "SOZ-002": {
-    name: "Eskişehir Villa Projesi",
-    items: [
-      { id: 'Y.21.002', description: 'Ahşap Çatı Konstrüksiyonu', unit: 'm³', unitPrice: 8500, contractQuantity: 15 },
-      { id: '18.461/A1', description: 'Lamine Parke', unit: 'm²', unitPrice: 750, contractQuantity: 350 },
-      { id: '25.047/001', description: 'PVC Pencere', unit: 'm²', unitPrice: 1800, contractQuantity: 40 },
-    ]
+  "proje-ankara": {
+      // Ankara projesi için henüz onaylı sözleşme yok
   }
 };
 
@@ -38,15 +42,28 @@ interface ProgressItem {
 }
 
 export default function ProgressPaymentsPage() {
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const { selectedProject } = useProject();
+  const [availableContracts, setAvailableContracts] = useState<Record<string, any>>({});
+  const [selectedContract, setSelectedContract] = useState<string | null>(null);
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
   const [deductions, setDeductions] = useState({ stampDuty: 0.00948, ssi: 0.03 });
 
-  const handleProjectChange = (projectId: string) => {
-    setSelectedProject(projectId);
-    const project = projectData[projectId];
-    if (project) {
-      setProgressItems(project.items.map((item: any) => ({ ...item, currentQuantity: 0 })));
+  useEffect(() => {
+    if (selectedProject && projectContractData[selectedProject.id]) {
+        setAvailableContracts(projectContractData[selectedProject.id]);
+    } else {
+        setAvailableContracts({});
+    }
+    setSelectedContract(null);
+    setProgressItems([]);
+  }, [selectedProject]);
+
+
+  const handleContractChange = (contractId: string) => {
+    setSelectedContract(contractId);
+    const contract = availableContracts[contractId];
+    if (contract) {
+      setProgressItems(contract.items.map((item: any) => ({ ...item, currentQuantity: 0 })));
     } else {
       setProgressItems([]);
     }
@@ -80,32 +97,49 @@ export default function ProgressPaymentsPage() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
   }
+  
+  if (!selectedProject) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline">Hakediş Hesaplama</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-center justify-center h-48 text-muted-foreground">
+                    Lütfen devam etmek için bir proje seçin.
+                </div>
+            </CardContent>
+        </Card>
+    );
+  }
 
   return (
     <div className="grid gap-6">
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">Hakediş Hesaplama</CardTitle>
-          <CardDescription>Proje seçerek yeni bir hakediş raporu oluşturun.</CardDescription>
+          <CardDescription>{selectedProject.name} | Sözleşme seçerek yeni bir hakediş raporu oluşturun.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-4">
-            <Select onValueChange={handleProjectChange}>
-              <SelectTrigger className="w-full sm:w-[300px]">
-                <SelectValue placeholder="Proje Seçin" />
+            <Select onValueChange={handleContractChange} value={selectedContract || ""}>
+              <SelectTrigger className="w-full sm:w-[400px]">
+                <SelectValue placeholder="Hakediş yapılacak sözleşmeyi seçin" />
               </SelectTrigger>
               <SelectContent>
-                {Object.keys(projectData).map(projectId => (
-                    <SelectItem key={projectId} value={projectId}>{`${projectId}: ${projectData[projectId].name}`}</SelectItem>
-                ))}
+                {Object.keys(availableContracts).length > 0 ? Object.keys(availableContracts).map(contractId => (
+                    <SelectItem key={contractId} value={contractId}>{`${contractId}: ${availableContracts[contractId].name}`}</SelectItem>
+                )) : (
+                    <div className="p-4 text-sm text-muted-foreground">Bu proje için onaylı sözleşme bulunmuyor.</div>
+                )}
               </SelectContent>
             </Select>
-            <Input placeholder="Hakediş No (örn: 3)" className="w-full sm:w-[200px]" disabled={!selectedProject} />
+            <Input placeholder="Hakediş No (örn: 3)" className="w-full sm:w-[200px]" disabled={!selectedContract} />
           </div>
         </CardContent>
       </Card>
       
-      {selectedProject && (
+      {selectedContract && (
         <>
           <Card>
             <CardHeader>

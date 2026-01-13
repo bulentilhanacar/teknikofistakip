@@ -35,6 +35,7 @@ import {
 import { SiteHeader } from "./site-header";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Button } from "./ui/button";
+import { useProject } from "@/context/project-context";
 
 const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
@@ -42,25 +43,15 @@ const projectMenuItems = [
   { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
 ];
 
-const initialProjects = [
-    { id: "proje-istanbul", name: "İstanbul Ofis Projesi" },
-    { id: "proje-ankara", name: "Ankara Konut Projesi" },
-];
-
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
-  const [projects, setProjects] = React.useState(initialProjects);
-  const [openProject, setOpenProject] = React.useState<string | null>(initialProjects[0].id);
+  const { projects, selectedProject, selectProject, addProject } = useProject();
 
-  // TODO: Implement proper project creation logic
   const handleAddProject = () => {
-    const newProject = {
-        id: `proje-yeni-${projects.length + 1}`,
-        name: `Yeni Proje ${projects.length + 1}`,
-    };
-    setProjects(prev => [...prev, newProject]);
-    setOpenProject(newProject.id);
+    // TODO: Add a dialog to get project name from user
+    const newProjectName = `Yeni Proje ${projects.length + 1}`;
+    addProject(newProjectName);
   }
 
   return (
@@ -80,7 +71,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="w-full justify-between group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
-                            <span className="truncate group-data-[collapsible=icon]:hidden">{projects.find(p => p.id === openProject)?.name ?? "Proje Seçin"}</span>
+                            <span className="truncate group-data-[collapsible=icon]:hidden">{selectedProject?.name ?? "Proje Seçin"}</span>
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 group-data-[collapsible=icon]:hidden"/>
                             <FolderKanban className="hidden h-5 w-5 group-data-[collapsible=icon]:block" />
                         </Button>
@@ -89,7 +80,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                         <DropdownMenuLabel>Projeler</DropdownMenuLabel>
                         <DropdownMenuSeparator/>
                         {projects.map(project => (
-                            <DropdownMenuItem key={project.id} onClick={() => setOpenProject(project.id)}>
+                            <DropdownMenuItem key={project.id} onClick={() => selectProject(project.id)}>
                                 {project.name}
                             </DropdownMenuItem>
                         ))}
@@ -101,27 +92,28 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                     </DropdownMenuContent>
                  </DropdownMenu>
             </div>
-          <SidebarMenu>
-            {projectMenuItems.map((item) => {
-              // Note: This routing is simplified. A real app would use /projects/{openProject}{item.href}
-              const itemPath = item.href === "/" ? "/" : item.href;
-              const isActive = pathname === itemPath;
-              return (
-                 <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                        asChild
-                        isActive={isActive}
-                        tooltip={item.label}
-                    >
-                        <Link href={itemPath}>
-                            <item.icon />
-                            <span>{item.label}</span>
-                        </Link>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-              )
-            })}
-          </SidebarMenu>
+            {selectedProject && (
+              <SidebarMenu>
+                {projectMenuItems.map((item) => {
+                  const itemPath = item.href === "/" ? "/" : item.href;
+                  const isActive = pathname === itemPath;
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                            asChild
+                            isActive={isActive}
+                            tooltip={item.label}
+                        >
+                            <Link href={itemPath}>
+                                <item.icon />
+                                <span>{item.label}</span>
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            )}
         </SidebarContent>
         <SidebarFooter>
           <DropdownMenu>

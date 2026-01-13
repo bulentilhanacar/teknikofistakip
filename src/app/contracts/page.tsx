@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from '@/lib/utils';
+import { useProject } from '@/context/project-context';
 
 const contractGroups = {
   "reklam": "Reklam ve Tanıtım",
@@ -43,41 +44,44 @@ interface Contract {
     items: ContractItem[];
 }
 
-const initialDraftContracts: Contract[] = [
-  { id: 'IHALE-001', name: 'Ankara Konut Projesi - Hafriyat', group: 'kaba-isler', subGroup: 'Hafriyat İşleri', status: 'Değerlendirmede', date: '2024-09-15', items: [
-    { poz: '15.150.1005', description: 'Makine ile Kazı', unit: 'm³', quantity: 5000, unitPrice: 180 },
-    { poz: '15.160.1002', description: 'Dolgu Serme ve Sıkıştırma', unit: 'm³', quantity: 2500, unitPrice: 240 },
-  ]},
-  { id: 'IHALE-003', name: 'İzmir AVM İnşaatı - Çelik Konstrüksiyon', group: 'kaba-isler', subGroup: 'Betonarme ve Çelik', status: 'Hazırlık', date: '2024-10-01', items: [
-     { poz: '23.014', description: 'Çelik Kolon Montajı', unit: 'ton', quantity: 150, unitPrice: 45000 },
-     { poz: '23.015', description: 'Çelik Kiriş Montajı', unit: 'ton', quantity: 200, unitPrice: 42000 },
-  ]},
-  { id: 'IHALE-005', name: 'Tanıtım Filmi Çekimi', group: 'reklam', subGroup: 'Dijital Medya', status: 'Teklif Alındı', date: '2024-09-20', items: [
-      { poz: 'RF-01', description: 'Prodüksiyon', unit: 'gün', quantity: 5, unitPrice: 15000 },
-      { poz: 'RF-02', description: 'Post-Prodüksiyon', unit: 'gün', quantity: 10, unitPrice: 7500 },
-  ]},
-  { id: 'IHALE-006', name: 'Genel Vitrifiye Malzemeleri', group: 'tedarikler', subGroup: 'Sıhhi Tesisat Malzemeleri', status: 'Hazırlık', date: '2024-10-05', items: [
-      { poz: 'VIT-01', description: 'Klozet Takımı', unit: 'adet', quantity: 120, unitPrice: 4500 },
-      { poz: 'VIT-02', description: 'Lavabo ve Batarya', unit: 'adet', quantity: 150, unitPrice: 3500 },
-  ]},
-  { id: 'IHALE-007', name: 'Alçıpan ve Boya İşleri', group: 'ince-isler', subGroup: 'Boya ve Kaplama', status: 'Değerlendirmede', date: '2024-09-25', items: [] },
-  { id: 'IHALE-008', name: 'Tüm Elektrik Altyapısı', group: 'elektrik', subGroup: 'Altyapı ve Tesisat', status: 'Keşif Aşamasında', date: '2024-10-10', items: [] },
-  { id: 'IHALE-009', name: 'Isıtma-Soğutma Sistemleri', group: 'mekanik', subGroup: 'HVAC', status: 'Hazırlık', date: '2024-10-15', items: [] },
-  { id: 'IHALE-010', name: 'Dış Cephe Mantolama', group: 'yalitim', subGroup: 'Isı Yalıtımı', status: 'Teklif Alındı', date: '2024-09-28', items: [] },
-  { id: 'IHALE-011', name: 'Bahçe ve Çevre Düzenlemesi', group: 'peyzaj', subGroup: 'Bitkilendirme', status: 'Hazırlık', date: '2024-10-20', items: [] },
-  { id: 'IHALE-012', name: 'Havuz ve Spor Alanları Ekipmanları', group: 'sosyal-tesisler', subGroup: 'Ekipman Tedariği', status: 'Değerlendirmede', date: '2024-10-02', items: [] },
-];
+const initialContractsData: Record<string, {drafts: Contract[], approved: Contract[]}> = {
+    "proje-istanbul": {
+        drafts: [
+            { id: 'IHALE-005', name: 'Tanıtım Filmi Çekimi', group: 'reklam', subGroup: 'Dijital Medya', status: 'Teklif Alındı', date: '2024-09-20', items: [
+                { poz: 'RF-01', description: 'Prodüksiyon', unit: 'gün', quantity: 5, unitPrice: 15000 },
+                { poz: 'RF-02', description: 'Post-Prodüksiyon', unit: 'gün', quantity: 10, unitPrice: 7500 },
+            ]},
+            { id: 'IHALE-006', name: 'Genel Vitrifiye Malzemeleri', group: 'tedarikler', subGroup: 'Sıhhi Tesisat Malzemeleri', status: 'Hazırlık', date: '2024-10-05', items: [
+                { poz: 'VIT-01', description: 'Klozet Takımı', unit: 'adet', quantity: 120, unitPrice: 4500 },
+                { poz: 'VIT-02', description: 'Lavabo ve Batarya', unit: 'adet', quantity: 150, unitPrice: 3500 },
+            ]},
+        ],
+        approved: [
+            { id: 'SOZ-001', name: 'İstanbul Ofis Binası - Betonarme', group: 'kaba-isler', subGroup: 'Betonarme ve Çelik', status: 'Onaylandı', date: '2024-08-10', items: [
+              { poz: '15.150.1005', description: 'Makine ile Kazı', unit: 'm³', quantity: 8000, unitPrice: 175 },
+              { poz: 'C30', description: 'C30 Beton', unit: 'm³', quantity: 2500, unitPrice: 3200 },
+            ]},
+            { id: 'SOZ-002', name: 'Eskişehir Villa Projesi - Lamine Parke', group: 'ince-isler', subGroup: 'Zemin Kaplamaları', status: 'Onaylandı', date: '2024-06-15', items: [
+               { poz: '25.115.1402', description: 'Lamine Parke', unit: 'm²', quantity: 450, unitPrice: 1800 },
+            ]},
+        ]
+    },
+    "proje-ankara": {
+        drafts: [
+            { id: 'IHALE-001', name: 'Ankara Konut Projesi - Hafriyat', group: 'kaba-isler', subGroup: 'Hafriyat İşleri', status: 'Değerlendirmede', date: '2024-09-15', items: [
+              { poz: '15.150.1005', description: 'Makine ile Kazı', unit: 'm³', quantity: 5000, unitPrice: 180 },
+              { poz: '15.160.1002', description: 'Dolgu Serme ve Sıkıştırma', unit: 'm³', quantity: 2500, unitPrice: 240 },
+            ]},
+            { id: 'IHALE-003', name: 'İzmir AVM İnşaatı - Çelik Konstrüksiyon', group: 'kaba-isler', subGroup: 'Betonarme ve Çelik', status: 'Hazırlık', date: '2024-10-01', items: [
+               { poz: '23.014', description: 'Çelik Kolon Montajı', unit: 'ton', quantity: 150, unitPrice: 45000 },
+               { poz: '23.015', description: 'Çelik Kiriş Montajı', unit: 'ton', quantity: 200, unitPrice: 42000 },
+            ]},
+            { id: 'IHALE-007', name: 'Alçıpan ve Boya İşleri', group: 'ince-isler', subGroup: 'Boya ve Kaplama', status: 'Değerlendirmede', date: '2024-09-25', items: [] },
+        ],
+        approved: []
+    }
+}
 
-const initialApprovedContracts: Contract[] = [
-    { id: 'SOZ-001', name: 'İstanbul Ofis Binası - Betonarme', group: 'kaba-isler', subGroup: 'Betonarme ve Çelik', status: 'Onaylandı', date: '2024-08-10', items: [
-      { poz: '15.150.1005', description: 'Makine ile Kazı', unit: 'm³', quantity: 8000, unitPrice: 175 },
-      { poz: '15.160.1002', description: 'Dolgu Serme ve Sıkıştırma', unit: 'm³', quantity: 4000, unitPrice: 230 },
-      { poz: 'C30', description: 'C30 Beton', unit: 'm³', quantity: 2500, unitPrice: 3200 },
-    ]},
-    { id: 'SOZ-002', name: 'Eskişehir Villa Projesi - Lamine Parke', group: 'ince-isler', subGroup: 'Zemin Kaplamaları', status: 'Onaylandı', date: '2024-06-15', items: [
-       { poz: '25.115.1402', description: 'Lamine Parke', unit: 'm²', quantity: 450, unitPrice: 1800 },
-    ]},
-];
 
 const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: (contractId: string) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -115,34 +119,38 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
                         <TableCell colSpan={6} className="p-0">
                             <div className="p-4 bg-background">
                                 <h4 className='text-base font-semibold mb-2 pl-2'>Sözleşme Detayları</h4>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Poz No</TableHead>
-                                            <TableHead>Açıklama</TableHead>
-                                            <TableHead>Birim</TableHead>
-                                            <TableHead className='text-right'>Miktar</TableHead>
-                                            <TableHead className='text-right'>Birim Fiyat</TableHead>
-                                            <TableHead className="text-right">Tutar</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {contract.items.map(item => (
-                                            <TableRow key={item.poz}>
-                                                <TableCell>{item.poz}</TableCell>
-                                                <TableCell>{item.description}</TableCell>
-                                                <TableCell>{item.unit}</TableCell>
-                                                <TableCell className='text-right'>{item.quantity.toLocaleString('tr-TR')}</TableCell>
-                                                <TableCell className='text-right'>{formatCurrency(item.unitPrice)}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(item.quantity * item.unitPrice)}</TableCell>
+                                 {contract.items.length > 0 ? (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Poz No</TableHead>
+                                                <TableHead>Açıklama</TableHead>
+                                                <TableHead>Birim</TableHead>
+                                                <TableHead className='text-right'>Miktar</TableHead>
+                                                <TableHead className='text-right'>Birim Fiyat</TableHead>
+                                                <TableHead className="text-right">Tutar</TableHead>
                                             </TableRow>
-                                        ))}
-                                        <TableRow className="font-bold bg-muted">
-                                            <TableCell colSpan={5} className="text-right">Toplam Tutar</TableCell>
-                                            <TableCell className="text-right">{formatCurrency(budget)}</TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {contract.items.map(item => (
+                                                <TableRow key={item.poz}>
+                                                    <TableCell>{item.poz}</TableCell>
+                                                    <TableCell>{item.description}</TableCell>
+                                                    <TableCell>{item.unit}</TableCell>
+                                                    <TableCell className='text-right'>{item.quantity.toLocaleString('tr-TR')}</TableCell>
+                                                    <TableCell className='text-right'>{formatCurrency(item.unitPrice)}</TableCell>
+                                                    <TableCell className="text-right">{formatCurrency(item.quantity * item.unitPrice)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                            <TableRow className="font-bold bg-muted">
+                                                <TableCell colSpan={5} className="text-right">Toplam Tutar</TableCell>
+                                                <TableCell className="text-right">{formatCurrency(budget)}</TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                 ) : (
+                                    <div className="text-center text-muted-foreground p-4">Bu sözleşme için kalem eklenmemiş.</div>
+                                 )}
                             </div>
                         </TableCell>
                     </TableRow>
@@ -179,13 +187,17 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
                             </div>
                         </AccordionTrigger>
                         <AccordionContent>
-                            <Table>
-                                <TableBody>
-                                    {contractList.map((contract) => (
-                                        <ContractRow key={contract.id} contract={contract} onApprove={onApprove} />
-                                    ))}
-                                </TableBody>
-                            </Table>
+                             {contractList.length > 0 ? (
+                                <Table>
+                                    <TableBody>
+                                        {contractList.map((contract) => (
+                                            <ContractRow key={contract.id} contract={contract} onApprove={onApprove} />
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                             ) : (
+                                <div className="text-center text-muted-foreground p-4">Bu grupta sözleşme bulunmuyor.</div>
+                             )}
                         </AccordionContent>
                     </AccordionItem>
                 ))}
@@ -197,22 +209,40 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
 
 
 export default function ContractsPage() {
-    const [draftContracts, setDraftContracts] = useState<Contract[]>(initialDraftContracts);
-    const [approvedContracts, setApprovedContracts] = useState<Contract[]>(initialApprovedContracts);
+    const { selectedProject } = useProject();
+    const [projectContracts, setProjectContracts] = useState(initialContractsData);
+
+    const { draftContracts, approvedContracts } = useMemo(() => {
+        if (!selectedProject || !projectContracts[selectedProject.id]) {
+            return { draftContracts: [], approvedContracts: [] };
+        }
+        return {
+            draftContracts: projectContracts[selectedProject.id].drafts,
+            approvedContracts: projectContracts[selectedProject.id].approved
+        };
+    }, [selectedProject, projectContracts]);
+
 
     const approveTender = (tenderId: string) => {
+        if (!selectedProject) return;
+
         const tenderToApprove = draftContracts.find(t => t.id === tenderId);
         if (!tenderToApprove) return;
 
-        setDraftContracts(draftContracts.filter(t => t.id !== tenderId));
-        
-        const newContract = {
+        const newApprovedContract = {
             ...tenderToApprove,
             id: `SOZ-${String(approvedContracts.length + 3).padStart(3, '0')}`,
             status: 'Onaylandı',
             date: new Date().toISOString().split('T')[0],
         };
-        setApprovedContracts(prev => [...prev, newContract].sort((a, b) => a.id.localeCompare(b.id)));
+
+        setProjectContracts(prevData => ({
+            ...prevData,
+            [selectedProject.id]: {
+                drafts: prevData[selectedProject.id].drafts.filter(t => t.id !== tenderId),
+                approved: [...prevData[selectedProject.id].approved, newApprovedContract].sort((a, b) => a.id.localeCompare(b.id))
+            }
+        }));
     };
     
     const groupContracts = (contracts: Contract[]): Record<ContractGroupKeys, Record<string, Contract[]>> => {
@@ -230,6 +260,20 @@ export default function ContractsPage() {
     const groupedDrafts = groupContracts(draftContracts);
     const groupedApproved = groupContracts(approvedContracts);
 
+  if (!selectedProject) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline">Sözleşme Yönetimi</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-center justify-center h-48 text-muted-foreground">
+                    Lütfen devam etmek için bir proje seçin.
+                </div>
+            </CardContent>
+        </Card>
+    );
+  }
 
   return (
     <Card>
@@ -237,7 +281,7 @@ export default function ContractsPage() {
             <div className="flex items-center justify-between">
             <div>
                 <CardTitle className="font-headline">Sözleşme Yönetimi</CardTitle>
-                <CardDescription>Taslak ve onaylı tüm proje sözleşmelerini yönetin.</CardDescription>
+                <CardDescription>{selectedProject.name} | Taslak ve onaylı tüm proje sözleşmelerini yönetin.</CardDescription>
             </div>
             </div>
       </CardHeader>
@@ -278,4 +322,3 @@ export default function ContractsPage() {
     </Card>
   );
 }
-

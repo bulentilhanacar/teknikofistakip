@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { MainLayout } from "@/components/main-layout";
 import { Inter as FontSans, Roboto_Mono as FontMono } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { ProjectProvider } from "@/context/project-context";
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -33,7 +34,9 @@ export default function RootLayout({
           fontSans.variable,
           fontMono.variable
         )}>
-        <MainLayout>{children}</MainLayout>
+        <ProjectProvider>
+            <MainLayout>{children}</MainLayout>
+        </ProjectProvider>
         <Toaster />
       </body>
     </html>

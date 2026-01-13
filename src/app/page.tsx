@@ -24,15 +24,62 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { FileClock, Gavel, FileSignature } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useProject } from "@/context/project-context";
+import { useMemo } from "react";
 
-const chartData = [
-  { month: "Ocak", income: 186000, expense: 80000 },
-  { month: "Şubat", income: 305000, expense: 200000 },
-  { month: "Mart", income: 237000, expense: 120000 },
-  { month: "Nisan", income: 173000, expense: 190000 },
-  { month: "Mayıs", income: 209000, expense: 130000 },
-  { month: "Haziran", income: 214000, expense: 140000 },
-];
+// Proje bazlı verileri simüle ediyoruz
+const projectDashboardData: Record<string, any> = {
+  "proje-istanbul": {
+    stats: {
+      totalProgressPayment: 1324000,
+      activeContracts: 12,
+      pendingTenders: 5,
+      upcomingPayments: 3,
+      upcomingPaymentsTotal: 175000,
+    },
+    chartData: [
+      { month: "Ocak", income: 186000, expense: 80000 },
+      { month: "Şubat", income: 305000, expense: 200000 },
+      { month: "Mart", income: 237000, expense: 120000 },
+      { month: "Nisan", income: 173000, expense: 190000 },
+      { month: "Mayıs", income: 209000, expense: 130000 },
+      { month: "Haziran", income: 214000, expense: 140000 },
+    ],
+    reminders: [
+      { id: 1, title: "Proje A İhale Tarihi", date: "2024-08-15", type: "İhale" },
+      { id: 2, title: "Sözleşme B İmza", date: "2024-08-20", type: "Sözleşme" },
+      { id: 3, title: "Proje C Hakediş Ödemesi", date: "2024-09-01", type: "Hakediş" },
+    ],
+  },
+  "proje-ankara": {
+    stats: {
+      totalProgressPayment: 850000,
+      activeContracts: 8,
+      pendingTenders: 2,
+      upcomingPayments: 1,
+      upcomingPaymentsTotal: 95000,
+    },
+    chartData: [
+      { month: "Ocak", income: 120000, expense: 50000 },
+      { month: "Şubat", income: 210000, expense: 150000 },
+      { month: "Mart", income: 180000, expense: 90000 },
+      { month: "Nisan", income: 150000, expense: 110000 },
+      { month: "Mayıs", income: 110000, expense: 80000 },
+      { month: "Haziran", income: 190000, expense: 120000 },
+    ],
+    reminders: [
+      { id: 1, title: "Ankara Hafriyat İhalesi", date: "2024-09-10", type: "İhale" },
+      { id: 2, title: "Ankara Zemin Etüdü Ödemesi", date: "2024-09-15", type: "Hakediş" },
+    ],
+  }
+};
+
+const emptyData = {
+  stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 },
+  chartData: [],
+  reminders: [],
+};
+
 
 const chartConfig = {
   income: {
@@ -45,13 +92,18 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-const reminders = [
-  { id: 1, title: "Proje A İhale Tarihi", date: "2024-08-15", type: "İhale" },
-  { id: 2, title: "Sözleşme B İmza", date: "2024-08-20", type: "Sözleşme" },
-  { id: 3, title: "Proje C Hakediş Ödemesi", date: "2024-09-01", type: "Hakediş" },
-];
 
 export default function Home() {
+  const { selectedProject } = useProject();
+  
+  const data = useMemo(() => {
+    if (!selectedProject || !projectDashboardData[selectedProject.id]) {
+      return emptyData;
+    }
+    return projectDashboardData[selectedProject.id];
+  }, [selectedProject]);
+
+
   return (
     <div className="grid gap-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -63,7 +115,7 @@ export default function Home() {
             <span className="text-muted-foreground">₺</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₺1,324,000</div>
+            <div className="text-2xl font-bold">₺{data.stats.totalProgressPayment.toLocaleString('tr-TR')}</div>
             <p className="text-xs text-muted-foreground">+20.1% geçen aydan</p>
           </CardContent>
         </Card>
@@ -75,7 +127,7 @@ export default function Home() {
             <FileSignature className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{data.stats.activeContracts}</div>
             <p className="text-xs text-muted-foreground">+2 geçen aydan</p>
           </CardContent>
         </Card>
@@ -87,7 +139,7 @@ export default function Home() {
             <Gavel className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
+            <div className="text-2xl font-bold">{data.stats.pendingTenders}</div>
             <p className="text-xs text-muted-foreground">Bu hafta 1 yeni</p>
           </CardContent>
         </Card>
@@ -97,8 +149,8 @@ export default function Home() {
             <FileClock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground">Toplam ₺175,000</p>
+            <div className="text-2xl font-bold">{data.stats.upcomingPayments}</div>
+            <p className="text-xs text-muted-foreground">Toplam ₺{data.stats.upcomingPaymentsTotal.toLocaleString('tr-TR')}</p>
           </CardContent>
         </Card>
       </div>
@@ -111,7 +163,7 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
-              <BarChart accessibilityLayer data={chartData}>
+              <BarChart accessibilityLayer data={data.chartData}>
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="month"
@@ -137,28 +189,34 @@ export default function Home() {
             <CardTitle className="font-headline">Yaklaşan Hatırlatıcılar</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Başlık</TableHead>
-                  <TableHead>Tür</TableHead>
-                  <TableHead className="text-right">Tarih</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {reminders.map((reminder) => (
-                  <TableRow key={reminder.id}>
-                    <TableCell className="font-medium">{reminder.title}</TableCell>
-                    <TableCell>
-                      <Badge variant={reminder.type === 'İhale' ? 'default' : reminder.type === 'Sözleşme' ? 'secondary' : 'outline'}>
-                        {reminder.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">{reminder.date}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+             {data.reminders.length > 0 ? (
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Başlık</TableHead>
+                    <TableHead>Tür</TableHead>
+                    <TableHead className="text-right">Tarih</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {data.reminders.map((reminder) => (
+                    <TableRow key={reminder.id}>
+                        <TableCell className="font-medium">{reminder.title}</TableCell>
+                        <TableCell>
+                        <Badge variant={reminder.type === 'İhale' ? 'default' : reminder.type === 'Sözleşme' ? 'secondary' : 'outline'}>
+                            {reminder.type}
+                        </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{reminder.date}</TableCell>
+                    </TableRow>
+                    ))}
+                </TableBody>
+                </Table>
+             ) : (
+                <div className="flex items-center justify-center h-24 text-muted-foreground">
+                    Yaklaşan hatırlatıcı bulunmuyor.
+                </div>
+             )}
           </CardContent>
         </Card>
       </div>
