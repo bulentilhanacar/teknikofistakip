@@ -11,6 +11,7 @@ import {
   PlusCircle,
   FolderKanban,
   ChevronsUpDown,
+  Gavel,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -41,6 +42,7 @@ const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
   { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
   { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
+  { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
 ];
 
 export function MainLayout({ children }: { children: React.ReactNode }) {

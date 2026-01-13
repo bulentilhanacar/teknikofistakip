@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info } from 'lucide-react';
+import { Info, Paperclip } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 // Projelerin sözleşme verilerini simüle ediyoruz
 const projectContractData: Record<string, any> = {
@@ -49,11 +50,22 @@ const initialProgressHistory: Record<string, Record<string, ProgressPayment[]>> 
                     { id: '15.140.1001', cumulativeQuantity: 200 },
                     { id: '23.215.1105', cumulativeQuantity: 0 },
                     { id: '18.195.1101', cumulativeQuantity: 0 },
-                ]
+                ],
+                appliedDeductionIds: []
             }
         ]
     }
-}
+};
+
+// Kesinti verilerini simüle ediyoruz
+const initialDeductionsData: Record<string, Deduction[]> = {
+    "proje-istanbul": [
+        { id: 'DED-001', contractId: 'SOZ-001', type: 'muhasebe', date: '2024-07-15', amount: 5000, description: 'Teminat Mektubu Komisyonu', appliedInPaymentNumber: null },
+        { id: 'DED-002', contractId: 'SOZ-001', type: 'tutanakli', date: '2024-07-18', amount: 12500, description: 'Hatalı imalat tespiti', appliedInPaymentNumber: null },
+        { id: 'DED-003', contractId: 'SOZ-002', type: 'muhasebe', date: '2024-07-25', amount: 2500, description: 'Damga Vergisi', appliedInPaymentNumber: null },
+    ],
+    "proje-ankara": []
+};
 
 
 interface ProgressItem {
@@ -75,6 +87,17 @@ interface ProgressPayment {
         id: string;
         cumulativeQuantity: number;
     }[];
+    appliedDeductionIds: string[];
+}
+
+interface Deduction {
+    id: string;
+    contractId: string;
+    type: 'muhasebe' | 'tutanakli';
+    date: string; 
+    amount: number;
+    description: string;
+    appliedInPaymentNumber: number | null; 
 }
 
 
@@ -83,8 +106,9 @@ export default function ProgressPaymentsPage() {
   const [availableContracts, setAvailableContracts] = useState<Record<string, any>>({});
   const [selectedContract, setSelectedContract] = useState<string | null>(null);
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
-  const [deductions, setDeductions] = useState({ accountingDeductions: 0, recordedDeductions: 0 });
   const [progressHistory, setProgressHistory] = useState(initialProgressHistory);
+  const [deductionsData, setDeductionsData] = useState(initialDeductionsData);
+  const [selectedDeductionIds, setSelectedDeductionIds] = useState<string[]>([]);
   
   const contractProgressHistory = useMemo(() => {
     if (selectedProject && selectedContract && progressHistory[selectedProject.id]) {
@@ -96,6 +120,12 @@ export default function ProgressPaymentsPage() {
   const lastProgressPayment = useMemo(() => {
     return contractProgressHistory.length > 0 ? contractProgressHistory[contractProgressHistory.length - 1] : null;
   }, [contractProgressHistory]);
+  
+  const availableDeductions = useMemo(() => {
+      if (!selectedProject || !selectedContract) return [];
+      const allDeductions = deductionsData[selectedProject.id] || [];
+      return allDeductions.filter(d => d.contractId === selectedContract && d.appliedInPaymentNumber === null);
+  }, [selectedProject, selectedContract, deductionsData]);
 
 
   useEffect(() => {
@@ -106,11 +136,13 @@ export default function ProgressPaymentsPage() {
     }
     setSelectedContract(null);
     setProgressItems([]);
+    setSelectedDeductionIds([]);
   }, [selectedProject]);
 
 
   const handleContractChange = (contractId: string) => {
     setSelectedContract(contractId);
+    setSelectedDeductionIds([]);
     const contract = availableContracts[contractId];
     
     if (contract) {
@@ -146,6 +178,12 @@ export default function ProgressPaymentsPage() {
       })
     );
   };
+
+  const handleDeductionSelectionChange = (deductionId: string, isSelected: boolean) => {
+      setSelectedDeductionIds(prev => 
+        isSelected ? [...prev, deductionId] : prev.filter(id => id !== deductionId)
+      );
+  }
   
   const summary = useMemo(() => {
     const totalPreviousAmount = lastProgressPayment?.totalAmount || 0;
@@ -154,18 +192,24 @@ export default function ProgressPaymentsPage() {
     const currentSubTotal = progressItems.reduce((acc, item) => acc + ((item.currentCumulativeQuantity - item.previousCumulativeQuantity) * item.unitPrice), 0);
 
     const vat = currentSubTotal * 0.20;
-    const currentPaymentTotal = currentSubTotal + vat;
+    const currentPaymentGross = currentSubTotal + vat;
+    
+    const totalSelectedDeductions = availableDeductions
+        .filter(d => selectedDeductionIds.includes(d.id))
+        .reduce((sum, d) => sum + d.amount, 0);
+
+    const finalPaymentAmount = currentPaymentGross - totalSelectedDeductions;
 
     return {
       cumulativeSubTotal,
       totalPreviousAmount,
       currentSubTotal,
       vat,
-      currentPaymentTotal,
-      accountingDeductions: deductions.accountingDeductions,
-      recordedDeductions: deductions.recordedDeductions,
+      currentPaymentGross,
+      totalSelectedDeductions,
+      finalPaymentAmount
     };
-  }, [progressItems, deductions, lastProgressPayment]);
+  }, [progressItems, lastProgressPayment, selectedDeductionIds, availableDeductions]);
 
   const saveProgressPayment = () => {
     if (!selectedProject || !selectedContract) return;
@@ -179,9 +223,11 @@ export default function ProgressPaymentsPage() {
         items: progressItems.map(item => ({
             id: item.id,
             cumulativeQuantity: item.currentCumulativeQuantity,
-        }))
+        })),
+        appliedDeductionIds: selectedDeductionIds,
     };
     
+    // Hakediş geçmişini güncelle
     setProgressHistory(prev => {
         const newProjectHistory = { ...(prev[selectedProject.id] || {}) };
         const newContractHistory = [...(newProjectHistory[selectedContract] || []), newPayment];
@@ -192,8 +238,22 @@ export default function ProgressPaymentsPage() {
             [selectedProject.id]: newProjectHistory
         };
     });
+
+    // Kesinti verilerini güncelle (kullanıldı olarak işaretle)
+    setDeductionsData(prev => {
+        const newProjectDeductions = (prev[selectedProject.id] || []).map(d => {
+            if (selectedDeductionIds.includes(d.id)) {
+                return { ...d, appliedInPaymentNumber: newPaymentNumber };
+            }
+            return d;
+        });
+        return {
+            ...prev,
+            [selectedProject.id]: newProjectDeductions
+        };
+    });
     
-    // Reset the form for the next payment
+    // Formu sıfırla
     handleContractChange(selectedContract);
   };
 
@@ -308,7 +368,7 @@ export default function ProgressPaymentsPage() {
                                     value={item.currentCumulativePercentage}
                                     onChange={(e) => handlePercentageChange(item.id, e.target.value)}
                                     min="0"
-                                    max="100"
+                                    step="0.01"
                                 />
                                 <span className="ml-1">%</span>
                             </div>
@@ -327,17 +387,51 @@ export default function ProgressPaymentsPage() {
           <div className="grid md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Kesintiler</CardTitle>
+                  <CardTitle className="font-headline flex items-center gap-2">
+                    <Paperclip className="h-5 w-5 text-muted-foreground" />
+                    Uygulanacak Kesintiler
+                  </CardTitle>
+                  <CardDescription>Bu hakedişten düşülecek kesintileri seçin.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                 <div className="grid grid-cols-2 items-center gap-4">
-                    <Label htmlFor="accounting-deductions">Muhasebe Kesintileri (TL)</Label>
-                    <Input id="accounting-deductions" type="number" value={deductions.accountingDeductions} onChange={e => setDeductions(d => ({...d, accountingDeductions: parseFloat(e.target.value) || 0}))} className="text-right" />
-                 </div>
-                 <div className="grid grid-cols-2 items-center gap-4">
-                    <Label htmlFor="recorded-deductions">Tutanaklı Kesintiler (TL)</Label>
-                    <Input id="recorded-deductions" type="number" value={deductions.recordedDeductions} onChange={e => setDeductions(d => ({...d, recordedDeductions: parseFloat(e.target.value) || 0}))} className="text-right" />
-                 </div>
+              <CardContent>
+                  {availableDeductions.length > 0 ? (
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead className="w-[50px]"></TableHead>
+                                  <TableHead>Tarih</TableHead>
+                                  <TableHead>Açıklama</TableHead>
+                                  <TableHead>Tür</TableHead>
+                                  <TableHead className="text-right">Tutar</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {availableDeductions.map(deduction => (
+                                  <TableRow key={deduction.id}>
+                                      <TableCell>
+                                          <Checkbox
+                                              id={`ded-${deduction.id}`}
+                                              checked={selectedDeductionIds.includes(deduction.id)}
+                                              onCheckedChange={(checked) => handleDeductionSelectionChange(deduction.id, !!checked)}
+                                          />
+                                      </TableCell>
+                                      <TableCell>{deduction.date}</TableCell>
+                                      <TableCell className="font-medium">{deduction.description}</TableCell>
+                                      <TableCell>
+                                          <Badge variant={deduction.type === 'muhasebe' ? 'secondary' : 'outline'}>
+                                              {deduction.type === 'muhasebe' ? 'Muhasebe' : 'Tutanaklı'}
+                                          </Badge>
+                                      </TableCell>
+                                      <TableCell className="text-right">{formatCurrency(deduction.amount)}</TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  ) : (
+                      <div className="flex items-center justify-center h-24 text-muted-foreground">
+                          Bu sözleşme için uygulanabilir kesinti bulunmuyor.
+                      </div>
+                  )}
               </CardContent>
             </Card>
             <Card>
@@ -349,17 +443,9 @@ export default function ProgressPaymentsPage() {
                 <div className="flex justify-between"><span>Önceki Hakedişler Toplamı:</span><span>- {formatCurrency(summary.totalPreviousAmount)}</span></div>
                 <div className="flex justify-between border-t mt-2 pt-2"><span>Bu Ayki İmalat Toplamı (KDV Hariç):</span><span className='font-semibold'>{formatCurrency(summary.currentSubTotal)}</span></div>
                 <div className="flex justify-between"><span>KDV (%20):</span><span>+ {formatCurrency(summary.vat)}</span></div>
-                <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span className="font-headline">Bu Ay Ödenecek Tutar (KDV Dahil):</span><span className='text-xl'>{formatCurrency(summary.currentPaymentTotal)}</span></div>
-                <div className="border-t mt-4 pt-4 space-y-2">
-                    <div className="flex justify-between text-muted-foreground"><span>Hesaplanan Muhasebe Kesintileri:</span><span>{formatCurrency(summary.accountingDeductions)}</span></div>
-                    <div className="flex justify-between text-muted-foreground"><span>Hesaplanan Tutanaklı Kesintiler:</span><span>{formatCurrency(summary.recordedDeductions)}</span></div>
-                    <Alert variant="default" className="mt-2">
-                        <Info className="h-4 w-4" />
-                        <AlertDescription>
-                            Hesaplanan kesintiler bilgi amaçlıdır ve ödenecek tutardan düşülmemiştir. Bu tutarlar ayrı bir hesapta takip edilmelidir.
-                        </AlertDescription>
-                    </Alert>
-                </div>
+                <div className="flex justify-between font-bold border-t pt-2 mt-2"><span>Ara Toplam (KDV Dahil):</span><span>{formatCurrency(summary.currentPaymentGross)}</span></div>
+                <div className="flex justify-between text-destructive"><span>Uygulanan Kesintiler Toplamı:</span><span>- {formatCurrency(summary.totalSelectedDeductions)}</span></div>
+                 <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span className="font-headline">Yükleniciye Ödenecek Net Tutar:</span><span className='text-xl'>{formatCurrency(summary.finalPaymentAmount)}</span></div>
               </CardContent>
             </Card>
           </div>
