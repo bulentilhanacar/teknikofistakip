@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const breadcrumbNameMap: { [key: string]: string } = {
-  '/tenders': 'İhale Takibi',
   '/contracts': 'Sözleşme Yönetimi',
   '/progress-payments': 'Hakediş Hesaplama',
   '/risk-analysis': 'Risk Analizi',

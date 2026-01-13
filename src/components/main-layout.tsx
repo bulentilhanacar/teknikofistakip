@@ -7,7 +7,6 @@ import {
   Building2,
   Calculator,
   FileSignature,
-  FileText,
   LayoutDashboard,
   ShieldAlert,
 } from "lucide-react";
@@ -37,7 +36,6 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 const menuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
-  { href: "/tenders", label: "İhale Takibi", icon: FileText },
   { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
   { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
   { href: "/risk-analysis", label: "Risk Analizi", icon: ShieldAlert },
