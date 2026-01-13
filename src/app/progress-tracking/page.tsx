@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
 import type { ProgressPaymentStatus, Contract } from '@/context/types';
-import { format, addMonths, lastDayOfMonth } from 'date-fns';
+import { format, addMonths } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -44,19 +44,16 @@ export default function ProgressTrackingPage() {
   const getContractProgressInfo = (contract: Contract) => {
     const history = selectedProject ? projectData.progressPayments[selectedProject.id]?.[contract.id] || [] : [];
     
-    // Find the last payment made on or before the end of the selected month
-    const selectedMonthEndDate = lastDayOfMonth(new Date(`${selectedMonth}-01T12:00:00`));
-    const lastPaymentForMonth = history
-        .filter(p => new Date(p.date) <= selectedMonthEndDate)
-        .sort((a, b) => b.progressPaymentNumber - a.progressPaymentNumber)[0] || null;
+    // Find the payment made specifically in the selected month
+    const paymentInSelectedMonth = history
+        .find(p => format(new Date(p.date), 'yyyy-MM') === selectedMonth) || null;
 
     const projectStatusesForMonth = (selectedProject && projectData.progressStatuses[selectedProject.id]?.[selectedMonth]) || {};
     const currentStatus = projectStatusesForMonth[contract.id] || 'yok';
 
     return {
-      lastPaymentNumber: lastPaymentForMonth?.progressPaymentNumber || 0,
-      lastPaymentAmount: lastPaymentForMonth?.totalAmount || 0,
-      nextPaymentNumber: (lastPaymentForMonth?.progressPaymentNumber || 0) + 1,
+      paymentNumberInMonth: paymentInSelectedMonth?.progressPaymentNumber || 0,
+      paymentAmountInMonth: paymentInSelectedMonth?.totalAmount || 0, // Note: this is cumulative amount from payment object
       status: currentStatus
     };
   };
@@ -133,7 +130,7 @@ export default function ProgressTrackingPage() {
             <TableRow>
               <TableHead className="w-[150px]">Sözleşme No</TableHead>
               <TableHead>Sözleşme Adı</TableHead>
-              <TableHead className="w-[220px]">{selectedMonthLabel} İtibarıyla Durum</TableHead>
+              <TableHead className="w-[220px]">{selectedMonthLabel} Ayı Hakedişi</TableHead>
               <TableHead className="w-[250px] text-center">{selectedMonthLabel} Süreç Durumu</TableHead>
             </TableRow>
           </TableHeader>
@@ -145,13 +142,13 @@ export default function ProgressTrackingPage() {
                   <TableCell className="font-medium">{contract.id}</TableCell>
                   <TableCell>{contract.name}</TableCell>
                   <TableCell>
-                    {progressInfo.lastPaymentNumber > 0 ? (
+                    {progressInfo.paymentNumberInMonth > 0 ? (
                       <div className='flex flex-col'>
-                         <Badge variant="secondary" className='mb-1 w-fit'>Hakediş #{progressInfo.lastPaymentNumber} yapıldı</Badge>
-                         <span className='text-xs text-muted-foreground'>{formatCurrency(progressInfo.lastPaymentAmount)}</span>
+                         <Badge variant="secondary" className='mb-1 w-fit'>Hakediş #{progressInfo.paymentNumberInMonth} yapıldı</Badge>
+                         <span className='text-xs text-muted-foreground'>{formatCurrency(progressInfo.paymentAmountInMonth)}</span>
                       </div>
                     ) : (
-                      <span className='text-muted-foreground'>Hakediş yapılmadı</span>
+                      <span className='text-sm text-muted-foreground'>Bu ay hakediş yapılmadı</span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
