@@ -37,6 +37,7 @@ import { SiteHeader } from "./site-header";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Button } from "./ui/button";
 import { useProject } from "@/context/project-context";
+import { Skeleton } from "./ui/skeleton";
 
 const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
@@ -45,16 +46,60 @@ const projectMenuItems = [
   { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
 ];
 
-export function MainLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
+function ProjectSelector() {
   const { projects, selectedProject, selectProject, addProject } = useProject();
 
   const handleAddProject = () => {
     // TODO: Add a dialog to get project name from user
     const newProjectName = `Yeni Proje ${projects.length + 1}`;
     addProject(newProjectName);
-  }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          className="w-full justify-between border border-sidebar-border text-sidebar-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <span className="truncate group-data-[collapsible=icon]:hidden">
+            {selectedProject?.name ?? "Proje Seçin"}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 group-data-[collapsible=icon]:hidden" />
+          <FolderKanban className="hidden h-5 w-5 group-data-[collapsible=icon]:block" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-[var(--sidebar-width)] -translate-x-2">
+        <DropdownMenuLabel>Projeler</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {projects.map((project) => (
+          <DropdownMenuItem
+            key={project.id}
+            onClick={() => selectProject(project.id)}
+          >
+            {project.name}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleAddProject}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          <span>Yeni Proje Ekle</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function MainLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
+  const { selectedProject } = useProject();
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+
 
   return (
     <SidebarProvider>
@@ -69,63 +114,47 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-            <div className="p-2">
-                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button 
-                            variant="ghost" 
-                            className="w-full justify-between group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border border-sidebar-border"
-                        >
-                            <span className="truncate group-data-[collapsible=icon]:hidden">{selectedProject?.name ?? "Proje Seçin"}</span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 group-data-[collapsible=icon]:hidden"/>
-                            <FolderKanban className="hidden h-5 w-5 group-data-[collapsible=icon]:block" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-[var(--sidebar-width)] -translate-x-2">
-                        <DropdownMenuLabel>Projeler</DropdownMenuLabel>
-                        <DropdownMenuSeparator/>
-                        {projects.map(project => (
-                            <DropdownMenuItem key={project.id} onClick={() => selectProject(project.id)}>
-                                {project.name}
-                            </DropdownMenuItem>
-                        ))}
-                         <DropdownMenuSeparator/>
-                        <DropdownMenuItem onClick={handleAddProject}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            <span>Yeni Proje Ekle</span>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                 </DropdownMenu>
-            </div>
-            {selectedProject && (
-              <SidebarMenu>
-                {projectMenuItems.map((item) => {
-                  const itemPath = item.href === "/" ? "/" : item.href;
-                  const isActive = pathname === itemPath;
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton
-                            asChild
-                            isActive={isActive}
-                            tooltip={item.label}
-                        >
-                            <Link href={itemPath}>
-                                <item.icon />
-                                <span>{item.label}</span>
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                })}
-              </SidebarMenu>
+          <div className="p-2">
+            {isClient ? (
+              <ProjectSelector />
+            ) : (
+              <Skeleton className="h-10 w-full" />
             )}
+          </div>
+          {selectedProject && (
+            <SidebarMenu>
+              {projectMenuItems.map((item) => {
+                const itemPath = item.href === "/" ? "/" : item.href;
+                const isActive = pathname === itemPath;
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.label}
+                    >
+                      <Link href={itemPath}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          )}
         </SidebarContent>
         <SidebarFooter>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2">
                 <Avatar className="h-8 w-8">
-                  {userAvatar && <AvatarImage src={userAvatar.imageUrl} data-ai-hint={userAvatar.imageHint} />}
+                  {userAvatar && (
+                    <AvatarImage
+                      src={userAvatar.imageUrl}
+                      data-ai-hint={userAvatar.imageHint}
+                    />
+                  )}
                   <AvatarFallback>TO</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col truncate">
