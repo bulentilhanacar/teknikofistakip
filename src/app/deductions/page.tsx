@@ -59,6 +59,8 @@ export default function DeductionsPage() {
     const [availableContracts, setAvailableContracts] = useState<Record<string, any>>({});
     const [newDeduction, setNewDeduction] = useState(newDeductionInitialState);
     const [date, setDate] = useState<Date | undefined>(new Date());
+    const [filterContractId, setFilterContractId] = useState<string>('all');
+
 
     useEffect(() => {
         if (selectedProject) {
@@ -66,14 +68,21 @@ export default function DeductionsPage() {
         } else {
             setAvailableContracts({});
         }
-        // Proje değiştiğinde formu sıfırla
+        // Proje değiştiğinde formu ve filtreyi sıfırla
         setNewDeduction({ ...newDeductionInitialState, contractId: '' });
+        setFilterContractId('all');
     }, [selectedProject]);
     
     const projectDeductions = useMemo(() => {
         if (!selectedProject) return [];
-        return (deductions[selectedProject.id] || []).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [selectedProject, deductions]);
+        const allDeductions = (deductions[selectedProject.id] || []).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        if (filterContractId === 'all') {
+            return allDeductions;
+        }
+        return allDeductions.filter(d => d.contractId === filterContractId);
+
+    }, [selectedProject, deductions, filterContractId]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | string, field: keyof typeof newDeduction) => {
         const value = typeof e === 'string' ? e : e.target.value;
@@ -210,8 +219,23 @@ export default function DeductionsPage() {
             </Card>
 
             <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline">Mevcut Kesintiler</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex-1">
+                        <CardTitle className="font-headline">Mevcut Kesintiler</CardTitle>
+                    </div>
+                     <div className="w-full max-w-sm">
+                        <Select value={filterContractId} onValueChange={setFilterContractId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Sözleşmeye göre filtrele" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tüm Sözleşmeler</SelectItem>
+                                {Object.keys(availableContracts).map(contractId => (
+                                    <SelectItem key={contractId} value={contractId}>{`${contractId}: ${availableContracts[contractId].name}`}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -248,7 +272,9 @@ export default function DeductionsPage() {
                             )) : (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center">
-                                        Bu proje için henüz kesinti eklenmemiş.
+                                       {filterContractId === 'all'
+                                            ? "Bu proje için henüz kesinti eklenmemiş."
+                                            : "Seçili sözleşme için kesinti bulunmuyor."}
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -259,5 +285,3 @@ export default function DeductionsPage() {
         </div>
     );
 }
-
-    
