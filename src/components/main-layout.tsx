@@ -12,6 +12,9 @@ import {
   FolderKanban,
   ChevronsUpDown,
   Gavel,
+  MoreHorizontal,
+  Edit,
+  Trash
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -32,13 +35,19 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { SiteHeader } from "./site-header";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Button } from "./ui/button";
 import { useProject } from "@/context/project-context";
 import { Skeleton } from "./ui/skeleton";
 import { cn } from "@/lib/utils";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 
 const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
@@ -47,14 +56,84 @@ const projectMenuItems = [
   { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
 ];
 
-function ProjectSelector() {
-  const { projects, selectedProject, selectProject, addProject } = useProject();
+function AddProjectDialog() {
+    const { addProject } = useProject();
+    const [isOpen, setIsOpen] = React.useState(false);
+    const [name, setName] = React.useState("");
 
-  const handleAddProject = () => {
-    // TODO: Add a dialog to get project name from user
-    const newProjectName = `Yeni Proje ${projects.length + 1}`;
-    addProject(newProjectName);
-  };
+    const handleSave = () => {
+        if (name.trim()) {
+            addProject(name.trim());
+            setName("");
+            setIsOpen(false);
+        }
+    };
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                 <DialogTrigger asChild>
+                    <button className="flex w-full items-center">
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        <span>Yeni Proje Ekle</span>
+                    </button>
+                </DialogTrigger>
+            </DropdownMenuItem>
+             <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Yeni Proje Ekle</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">Proje Adı</Label>
+                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="secondary">İptal</Button></DialogClose>
+                    <Button type="submit" onClick={handleSave}>Kaydet</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+function RenameProjectDialog({ project, children }: { project: {id: string, name: string}, children: React.ReactNode }) {
+    const { updateProjectName } = useProject();
+    const [isOpen, setIsOpen] = React.useState(false);
+    const [name, setName] = React.useState(project.name);
+
+    const handleSave = () => {
+        if (name.trim()) {
+            updateProjectName(project.id, name.trim());
+            setIsOpen(false);
+        }
+    };
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>{children}</DialogTrigger>
+             <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Proje Adını Değiştir</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">Yeni Proje Adı</Label>
+                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="secondary">İptal</Button></DialogClose>
+                    <Button type="submit" onClick={handleSave}>Kaydet</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+function ProjectSelector() {
+  const { projects, selectedProject, selectProject, deleteProject } = useProject();
 
   return (
     <DropdownMenu>
@@ -77,15 +156,32 @@ function ProjectSelector() {
           <DropdownMenuItem
             key={project.id}
             onClick={() => selectProject(project.id)}
+            className="group/item"
           >
-            {project.name}
+            <span className="flex-1">{project.name}</span>
+            <DropdownMenuSub>
+                 <DropdownMenuSubTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover/item:opacity-100">
+                        <MoreHorizontal className="h-4 w-4"/>
+                    </Button>
+                 </DropdownMenuSubTrigger>
+                 <DropdownMenuSubContent>
+                    <RenameProjectDialog project={project}>
+                         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <Edit className="mr-2 h-4 w-4"/>
+                            <span>Yeniden Adlandır</span>
+                        </DropdownMenuItem>
+                    </RenameProjectDialog>
+                    <DropdownMenuItem className="text-destructive" onClick={() => deleteProject(project.id)}>
+                        <Trash className="mr-2 h-4 w-4"/>
+                        <span>Sil</span>
+                    </DropdownMenuItem>
+                 </DropdownMenuSubContent>
+            </DropdownMenuSub>
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleAddProject}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          <span>Yeni Proje Ekle</span>
-        </DropdownMenuItem>
+        <AddProjectDialog />
       </DropdownMenuContent>
     </DropdownMenu>
   );
