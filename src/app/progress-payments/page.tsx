@@ -59,12 +59,17 @@ export default function ProgressPaymentsPage() {
 
   const previousPayment = useMemo(() => {
     if (!selectedContractId) return null;
-    const paymentNumber = editingPaymentNumber === null 
-      ? (contractProgressHistory.at(-1)?.progressPaymentNumber || 0)
-      : (editingPaymentNumber || 1) - 1;
+
+    if (editingPaymentNumber === null) {
+        // Creating a new payment: previous is the last one in history
+        return contractProgressHistory.length > 0 ? contractProgressHistory.at(-1) : null;
+    }
     
-    if (paymentNumber === 0) return null;
-    return contractProgressHistory.find(p => p.progressPaymentNumber === paymentNumber) || null;
+    // Editing an existing payment: previous is the one before the one being edited
+    const previousPaymentNumber = editingPaymentNumber - 1;
+    if (previousPaymentNumber === 0) return null;
+    return contractProgressHistory.find(p => p.progressPaymentNumber === previousPaymentNumber) || null;
+
   }, [editingPaymentNumber, contractProgressHistory, selectedContractId]);
 
 
@@ -271,9 +276,13 @@ export default function ProgressPaymentsPage() {
 
     // Formu sıfırla ve yeni hakediş moduna geç
     if (selectedContract) {
-       const latestPayment = contractProgressHistory.at(-1) || null;
+       // After saving, the history is updated. We need the new latest payment.
+       // The context will re-render, and contractProgressHistory will be updated.
+       // We set editing number to null to switch to "new" mode.
+       // The useEffect that reloads state will use the new `contractProgressHistory`.
        setEditingPaymentNumber(null);
-       loadStateForPayment(selectedContract, null, latestPayment);
+       const updatedHistory = [...contractProgressHistory, { ...paymentData, progressPaymentNumber: (contractProgressHistory.at(-1)?.progressPaymentNumber || 0) + 1 }];
+       loadStateForPayment(selectedContract, null, updatedHistory.at(-1) || null);
     }
   };
 
@@ -624,3 +633,5 @@ export default function ProgressPaymentsPage() {
     </div>
   );
 }
+
+    

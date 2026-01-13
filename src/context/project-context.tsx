@@ -101,6 +101,7 @@ const initialProgressHistory: Record<string, Record<string, ProgressPayment[]>> 
                     { id: '15.150.1005', cumulativeQuantity: 500 },
                     { id: 'C30', cumulativeQuantity: 200 },
                 ],
+                extraWorkItems: [],
                 appliedDeductionIds: []
             }
         ]
@@ -561,3 +562,5 @@ export const useProject = (): ProjectContextType => {
     }
     return context;
 };
+
+    
