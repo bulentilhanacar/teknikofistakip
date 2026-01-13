@@ -153,30 +153,26 @@ function ProjectSelector() {
         <DropdownMenuLabel>Projeler</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {projects.map((project) => (
-          <DropdownMenuItem
-            key={project.id}
-            onClick={() => selectProject(project.id)}
-            className="group/item"
-          >
-            <span className="flex-1">{project.name}</span>
+           <DropdownMenuItem key={project.id} onSelect={(e) => e.preventDefault()} className="group/item flex justify-between items-center">
+            <button className="flex-1 text-left" onClick={() => selectProject(project.id)}>
+              {project.name}
+            </button>
             <DropdownMenuSub>
-                 <DropdownMenuSubTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover/item:opacity-100">
-                        <MoreHorizontal className="h-4 w-4"/>
-                    </Button>
-                 </DropdownMenuSubTrigger>
-                 <DropdownMenuSubContent>
-                    <RenameProjectDialog project={project}>
-                         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                            <Edit className="mr-2 h-4 w-4"/>
-                            <span>Yeniden Adlandır</span>
-                        </DropdownMenuItem>
-                    </RenameProjectDialog>
-                    <DropdownMenuItem className="text-destructive" onClick={() => deleteProject(project.id)}>
-                        <Trash className="mr-2 h-4 w-4"/>
-                        <span>Sil</span>
-                    </DropdownMenuItem>
-                 </DropdownMenuSubContent>
+              <DropdownMenuSubTrigger className="h-6 w-6 p-0 opacity-0 group-hover/item:opacity-100 border-none hover:bg-accent">
+                <MoreHorizontal className="h-4 w-4"/>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <RenameProjectDialog project={project}>
+                  <DropdownMenuItem>
+                    <Edit className="mr-2 h-4 w-4"/>
+                    <span>Yeniden Adlandır</span>
+                  </DropdownMenuItem>
+                </RenameProjectDialog>
+                <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }}>
+                  <Trash className="mr-2 h-4 w-4"/>
+                  <span>Sil</span>
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
             </DropdownMenuSub>
           </DropdownMenuItem>
         ))}
@@ -186,6 +182,7 @@ function ProjectSelector() {
     </DropdownMenu>
   );
 }
+
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -212,11 +209,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           <div className="p-2">
-            {isClient ? (
-              <ProjectSelector />
-            ) : (
-               <Skeleton className="h-10 w-full" />
-            )}
+            {isClient ? <ProjectSelector /> : <Skeleton className="h-10 w-full" />}
           </div>
           {selectedProject && (
             <SidebarMenu>
