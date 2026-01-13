@@ -13,7 +13,7 @@ export default {
       fontFamily: {
         sans: ["var(--font-sans)", ...fontFamily.sans],
         mono: ["var(--font-mono)", ...fontFamily.mono],
-        headline: ['Space Grotesk', 'sans-serif'], // Keeping this for specific headline styling if needed
+        headline: ["var(--font-sans)", ...fontFamily.sans],
       },
       colors: {
         background: 'hsl(var(--background))',
