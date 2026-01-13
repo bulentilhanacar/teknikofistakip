@@ -10,6 +10,7 @@ import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 // Projelerin sözleşme verilerini simüle ediyoruz
 const projectContractData: Record<string, any> = {
@@ -82,7 +83,7 @@ export default function ProgressPaymentsPage() {
   const [availableContracts, setAvailableContracts] = useState<Record<string, any>>({});
   const [selectedContract, setSelectedContract] = useState<string | null>(null);
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
-  const [deductions, setDeductions] = useState({ stampDuty: 0.00948, ssi: 0.03 });
+  const [deductions, setDeductions] = useState({ accountingDeductions: 0, recordedDeductions: 0 });
   const [progressHistory, setProgressHistory] = useState(initialProgressHistory);
   
   const contractProgressHistory = useMemo(() => {
@@ -153,21 +154,16 @@ export default function ProgressPaymentsPage() {
     const currentSubTotal = progressItems.reduce((acc, item) => acc + ((item.currentCumulativeQuantity - item.previousCumulativeQuantity) * item.unitPrice), 0);
 
     const vat = currentSubTotal * 0.20;
-    const grossTotal = currentSubTotal + vat;
-    
-    const stampDutyAmount = grossTotal * deductions.stampDuty;
-    const ssiAmount = currentSubTotal * deductions.ssi;
-    
-    const currentPaymentTotal = grossTotal; // Kesintiler düşülmüyor.
+    const currentPaymentTotal = currentSubTotal + vat;
 
     return {
       cumulativeSubTotal,
       totalPreviousAmount,
       currentSubTotal,
       vat,
-      stampDutyAmount,
-      ssiAmount,
-      currentPaymentTotal
+      currentPaymentTotal,
+      accountingDeductions: deductions.accountingDeductions,
+      recordedDeductions: deductions.recordedDeductions,
     };
   }, [progressItems, deductions, lastProgressPayment]);
 
@@ -331,16 +327,16 @@ export default function ProgressPaymentsPage() {
           <div className="grid md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Kesinti Oranları</CardTitle>
+                <CardTitle className="font-headline">Kesintiler</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                 <div className="flex items-center gap-4">
-                    <label htmlFor="stamp-duty" className="text-sm font-medium">Damga Vergisi (%)</label>
-                    <Input id="stamp-duty" type="number" value={deductions.stampDuty * 100} onChange={e => setDeductions(d => ({...d, stampDuty: parseFloat(e.target.value)/100 || 0}))} className="w-24" />
+                 <div className="grid grid-cols-2 items-center gap-4">
+                    <Label htmlFor="accounting-deductions">Muhasebe Kesintileri (TL)</Label>
+                    <Input id="accounting-deductions" type="number" value={deductions.accountingDeductions} onChange={e => setDeductions(d => ({...d, accountingDeductions: parseFloat(e.target.value) || 0}))} className="text-right" />
                  </div>
-                 <div className="flex items-center gap-4">
-                    <label htmlFor="ssi" className="text-sm font-medium">SGK Kesintisi (%)</label>
-                    <Input id="ssi" type="number" value={deductions.ssi * 100} onChange={e => setDeductions(d => ({...d, ssi: parseFloat(e.target.value)/100 || 0}))} className="w-24" />
+                 <div className="grid grid-cols-2 items-center gap-4">
+                    <Label htmlFor="recorded-deductions">Tutanaklı Kesintiler (TL)</Label>
+                    <Input id="recorded-deductions" type="number" value={deductions.recordedDeductions} onChange={e => setDeductions(d => ({...d, recordedDeductions: parseFloat(e.target.value) || 0}))} className="text-right" />
                  </div>
               </CardContent>
             </Card>
@@ -355,8 +351,8 @@ export default function ProgressPaymentsPage() {
                 <div className="flex justify-between"><span>KDV (%20):</span><span>+ {formatCurrency(summary.vat)}</span></div>
                 <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span className="font-headline">Bu Ay Ödenecek Tutar (KDV Dahil):</span><span className='text-xl'>{formatCurrency(summary.currentPaymentTotal)}</span></div>
                 <div className="border-t mt-4 pt-4 space-y-2">
-                    <div className="flex justify-between text-muted-foreground"><span>Hesaplanan Damga Vergisi (%{(deductions.stampDuty * 100).toFixed(3)}):</span><span>{formatCurrency(summary.stampDutyAmount)}</span></div>
-                    <div className="flex justify-between text-muted-foreground"><span>Hesaplanan SGK Kesintisi (%{(deductions.ssi * 100).toFixed(2)}):</span><span>{formatCurrency(summary.ssiAmount)}</span></div>
+                    <div className="flex justify-between text-muted-foreground"><span>Hesaplanan Muhasebe Kesintileri:</span><span>{formatCurrency(summary.accountingDeductions)}</span></div>
+                    <div className="flex justify-between text-muted-foreground"><span>Hesaplanan Tutanaklı Kesintiler:</span><span>{formatCurrency(summary.recordedDeductions)}</span></div>
                     <Alert variant="default" className="mt-2">
                         <Info className="h-4 w-4" />
                         <AlertDescription>
