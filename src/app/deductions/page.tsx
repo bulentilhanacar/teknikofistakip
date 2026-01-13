@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useProject } from '@/context/project-context';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -59,30 +59,28 @@ export default function DeductionsPage() {
     const [availableContracts, setAvailableContracts] = useState<Record<string, any>>({});
     const [newDeduction, setNewDeduction] = useState(newDeductionInitialState);
     const [date, setDate] = useState<Date | undefined>(new Date());
-    const [filterContractId, setFilterContractId] = useState<string>('all');
-
+    
 
     useEffect(() => {
         if (selectedProject) {
             setAvailableContracts(projectContractData[selectedProject.id] || {});
+            setNewDeduction(prev => ({ ...prev, contractId: '' }));
         } else {
             setAvailableContracts({});
+            setNewDeduction(newDeductionInitialState);
         }
-        // Proje değiştiğinde formu ve filtreyi sıfırla
-        setNewDeduction({ ...newDeductionInitialState, contractId: '' });
-        setFilterContractId('all');
     }, [selectedProject]);
     
     const projectDeductions = useMemo(() => {
         if (!selectedProject) return [];
         const allDeductions = (deductions[selectedProject.id] || []).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        if (filterContractId === 'all') {
+        if (!newDeduction.contractId) {
             return allDeductions;
         }
-        return allDeductions.filter(d => d.contractId === filterContractId);
+        return allDeductions.filter(d => d.contractId === newDeduction.contractId);
 
-    }, [selectedProject, deductions, filterContractId]);
+    }, [selectedProject, deductions, newDeduction.contractId]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | string, field: keyof typeof newDeduction) => {
         const value = typeof e === 'string' ? e : e.target.value;
@@ -113,8 +111,11 @@ export default function DeductionsPage() {
             };
         });
 
-        // Formu temizle
-        setNewDeduction(prev => ({...newDeductionInitialState, contractId: prev.contractId}));
+        // Formu temizle, sadece kontrat seçimi kalsın
+        setNewDeduction(prev => ({
+            ...newDeductionInitialState,
+            contractId: prev.contractId 
+        }));
         setDate(new Date());
     };
     
@@ -151,9 +152,10 @@ export default function DeductionsPage() {
                                 <Label htmlFor="contractId">İlgili Sözleşme</Label>
                                 <Select value={newDeduction.contractId} onValueChange={(value) => handleInputChange(value, 'contractId')}>
                                     <SelectTrigger id="contractId">
-                                        <SelectValue placeholder="Sözleşme seçin" />
+                                        <SelectValue placeholder="Sözleşme seçin..." />
                                     </SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="">Tüm Sözleşmeler</SelectItem>
                                         {Object.keys(availableContracts).length > 0 ? Object.keys(availableContracts).map(contractId => (
                                             <SelectItem key={contractId} value={contractId}>{`${contractId}: ${availableContracts[contractId].name}`}</SelectItem>
                                         )) : (
@@ -210,7 +212,7 @@ export default function DeductionsPage() {
                             <Label htmlFor="amount">Tutar (TRY)</Label>
                             <Input id="amount" type="number" placeholder="Örn: 5000" value={newDeduction.amount} onChange={(e) => handleInputChange(e, 'amount')} />
                         </div>
-                        <Button className="w-full" onClick={handleAddDeduction}>
+                        <Button className="w-full" onClick={handleAddDeduction} disabled={!newDeduction.contractId}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Kesintiyi Kaydet
                         </Button>
@@ -219,23 +221,11 @@ export default function DeductionsPage() {
             </Card>
 
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div className="flex-1">
-                        <CardTitle className="font-headline">Mevcut Kesintiler</CardTitle>
-                    </div>
-                     <div className="w-full max-w-sm">
-                        <Select value={filterContractId} onValueChange={setFilterContractId}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Sözleşmeye göre filtrele" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Tüm Sözleşmeler</SelectItem>
-                                {Object.keys(availableContracts).map(contractId => (
-                                    <SelectItem key={contractId} value={contractId}>{`${contractId}: ${availableContracts[contractId].name}`}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                <CardHeader>
+                    <CardTitle className="font-headline">Mevcut Kesintiler</CardTitle>
+                    <CardDescription>
+                        {newDeduction.contractId ? `${newDeduction.contractId} sözleşmesine ait kesintiler.` : `Projedeki tüm kesintiler.`}
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -272,9 +262,9 @@ export default function DeductionsPage() {
                             )) : (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center">
-                                       {filterContractId === 'all'
-                                            ? "Bu proje için henüz kesinti eklenmemiş."
-                                            : "Seçili sözleşme için kesinti bulunmuyor."}
+                                       {newDeduction.contractId
+                                            ? "Seçili sözleşme için kesinti bulunmuyor."
+                                            : "Bu proje için henüz kesinti eklenmemiş."}
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -285,5 +275,3 @@ export default function DeductionsPage() {
         </div>
     );
 }
-
-    
