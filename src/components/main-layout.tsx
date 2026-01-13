@@ -65,6 +65,7 @@ function AddProjectDialog({ isOpen, onOpenChange, onSave }: { isOpen: boolean, o
     };
     
     React.useEffect(() => {
+        // Reset name when dialog is closed
         if (!isOpen) {
             setName("");
         }

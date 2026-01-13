@@ -90,7 +90,11 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
     const selectedProject = useMemo(() => {
         if (!isLoaded) return null;
-        return projects.find(p => p.id === selectedProjectId) || null;
+        const project = projects.find(p => p.id === selectedProjectId) || projects[0] || null;
+        if (project?.id !== selectedProjectId) {
+            setSelectedProjectId(project?.id || null);
+        }
+        return project;
     }, [selectedProjectId, projects, isLoaded]);
 
     const value = {
