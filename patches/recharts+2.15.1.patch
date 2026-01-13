@@ -1,0 +1,30 @@
+diff --git a/node_modules/recharts/lib/context/chart.js b/node_modules/recharts/lib/context/chart.js
+index 9245591..1c9e889 100644
+--- a/node_modules/recharts/lib/context/chart.js
++++ b/node_modules/recharts/lib/context/chart.js
+@@ -1,6 +1,6 @@
+ 'use client';
+ "use strict";
+-Object.defineProperty(exports, "__esModule", { value: true });
+-exports.ChartContext = void 0;
+-var react_1 = require("react");
+-exports.ChartContext = (0, react_1.createContext)(undefined);
++import { createContext } from "react";
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.ChartContext = void 0;
++exports.ChartContext = createContext(undefined);
+diff --git a/node_modules/recharts/lib/context/tooltip.js b/node_modules/recharts/lib/context/tooltip.js
+index 31317d6..9e3b482 100644
+--- a/node_modules/recharts/lib/context/tooltip.js
++++ b/node_modules/recharts/lib/context/tooltip.js
+@@ -1,6 +1,6 @@
+ 'use client';
+ "use strict";
+-Object.defineProperty(exports, "__esModule", { value: true });
+-exports.TooltipContext = void 0;
+-var react_1 = require("react");
+-exports.TooltipContext = (0, react_1.createContext)(undefined);
++import { createContext } from "react";
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.TooltipContext = void 0;
++exports.TooltipContext = createContext(undefined);
