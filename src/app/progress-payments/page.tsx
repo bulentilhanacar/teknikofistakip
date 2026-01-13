@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useProject } from '@/context/project-context';
+import { Badge } from '@/components/ui/badge';
 
 // Projelerin sözleşme verilerini simüle ediyoruz
 const projectContractData: Record<string, any> = {
@@ -32,14 +33,46 @@ const projectContractData: Record<string, any> = {
   }
 };
 
+// Hakediş geçmişini saklamak için yeni veri yapısı
+const initialProgressHistory: Record<string, Record<string, ProgressPayment[]>> = {
+    "proje-istanbul": {
+        "SOZ-001": [
+            {
+                progressPaymentNumber: 1,
+                date: "2024-07-20",
+                totalAmount: 227500,
+                items: [
+                    { id: 'Y.16.050/01', cumulativeQuantity: 500 },
+                    { id: '15.140.1001', cumulativeQuantity: 200 },
+                    { id: '23.215.1105', cumulativeQuantity: 0 },
+                    { id: '18.195.1101', cumulativeQuantity: 0 },
+                ]
+            }
+        ]
+    }
+}
+
+
 interface ProgressItem {
   id: string;
   description: string;
   unit: string;
   unitPrice: number;
   contractQuantity: number;
-  currentQuantity: number;
+  previousCumulativeQuantity: number;
+  currentCumulativeQuantity: number;
 }
+
+interface ProgressPayment {
+    progressPaymentNumber: number;
+    date: string;
+    totalAmount: number;
+    items: {
+        id: string;
+        cumulativeQuantity: number;
+    }[];
+}
+
 
 export default function ProgressPaymentsPage() {
   const { selectedProject } = useProject();
@@ -47,6 +80,19 @@ export default function ProgressPaymentsPage() {
   const [selectedContract, setSelectedContract] = useState<string | null>(null);
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
   const [deductions, setDeductions] = useState({ stampDuty: 0.00948, ssi: 0.03 });
+  const [progressHistory, setProgressHistory] = useState(initialProgressHistory);
+  
+  const contractProgressHistory = useMemo(() => {
+    if (selectedProject && selectedContract && progressHistory[selectedProject.id]) {
+        return progressHistory[selectedProject.id][selectedContract] || [];
+    }
+    return [];
+  }, [selectedProject, selectedContract, progressHistory]);
+
+  const lastProgressPayment = useMemo(() => {
+    return contractProgressHistory.length > 0 ? contractProgressHistory[contractProgressHistory.length - 1] : null;
+  }, [contractProgressHistory]);
+
 
   useEffect(() => {
     if (selectedProject && projectContractData[selectedProject.id]) {
@@ -62,8 +108,20 @@ export default function ProgressPaymentsPage() {
   const handleContractChange = (contractId: string) => {
     setSelectedContract(contractId);
     const contract = availableContracts[contractId];
+    
     if (contract) {
-      setProgressItems(contract.items.map((item: any) => ({ ...item, currentQuantity: 0 })));
+       const history = (selectedProject && progressHistory[selectedProject.id]?.[contractId]) || [];
+       const lastPayment = history.length > 0 ? history[history.length - 1] : null;
+
+       setProgressItems(contract.items.map((item: any) => {
+         const previousItem = lastPayment?.items.find(pi => pi.id === item.id);
+         const previousCumulativeQuantity = previousItem?.cumulativeQuantity || 0;
+         return { 
+            ...item, 
+            previousCumulativeQuantity: previousCumulativeQuantity,
+            currentCumulativeQuantity: previousCumulativeQuantity // Başlangıçta öncekiyle aynı
+         };
+       }));
     } else {
       setProgressItems([]);
     }
@@ -73,26 +131,66 @@ export default function ProgressPaymentsPage() {
     const newQuantity = parseFloat(quantity) || 0;
     setProgressItems(items =>
       items.map(item =>
-        item.id === itemId ? { ...item, currentQuantity: newQuantity } : item
+        item.id === itemId ? { ...item, currentCumulativeQuantity: newQuantity } : item
       )
     );
   };
   
   const summary = useMemo(() => {
-    const subTotal = progressItems.reduce((acc, item) => acc + (item.currentQuantity * item.unitPrice), 0);
-    const vat = subTotal * 0.20;
-    const stampDutyAmount = (subTotal + vat) * deductions.stampDuty;
-    const ssiAmount = subTotal * deductions.ssi;
-    const total = subTotal + vat - stampDutyAmount - ssiAmount;
+    const totalPreviousAmount = lastProgressPayment?.totalAmount || 0;
+
+    const cumulativeSubTotal = progressItems.reduce((acc, item) => acc + (item.currentCumulativeQuantity * item.unitPrice), 0);
+    const currentSubTotal = progressItems.reduce((acc, item) => acc + ((item.currentCumulativeQuantity - item.previousCumulativeQuantity) * item.unitPrice), 0);
+
+    const vat = currentSubTotal * 0.20;
+    const grossTotal = currentSubTotal + vat;
+    
+    // Kesintiler bu hakedişin brüt tutarı üzerinden hesaplanır
+    const stampDutyAmount = grossTotal * deductions.stampDuty;
+    const ssiAmount = currentSubTotal * deductions.ssi;
+    
+    const currentPaymentTotal = grossTotal - stampDutyAmount - ssiAmount;
 
     return {
-      subTotal,
+      cumulativeSubTotal,
+      totalPreviousAmount,
+      currentSubTotal,
       vat,
       stampDutyAmount,
       ssiAmount,
-      total
+      currentPaymentTotal
     };
-  }, [progressItems, deductions]);
+  }, [progressItems, deductions, lastProgressPayment]);
+
+  const saveProgressPayment = () => {
+    if (!selectedProject || !selectedContract) return;
+
+    const newPaymentNumber = (lastProgressPayment?.progressPaymentNumber || 0) + 1;
+
+    const newPayment: ProgressPayment = {
+        progressPaymentNumber: newPaymentNumber,
+        date: new Date().toISOString().split('T')[0],
+        totalAmount: summary.cumulativeSubTotal,
+        items: progressItems.map(item => ({
+            id: item.id,
+            cumulativeQuantity: item.currentCumulativeQuantity,
+        }))
+    };
+    
+    setProgressHistory(prev => {
+        const newProjectHistory = { ...(prev[selectedProject.id] || {}) };
+        const newContractHistory = [...(newProjectHistory[selectedContract] || []), newPayment];
+        newProjectHistory[selectedContract] = newContractHistory;
+        
+        return {
+            ...prev,
+            [selectedProject.id]: newProjectHistory
+        };
+    });
+    
+    // Reset the form for the next payment
+    handleContractChange(selectedContract);
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
@@ -134,13 +232,43 @@ export default function ProgressPaymentsPage() {
                 )}
               </SelectContent>
             </Select>
-            <Input placeholder="Hakediş No (örn: 3)" className="w-full sm:w-[200px]" disabled={!selectedContract} />
+            <div className="flex items-center gap-2">
+                <Input value={`Hakediş No: ${(lastProgressPayment?.progressPaymentNumber || 0) + 1}`} className="w-full sm:w-[200px]" disabled />
+            </div>
           </div>
         </CardContent>
       </Card>
       
       {selectedContract && (
         <>
+          {contractProgressHistory.length > 0 && (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-lg font-semibold">Önceki Hakedişler</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Hakediş No</TableHead>
+                                <TableHead>Tarih</TableHead>
+                                <TableHead className="text-right">Kümülatif Tutar</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {contractProgressHistory.map(p => (
+                                <TableRow key={p.progressPaymentNumber}>
+                                    <TableCell><Badge variant="secondary">#{p.progressPaymentNumber}</Badge></TableCell>
+                                    <TableCell>{p.date}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(p.totalAmount)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="font-headline">İmalat Miktarları</CardTitle>
@@ -152,9 +280,10 @@ export default function ProgressPaymentsPage() {
                     <TableRow>
                       <TableHead>Poz No</TableHead>
                       <TableHead>Açıklama</TableHead>
-                      <TableHead>Birim</TableHead>
                       <TableHead>Birim Fiyat</TableHead>
-                      <TableHead>Sözleşme Miktarı</TableHead>
+                      <TableHead>Söz. Miktarı</TableHead>
+                      <TableHead>Önceki Miktar</TableHead>
+                      <TableHead>Toplam Miktar</TableHead>
                       <TableHead>Bu Ayki Miktar</TableHead>
                       <TableHead className="text-right">Bu Ayki Tutar</TableHead>
                     </TableRow>
@@ -162,20 +291,21 @@ export default function ProgressPaymentsPage() {
                   <TableBody>
                     {progressItems.map(item => (
                       <TableRow key={item.id}>
-                        <TableCell>{item.id}</TableCell>
+                        <TableCell className="font-medium">{item.id}</TableCell>
                         <TableCell>{item.description}</TableCell>
-                        <TableCell>{item.unit}</TableCell>
                         <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-                        <TableCell>{item.contractQuantity}</TableCell>
+                        <TableCell>{item.contractQuantity.toLocaleString('tr-TR')} {item.unit}</TableCell>
+                        <TableCell>{item.previousCumulativeQuantity.toLocaleString('tr-TR')}</TableCell>
                         <TableCell>
                             <Input 
-                                className="w-24" 
+                                className="w-28" 
                                 type="number"
-                                value={item.currentQuantity}
+                                value={item.currentCumulativeQuantity}
                                 onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                             />
                         </TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.currentQuantity * item.unitPrice)}</TableCell>
+                        <TableCell className='font-semibold'>{(item.currentCumulativeQuantity - item.previousCumulativeQuantity).toLocaleString('tr-TR')}</TableCell>
+                        <TableCell className="text-right font-bold">{formatCurrency((item.currentCumulativeQuantity - item.previousCumulativeQuantity) * item.unitPrice)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -204,18 +334,20 @@ export default function ProgressPaymentsPage() {
               <CardHeader>
                 <CardTitle className="font-headline">Hakediş Özeti</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between"><span>İmalat Toplamı:</span><span>{formatCurrency(summary.subTotal)}</span></div>
-                <div className="flex justify-between"><span>KDV (%20):</span><span>{formatCurrency(summary.vat)}</span></div>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex justify-between"><span>Toplam Tutar (Kümülatif):</span><span className='font-semibold'>{formatCurrency(summary.cumulativeSubTotal)}</span></div>
+                <div className="flex justify-between"><span>Önceki Hakedişler Toplamı:</span><span>- {formatCurrency(summary.totalPreviousAmount)}</span></div>
+                <div className="flex justify-between border-t mt-2 pt-2"><span>Bu Ayki İmalat Toplamı:</span><span className='font-semibold'>{formatCurrency(summary.currentSubTotal)}</span></div>
+                <div className="flex justify-between"><span>KDV (%20):</span><span>+ {formatCurrency(summary.vat)}</span></div>
                 <div className="flex justify-between text-destructive"><span>Damga Vergisi (%{deductions.stampDuty * 100}):</span><span>- {formatCurrency(summary.stampDutyAmount)}</span></div>
                 <div className="flex justify-between text-destructive"><span>SGK Kesintisi (%{deductions.ssi * 100}):</span><span>- {formatCurrency(summary.ssiAmount)}</span></div>
-                <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span className="font-headline">Ödenecek Tutar:</span><span>{formatCurrency(summary.total)}</span></div>
+                <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span className="font-headline">Bu Ay Ödenecek Tutar:</span><span className='text-xl'>{formatCurrency(summary.currentPaymentTotal)}</span></div>
               </CardContent>
             </Card>
           </div>
 
           <div className="flex justify-end">
-            <Button size="lg">Hakedişi Kaydet ve Raporla</Button>
+            <Button size="lg" onClick={saveProgressPayment}>Hakedişi Kaydet ve Raporla</Button>
           </div>
         </>
       )}
