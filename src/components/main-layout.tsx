@@ -72,7 +72,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             <div className="p-2">
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+                        <Button 
+                            variant="ghost" 
+                            className="w-full justify-between group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border border-sidebar-border"
+                        >
                             <span className="truncate group-data-[collapsible=icon]:hidden">{selectedProject?.name ?? "Proje Seçin"}</span>
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 group-data-[collapsible=icon]:hidden"/>
                             <FolderKanban className="hidden h-5 w-5 group-data-[collapsible=icon]:block" />
