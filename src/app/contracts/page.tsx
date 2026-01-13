@@ -229,20 +229,24 @@ export default function ContractsPage() {
         const tenderToApprove = draftContracts.find(t => t.id === tenderId);
         if (!tenderToApprove) return;
 
+        const newIdNumber = (approvedContracts.length + Object.keys(projectContracts).reduce((acc, key) => acc + projectContracts[key].approved.length, 0) + 1);
         const newApprovedContract = {
             ...tenderToApprove,
-            id: `SOZ-${String(approvedContracts.length + Object.keys(projectContracts).reduce((acc,key) => acc + projectContracts[key].approved.length, 0) + 1).padStart(3, '0')}`,
+            id: `SOZ-${String(newIdNumber).padStart(3, '0')}`,
             status: 'Onaylandı',
             date: new Date().toISOString().split('T')[0],
         };
 
-        setProjectContracts(prevData => ({
-            ...prevData,
-            [selectedProject.id]: {
-                drafts: prevData[selectedProject.id].drafts.filter(t => t.id !== tenderId),
-                approved: [...prevData[selectedProject.id].approved, newApprovedContract].sort((a, b) => a.id.localeCompare(b.id))
+        setProjectContracts(prevData => {
+            const currentProjectData = prevData[selectedProject.id] || { drafts: [], approved: [] };
+            return {
+                ...prevData,
+                [selectedProject.id]: {
+                    drafts: currentProjectData.drafts.filter(t => t.id !== tenderId),
+                    approved: [...currentProjectData.approved, newApprovedContract].sort((a, b) => a.id.localeCompare(b.id))
+                }
             }
-        }));
+        });
     };
     
     const groupContracts = (contracts: Contract[]): Record<ContractGroupKeys, Record<string, Contract[]>> => {
