@@ -1,10 +1,86 @@
+"use client";
+
+import { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
+// Projelerin sözleşme verilerini simüle ediyoruz
+const projectData: Record<string, any> = {
+  "SOZ-001": {
+    name: "İstanbul Ofis Binası",
+    items: [
+      { id: 'Y.16.050/01', description: 'Betonarme Kalıbı', unit: 'm²', unitPrice: 350, contractQuantity: 1200 },
+      { id: '15.140.1001', description: 'C30/37 Hazır Beton', unit: 'm³', unitPrice: 2800, contractQuantity: 800 },
+      { id: '23.215.1105', description: 'İç Duvar Boyası', unit: 'm²', unitPrice: 120, contractQuantity: 2500 },
+      { id: '18.195.1101', description: 'Seramik Yer Karosu', unit: 'm²', unitPrice: 450, contractQuantity: 600 },
+    ]
+  },
+  "SOZ-002": {
+    name: "Eskişehir Villa Projesi",
+    items: [
+      { id: 'Y.21.002', description: 'Ahşap Çatı Konstrüksiyonu', unit: 'm³', unitPrice: 8500, contractQuantity: 15 },
+      { id: '18.461/A1', description: 'Lamine Parke', unit: 'm²', unitPrice: 750, contractQuantity: 350 },
+      { id: '25.047/001', description: 'PVC Pencere', unit: 'm²', unitPrice: 1800, contractQuantity: 40 },
+    ]
+  }
+};
+
+interface ProgressItem {
+  id: string;
+  description: string;
+  unit: string;
+  unitPrice: number;
+  contractQuantity: number;
+  currentQuantity: number;
+}
+
 export default function ProgressPaymentsPage() {
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
+  const [deductions, setDeductions] = useState({ stampDuty: 0.00948, ssi: 0.03 });
+
+  const handleProjectChange = (projectId: string) => {
+    setSelectedProject(projectId);
+    const project = projectData[projectId];
+    if (project) {
+      setProgressItems(project.items.map((item: any) => ({ ...item, currentQuantity: 0 })));
+    } else {
+      setProgressItems([]);
+    }
+  };
+
+  const handleQuantityChange = (itemId: string, quantity: string) => {
+    const newQuantity = parseFloat(quantity) || 0;
+    setProgressItems(items =>
+      items.map(item =>
+        item.id === itemId ? { ...item, currentQuantity: newQuantity } : item
+      )
+    );
+  };
+  
+  const summary = useMemo(() => {
+    const subTotal = progressItems.reduce((acc, item) => acc + (item.currentQuantity * item.unitPrice), 0);
+    const vat = subTotal * 0.20;
+    const stampDutyAmount = (subTotal + vat) * deductions.stampDuty;
+    const ssiAmount = subTotal * deductions.ssi;
+    const total = subTotal + vat - stampDutyAmount - ssiAmount;
+
+    return {
+      subTotal,
+      vat,
+      stampDutyAmount,
+      ssiAmount,
+      total
+    };
+  }, [progressItems, deductions]);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
+  }
+
   return (
     <div className="grid gap-6">
       <Card>
@@ -14,90 +90,101 @@ export default function ProgressPaymentsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-4">
-            <Select>
+            <Select onValueChange={handleProjectChange}>
               <SelectTrigger className="w-full sm:w-[300px]">
                 <SelectValue placeholder="Proje Seçin" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="SOZ-001">SOZ-001: İstanbul Ofis Binası</SelectItem>
-                <SelectItem value="SOZ-002">SOZ-002: Eskişehir Villa Projesi</SelectItem>
+                {Object.keys(projectData).map(projectId => (
+                    <SelectItem key={projectId} value={projectId}>{`${projectId}: ${projectData[projectId].name}`}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <Input placeholder="Hakediş No (örn: 3)" className="w-full sm:w-[200px]" />
+            <Input placeholder="Hakediş No (örn: 3)" className="w-full sm:w-[200px]" disabled={!selectedProject} />
           </div>
         </CardContent>
       </Card>
       
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-headline">İmalat Miktarları</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Poz No</TableHead>
-                  <TableHead>Açıklama</TableHead>
-                  <TableHead>Birim</TableHead>
-                  <TableHead>Birim Fiyat</TableHead>
-                  <TableHead>Sözleşme Miktarı</TableHead>
-                  <TableHead>Bu Ayki Miktar</TableHead>
-                  <TableHead className="text-right">Bu Ayki Tutar</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell>Y.16.050/01</TableCell>
-                  <TableCell>Betonarme Kalıbı</TableCell>
-                  <TableCell>m²</TableCell>
-                  <TableCell>₺350</TableCell>
-                  <TableCell>1200</TableCell>
-                  <TableCell><Input className="w-24" defaultValue="150" /></TableCell>
-                  <TableCell className="text-right">₺52,500</TableCell>
-                </TableRow>
-                 <TableRow>
-                  <TableCell>15.140.1001</TableCell>
-                  <TableCell>C30/37 Hazır Beton</TableCell>
-                  <TableCell>m³</TableCell>
-                  <TableCell>₺2,800</TableCell>
-                  <TableCell>800</TableCell>
-                  <TableCell><Input className="w-24" defaultValue="80" /></TableCell>
-                  <TableCell className="text-right">₺224,000</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+      {selectedProject && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline">İmalat Miktarları</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Poz No</TableHead>
+                      <TableHead>Açıklama</TableHead>
+                      <TableHead>Birim</TableHead>
+                      <TableHead>Birim Fiyat</TableHead>
+                      <TableHead>Sözleşme Miktarı</TableHead>
+                      <TableHead>Bu Ayki Miktar</TableHead>
+                      <TableHead className="text-right">Bu Ayki Tutar</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {progressItems.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.id}</TableCell>
+                        <TableCell>{item.description}</TableCell>
+                        <TableCell>{item.unit}</TableCell>
+                        <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
+                        <TableCell>{item.contractQuantity}</TableCell>
+                        <TableCell>
+                            <Input 
+                                className="w-24" 
+                                type="number"
+                                value={item.currentQuantity}
+                                onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                            />
+                        </TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.currentQuantity * item.unitPrice)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-headline">Kesintiler</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                 <div className="flex items-center gap-4">
+                    <label htmlFor="stamp-duty" className="text-sm font-medium">Damga Vergisi (%)</label>
+                    <Input id="stamp-duty" type="number" value={deductions.stampDuty * 100} onChange={e => setDeductions(d => ({...d, stampDuty: parseFloat(e.target.value)/100 || 0}))} className="w-24" />
+                 </div>
+                 <div className="flex items-center gap-4">
+                    <label htmlFor="ssi" className="text-sm font-medium">SGK Kesintisi (%)</label>
+                    <Input id="ssi" type="number" value={deductions.ssi * 100} onChange={e => setDeductions(d => ({...d, ssi: parseFloat(e.target.value)/100 || 0}))} className="w-24" />
+                 </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-headline">Hakediş Özeti</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between"><span>İmalat Toplamı:</span><span>{formatCurrency(summary.subTotal)}</span></div>
+                <div className="flex justify-between"><span>KDV (%20):</span><span>{formatCurrency(summary.vat)}</span></div>
+                <div className="flex justify-between text-destructive"><span>Damga Vergisi (%{deductions.stampDuty * 100}):</span><span>- {formatCurrency(summary.stampDutyAmount)}</span></div>
+                <div className="flex justify-between text-destructive"><span>SGK Kesintisi (%{deductions.ssi * 100}):</span><span>- {formatCurrency(summary.ssiAmount)}</span></div>
+                <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span className="font-headline">Ödenecek Tutar:</span><span>{formatCurrency(summary.total)}</span></div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
-      
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Kesintiler</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Deduction form will be here */}
-            <p className="text-muted-foreground">Yakında eklenecek.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Hakediş Özeti</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between"><span>İmalat Toplamı:</span><span>₺276,500</span></div>
-            <div className="flex justify-between"><span>KDV (%20):</span><span>₺55,300</span></div>
-            <div className="flex justify-between text-destructive"><span>Damga Vergisi:</span><span>- ₺2,621</span></div>
-            <div className="flex justify-between text-destructive"><span>SGK Kesintisi:</span><span>- ₺8,295</span></div>
-            <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span className="font-headline">Ödenecek Tutar:</span><span>₺320,884</span></div>
-          </CardContent>
-        </Card>
-      </div>
 
-      <div className="flex justify-end">
-        <Button size="lg">Hakedişi Kaydet ve Raporla</Button>
-      </div>
+          <div className="flex justify-end">
+            <Button size="lg">Hakedişi Kaydet ve Raporla</Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
