@@ -104,7 +104,7 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
                                 <span className="w-32 text-right">{formatCurrency(budget)}</span>
                                  {onApprove && (
                                     <div className="w-28 text-right">
-                                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove(contract.id); }}>
+                                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove && onApprove(contract.id); }}>
                                             <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
                                             Onayla
                                         </Button>
@@ -162,7 +162,6 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
 
 const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void}) => {
     const totalContractsInGroup = Object.values(contracts).reduce((sum, list) => sum + list.length, 0);
-    if (totalContractsInGroup === 0) return null;
 
     return (
         <AccordionItem value={title}>
@@ -172,36 +171,42 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
                 </div>
             </AccordionTrigger>
             <AccordionContent>
-                <Accordion type="multiple" className="w-full pl-4 border-l">
-                {Object.entries(contracts).map(([subGroup, contractList]) => (
-                    <AccordionItem value={subGroup} key={subGroup}>
-                        <AccordionTrigger className="text-sm font-semibold hover:no-underline">
-                            <div className='flex justify-between items-center w-full pr-4'>
-                                <span>{subGroup} ({contractList.length})</span>
-                                {onApprove && (
-                                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); /* TODO: Add new contract logic */ }}>
-                                        <PlusCircle className="mr-2 h-4 w-4" />
-                                        Yeni Taslak Ekle
-                                    </Button>
-                                )}
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                             {contractList.length > 0 ? (
-                                <Table>
-                                    <TableBody>
-                                        {contractList.map((contract) => (
-                                            <ContractRow key={contract.id} contract={contract} onApprove={onApprove} />
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                             ) : (
-                                <div className="text-center text-muted-foreground p-4">Bu grupta sözleşme bulunmuyor.</div>
-                             )}
-                        </AccordionContent>
-                    </AccordionItem>
-                ))}
-                </Accordion>
+                {Object.keys(contracts).length > 0 || onApprove ? (
+                    <Accordion type="multiple" className="w-full pl-4 border-l">
+                    {Object.entries(contracts).map(([subGroup, contractList]) => (
+                        <AccordionItem value={subGroup} key={subGroup}>
+                            <AccordionTrigger className="text-sm font-semibold hover:no-underline">
+                                <div className='flex justify-between items-center w-full pr-4'>
+                                    <span>{subGroup} ({contractList.length})</span>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                 {contractList.length > 0 ? (
+                                    <Table>
+                                        <TableBody>
+                                            {contractList.map((contract) => (
+                                                <ContractRow key={contract.id} contract={contract} onApprove={onApprove} />
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                 ) : (
+                                    <div className="text-center text-muted-foreground p-4">Bu grupta sözleşme bulunmuyor.</div>
+                                 )}
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                     {onApprove && (
+                        <div className="pt-2 pl-2 mt-2 border-t">
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); /* TODO: Add new sub-group logic */ }}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Yeni Alt Başlık Ekle
+                            </Button>
+                        </div>
+                     )}
+                    </Accordion>
+                ) : (
+                     <div className="text-center text-muted-foreground p-4">Bu grupta alt başlık bulunmuyor.</div>
+                )}
             </AccordionContent>
         </AccordionItem>
     );
@@ -258,9 +263,7 @@ export default function ContractsPage() {
               return subAcc;
           }, {} as Record<string, Contract[]>);
 
-          if (Object.keys(subGroups).length > 0) {
-            acc[groupKey] = subGroups;
-          }
+          acc[groupKey] = subGroups;
           
           return acc;
       }, {} as Record<ContractGroupKeys, Record<string, Contract[]>>);
@@ -305,20 +308,6 @@ export default function ContractsPage() {
              <Accordion type="multiple" className="w-full">
                 {(Object.keys(contractGroups) as ContractGroupKeys[]).map((groupKey) => {
                     const contractsInGroup = groupedDrafts[groupKey];
-                    if (!contractsInGroup) {
-                         const groupHasContracts = draftContracts.some(c => c.group === groupKey);
-                         if (!groupHasContracts) {
-                            return (
-                                <AccordionItem value={contractGroups[groupKey]} key={groupKey} disabled>
-                                    <AccordionTrigger className="text-base font-headline hover:no-underline opacity-50 cursor-not-allowed">
-                                        <div className='flex justify-between items-center w-full pr-4'>
-                                            <span>{contractGroups[groupKey]} (0)</span>
-                                        </div>
-                                    </AccordionTrigger>
-                                </AccordionItem>
-                            );
-                         }
-                    }
                     return (
                         <ContractGroupAccordion 
                             key={groupKey} 
@@ -335,20 +324,6 @@ export default function ContractsPage() {
             <Accordion type="multiple" className="w-full">
                 {(Object.keys(contractGroups) as ContractGroupKeys[]).map((groupKey) => {
                     const contractsInGroup = groupedApproved[groupKey];
-                     if (!contractsInGroup) {
-                         const groupHasContracts = approvedContracts.some(c => c.group === groupKey);
-                         if (!groupHasContracts) {
-                            return (
-                                <AccordionItem value={contractGroups[groupKey]} key={groupKey} disabled>
-                                    <AccordionTrigger className="text-base font-headline hover:no-underline opacity-50 cursor-not-allowed">
-                                        <div className='flex justify-between items-center w-full pr-4'>
-                                            <span>{contractGroups[groupKey]} (0)</span>
-                                        </div>
-                                    </AccordionTrigger>
-                                </AccordionItem>
-                            );
-                         }
-                    }
                     return (
                         <ContractGroupAccordion 
                             key={groupKey} 
@@ -365,5 +340,3 @@ export default function ContractsPage() {
     </Card>
   );
 }
-
-    
