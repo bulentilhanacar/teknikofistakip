@@ -42,14 +42,23 @@ export interface ProgressItem {
   currentCumulativePercentage: string;
 }
 
+export interface ExtraWorkItem {
+    id: string;
+    description: string;
+    unit: string;
+    quantity: number;
+    unitPrice: number;
+}
+
 export interface ProgressPayment {
     progressPaymentNumber: number;
     date: string;
-    totalAmount: number;
+    totalAmount: number; // Cumulative total
     items: {
         id: string;
         cumulativeQuantity: number;
     }[];
+    extraWorkItems?: ExtraWorkItem[];
     appliedDeductionIds: string[];
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback } from 'react';
-import { Contract, ContractGroupKeys, ContractItem, Deduction, ProgressPayment, ProgressItem as ContextProgressItem, AllProjectData, ProgressPaymentStatus } from './types';
+import { Contract, ContractGroupKeys, ContractItem, Deduction, ProgressPayment, ProgressItem as ContextProgressItem, AllProjectData, ProgressPaymentStatus, ExtraWorkItem } from './types';
 import { format } from 'date-fns';
 
 
@@ -25,7 +25,7 @@ interface ProjectContextType {
     updateContractItem: (contractId: string, updatedItem: ContractItem, originalPoz: string) => void;
     deleteContractItem: (contractId: string, itemPoz: string) => void;
     addDeduction: (deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => void;
-    saveProgressPayment: (contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], selectedDeductionIds: string[], date: Date) => void;
+    saveProgressPayment: (contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], extraWorkItems: ExtraWorkItem[], selectedDeductionIds: string[], date: Date) => void;
     updateProgressPaymentStatus: (month: string, contractId: string, status: ProgressPaymentStatus) => void;
     getDashboardData: () => any;
     getContractsByProject: () => Contract[];
@@ -417,7 +417,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         });
     }, [selectedProjectId]);
 
-    const saveProgressPayment = useCallback((contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], selectedDeductionIds: string[], date: Date) => {
+    const saveProgressPayment = useCallback((contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], extraWorkItems: ExtraWorkItem[], selectedDeductionIds: string[], date: Date) => {
         if (!selectedProjectId) return;
 
         setProjectData(prev => {
@@ -434,6 +434,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                     id: item.id,
                     cumulativeQuantity: item.currentCumulativeQuantity,
                 })),
+                extraWorkItems,
                 appliedDeductionIds: selectedDeductionIds,
             };
 

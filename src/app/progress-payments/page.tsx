@@ -8,14 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
-import { Paperclip, Calendar as CalendarIcon } from 'lucide-react';
+import { Paperclip, Calendar as CalendarIcon, PlusCircle, Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ProgressPayment, ProgressItem, Deduction } from '@/context/types';
+import { ProgressPayment, ProgressItem, Deduction, ExtraWorkItem } from '@/context/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
 export default function ProgressPaymentsPage() {
@@ -23,6 +24,7 @@ export default function ProgressPaymentsPage() {
   
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
+  const [extraWorkItems, setExtraWorkItems] = useState<ExtraWorkItem[]>([]);
   const [selectedDeductionIds, setSelectedDeductionIds] = useState<string[]>([]);
   const [progressDate, setProgressDate] = useState<Date | undefined>(new Date());
 
@@ -56,6 +58,7 @@ export default function ProgressPaymentsPage() {
   useEffect(() => {
     setSelectedContractId(null);
     setProgressItems([]);
+    setExtraWorkItems([]);
     setSelectedDeductionIds([]);
     setProgressDate(new Date());
   }, [selectedProject]);
@@ -65,6 +68,7 @@ export default function ProgressPaymentsPage() {
     setSelectedContractId(contractId);
     setSelectedDeductionIds([]);
     setProgressDate(new Date());
+    setExtraWorkItems([]);
     const projectContracts = getContractsByProject();
     const contract = projectContracts.find(c => c.id === contractId);
     
@@ -126,6 +130,33 @@ export default function ProgressPaymentsPage() {
       );
     };
 
+    const handleExtraWorkItemChange = (index: number, field: keyof Omit<ExtraWorkItem, 'id'>, value: string) => {
+        const newItems = [...extraWorkItems];
+        const item = { ...newItems[index] };
+        if (field === 'quantity' || field === 'unitPrice') {
+            (item[field] as number) = parseFloat(value) || 0;
+        } else {
+            (item[field] as string) = value;
+        }
+        newItems[index] = item;
+        setExtraWorkItems(newItems);
+    };
+    
+    const addExtraWorkItem = () => {
+        setExtraWorkItems(prev => [...prev, {
+            id: `extra-${Date.now()}`,
+            description: '',
+            unit: '',
+            quantity: 0,
+            unitPrice: 0,
+        }]);
+    };
+
+    const deleteExtraWorkItem = (index: number) => {
+        setExtraWorkItems(prev => prev.filter((_, i) => i !== index));
+    };
+
+
   const handleDeductionSelectionChange = (deductionId: string, isSelected: boolean) => {
       setSelectedDeductionIds(prev => 
         isSelected ? [...prev, deductionId] : prev.filter(id => id !== deductionId)
@@ -137,9 +168,12 @@ export default function ProgressPaymentsPage() {
 
     const cumulativeSubTotal = progressItems.reduce((acc, item) => acc + (item.currentCumulativeQuantity * item.unitPrice), 0);
     const currentSubTotal = progressItems.reduce((acc, item) => acc + ((item.currentCumulativeQuantity - item.previousCumulativeQuantity) * item.unitPrice), 0);
+    
+    const extraWorkTotal = extraWorkItems.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
 
-    const vat = currentSubTotal * 0.20;
-    const currentPaymentGross = currentSubTotal + vat;
+    const totalCurrentWork = currentSubTotal + extraWorkTotal;
+    const vat = totalCurrentWork * 0.20;
+    const currentPaymentGross = totalCurrentWork + vat;
     
     const totalSelectedDeductions = availableDeductions
         .filter(d => selectedDeductionIds.includes(d.id))
@@ -147,27 +181,31 @@ export default function ProgressPaymentsPage() {
 
     const finalPaymentAmount = currentPaymentGross - totalSelectedDeductions;
     
-    const hasProgress = progressItems.some(item => item.currentCumulativeQuantity > item.previousCumulativeQuantity);
+    const hasProgress = progressItems.some(item => item.currentCumulativeQuantity > item.previousCumulativeQuantity) || extraWorkItems.length > 0;
 
 
     return {
       cumulativeSubTotal,
       totalPreviousAmount,
       currentSubTotal,
+      extraWorkTotal,
+      totalCurrentWork,
       vat,
       currentPaymentGross,
       totalSelectedDeductions,
       finalPaymentAmount,
       hasProgress,
     };
-  }, [progressItems, lastProgressPayment, selectedDeductionIds, availableDeductions]);
+  }, [progressItems, extraWorkItems, lastProgressPayment, selectedDeductionIds, availableDeductions]);
 
   const handleSaveProgressPayment = () => {
     if (!selectedProject || !selectedContractId || !progressDate) return;
-    saveProgressPayment(selectedContractId, summary.cumulativeSubTotal, progressItems, selectedDeductionIds, progressDate);
+    const newCumulativeTotal = summary.cumulativeSubTotal + summary.extraWorkTotal;
+    saveProgressPayment(selectedContractId, newCumulativeTotal, progressItems, extraWorkItems, selectedDeductionIds, progressDate);
     // Formu sıfırla
     handleContractChange(selectedContractId);
     setSelectedDeductionIds([]);
+    setExtraWorkItems([]);
   };
 
   const formatCurrency = (amount: number) => {
@@ -337,6 +375,83 @@ export default function ProgressPaymentsPage() {
             </CardContent>
           </Card>
           
+           <Card>
+                <CardHeader>
+                    <div className='flex justify-between items-center'>
+                         <CardTitle className="font-headline">Sözleşme Dışı İmalatlar</CardTitle>
+                         <Button variant="outline" size="sm" onClick={addExtraWorkItem}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Yeni Kalem Ekle
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                     {extraWorkItems.length > 0 ? (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className='w-[50px]'>Sıra</TableHead>
+                                    <TableHead>Açıklama</TableHead>
+                                    <TableHead className='w-[100px]'>Birim</TableHead>
+                                    <TableHead className='w-[120px] text-right'>Miktar</TableHead>
+                                    <TableHead className='w-[150px] text-right'>Birim Fiyat</TableHead>
+                                    <TableHead className='w-[150px] text-right'>Tutar</TableHead>
+                                    <TableHead className="w-[80px] text-center">İşlem</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {extraWorkItems.map((item, index) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell>{index + 1}</TableCell>
+                                        <TableCell>
+                                            <Input value={item.description} onChange={(e) => handleExtraWorkItemChange(index, 'description', e.target.value)} placeholder="Yeni imalat açıklaması" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input value={item.unit} onChange={(e) => handleExtraWorkItemChange(index, 'unit', e.target.value)} placeholder="m²" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input type="number" value={item.quantity} onChange={(e) => handleExtraWorkItemChange(index, 'quantity', e.target.value)} className="text-right" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input type="number" value={item.unitPrice} onChange={(e) => handleExtraWorkItemChange(index, 'unitPrice', e.target.value)} className="text-right" />
+                                        </TableCell>
+                                        <TableCell className="text-right font-semibold">{formatCurrency(item.quantity * item.unitPrice)}</TableCell>
+                                        <TableCell className="text-center">
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Bu sözleşme dışı kalemi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>İptal</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => deleteExtraWorkItem(index)}>Sil</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                <TableRow className="font-bold bg-muted">
+                                    <TableCell colSpan={5} className="text-right">Sözleşme Dışı İmalatlar Toplamı</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(summary.extraWorkTotal)}</TableCell>
+                                    <TableCell></TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
+                     ) : (
+                         <div className="text-center text-muted-foreground p-4">Bu hakediş için sözleşme dışı imalat eklenmemiş.</div>
+                     )}
+                </CardContent>
+            </Card>
+
           <div className="grid md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
@@ -392,11 +507,19 @@ export default function ProgressPaymentsPage() {
                 <CardTitle className="font-headline">Hakediş Özeti</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>Toplam Tutar (Kümülatif):</span><span className='font-semibold'>{formatCurrency(summary.cumulativeSubTotal)}</span></div>
+                <div className="flex justify-between"><span>Kümülatif Sözleşme Tutarı:</span><span className='font-semibold'>{formatCurrency(summary.cumulativeSubTotal)}</span></div>
                 <div className="flex justify-between"><span>Önceki Hakedişler Toplamı:</span><span>- {formatCurrency(summary.totalPreviousAmount)}</span></div>
-                <div className="flex justify-between border-t mt-2 pt-2"><span>Bu Ayki İmalat Toplamı (KDV Hariç):</span><span className='font-semibold'>{formatCurrency(summary.currentSubTotal)}</span></div>
+                <div className="flex justify-between border-t mt-2 pt-2">
+                    <span>Bu Ayki Sözleşme İmalat Tutarı:</span><span className='font-semibold'>{formatCurrency(summary.currentSubTotal)}</span>
+                </div>
+                 <div className="flex justify-between">
+                    <span>Bu Ayki Sözleşme Dışı İmalat Tutarı:</span><span className='font-semibold'>+ {formatCurrency(summary.extraWorkTotal)}</span>
+                </div>
+                <div className="flex justify-between font-bold border-t pt-2 mt-2">
+                    <span>Ara Toplam (KDV Hariç):</span><span>{formatCurrency(summary.totalCurrentWork)}</span>
+                </div>
                 <div className="flex justify-between"><span>KDV (%20):</span><span>+ {formatCurrency(summary.vat)}</span></div>
-                <div className="flex justify-between font-bold border-t pt-2 mt-2"><span>Ara Toplam (KDV Dahil):</span><span>{formatCurrency(summary.currentPaymentGross)}</span></div>
+                <div className="flex justify-between font-bold border-t pt-2 mt-2"><span>Genel Toplam (KDV Dahil):</span><span>{formatCurrency(summary.currentPaymentGross)}</span></div>
                 <div className="flex justify-between text-destructive"><span>Uygulanan Kesintiler Toplamı:</span><span>- {formatCurrency(summary.totalSelectedDeductions)}</span></div>
                  <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span className="font-headline">Yükleniciye Ödenecek Net Tutar:</span><span className='text-xl'>{formatCurrency(summary.finalPaymentAmount)}</span></div>
               </CardContent>
