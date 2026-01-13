@@ -7,10 +7,40 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, CheckCircle } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-const initialDraftContracts = [
-  { id: 'IHALE-001', name: 'Ankara Konut Projesi', status: 'Değerlendirmede', date: '2024-09-15', budget: '₺15,000,000' },
-  { id: 'IHALE-003', name: 'İzmir AVM İnşaatı', status: 'Hazırlık', date: '2024-10-01', budget: '₺50,000,000' },
+const contractGroups = {
+  "reklam": "Reklam ve Tanıtım",
+  "tedarikler": "Tedarikler",
+  "kaba-isler": "Kaba İşler",
+  "ince-isler": "İnce İşler",
+  "elektrik": "Elektrik İşleri",
+  "mekanik": "Mekanik İşler",
+  "yalitim": "Yalıtım İşleri",
+  "peyzaj": "Peyzaj İşleri",
+  "sosyal-tesisler": "Sosyal Tesisler"
+};
+
+type ContractGroupKeys = keyof typeof contractGroups;
+
+interface DraftContract {
+    id: string;
+    name: string;
+    group: ContractGroupKeys;
+    status: string;
+    date: string;
+    budget: string;
+}
+
+const initialDraftContracts: DraftContract[] = [
+  { id: 'IHALE-001', name: 'Ankara Konut Projesi - Hafriyat', group: 'kaba-isler', status: 'Değerlendirmede', date: '2024-09-15', budget: '₺1,500,000' },
+  { id: 'IHALE-003', name: 'İzmir AVM İnşaatı - Çelik Konstrüksiyon', group: 'kaba-isler', status: 'Hazırlık', date: '2024-10-01', budget: '₺8,000,000' },
+  { id: 'IHALE-005', name: 'Tanıtım Filmi Çekimi', group: 'reklam', status: 'Teklif Alındı', date: '2024-09-20', budget: '₺150,000' },
+  { id: 'IHALE-006', name: 'Genel Vitrifiye Malzemeleri', group: 'tedarikler', status: 'Hazırlık', date: '2024-10-05', budget: '₺2,500,000' },
+  { id: 'IHALE-007', name: 'Alçıpan ve Boya İşleri', group: 'ince-isler', status: 'Değerlendirmede', date: '2024-09-25', budget: '₺1,800,000' },
+  { id: 'IHALE-008', name: 'Tüm Elektrik Altyapısı', group: 'elektrik', status: 'Keşif Aşamasında', date: '2024-10-10', budget: '₺4,200,000' },
+  { id: 'IHALE-009', name: 'Isıtma-Soğutma Sistemleri', group: 'mekanik', status: 'Hazırlık', date: '2024-10-15', budget: '₺5,100,000' },
+
 ];
 
 const initialApprovedContracts = [
@@ -40,6 +70,11 @@ export default function ContractsPage() {
         };
         setApprovedContracts([...approvedContracts, newContract]);
     };
+    
+    const groupedDrafts = draftContracts.reduce((acc, contract) => {
+        (acc[contract.group] = acc[contract.group] || []).push(contract);
+        return acc;
+    }, {} as Record<ContractGroupKeys, DraftContract[]>);
 
 
   return (
@@ -63,37 +98,48 @@ export default function ContractsPage() {
             <TabsTrigger value="approved">Onaylı Sözleşmeler ({approvedContracts.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="drafts" className="mt-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>İhale Kodu</TableHead>
-                  <TableHead>Proje Adı</TableHead>
-                  <TableHead>Durum</TableHead>
-                  <TableHead>İhale Tarihi</TableHead>
-                  <TableHead>Bütçe</TableHead>
-                  <TableHead className="text-right">İşlemler</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {draftContracts.map((tender) => (
-                  <TableRow key={tender.id}>
-                    <TableCell className="font-medium">{tender.id}</TableCell>
-                    <TableCell>{tender.name}</TableCell>
-                    <TableCell>
-                        <Badge variant="secondary">{tender.status}</Badge>
-                    </TableCell>
-                    <TableCell>{tender.date}</TableCell>
-                    <TableCell>{tender.budget}</TableCell>
-                    <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => approveTender(tender.id)}>
-                            <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
-                            Onayla
-                        </Button>
-                    </TableCell>
-                  </TableRow>
+             <Accordion type="multiple" className="w-full">
+                {Object.entries(groupedDrafts).map(([groupKey, contracts]) => (
+                    <AccordionItem value={groupKey} key={groupKey}>
+                        <AccordionTrigger className="text-base font-headline hover:no-underline">
+                            {contractGroups[groupKey as ContractGroupKeys]} ({contracts.length})
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                    <TableHead>İhale Kodu</TableHead>
+                                    <TableHead>Proje Adı</TableHead>
+                                    <TableHead>Durum</TableHead>
+                                    <TableHead>İhale Tarihi</TableHead>
+                                    <TableHead>Bütçe</TableHead>
+                                    <TableHead className="text-right">İşlemler</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {contracts.map((tender) => (
+                                    <TableRow key={tender.id}>
+                                        <TableCell className="font-medium">{tender.id}</TableCell>
+                                        <TableCell>{tender.name}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="secondary">{tender.status}</Badge>
+                                        </TableCell>
+                                        <TableCell>{tender.date}</TableCell>
+                                        <TableCell>{tender.budget}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="sm" onClick={() => approveTender(tender.id)}>
+                                                <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
+                                                Onayla
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </AccordionContent>
+                    </AccordionItem>
                 ))}
-              </TableBody>
-            </Table>
+             </Accordion>
           </TabsContent>
           <TabsContent value="approved" className="mt-4">
             <Table>
