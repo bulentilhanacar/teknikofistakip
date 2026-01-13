@@ -10,6 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useProject } from '@/context/project-context';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const contractGroups = {
   "reklam": "Reklam ve Tanıtım",
@@ -90,7 +93,7 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
 
     return (
         <Collapsible asChild>
-            <>
+            <tbody className='bg-background'>
                 <TableRow>
                     <td colSpan={onApprove ? 7 : 6} className="p-0">
                         <div className="flex items-center p-4 w-full group">
@@ -118,7 +121,7 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
                 <CollapsibleContent asChild>
                     <TableRow>
                         <TableCell colSpan={onApprove ? 7 : 6} className="p-0">
-                            <div className="p-4 bg-background">
+                            <div className="p-4 bg-muted/50">
                                 <h4 className='text-base font-semibold mb-2 pl-2'>Sözleşme Detayları</h4>
                                  {contract.items.length > 0 ? (
                                     <Table>
@@ -156,15 +159,26 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
                         </TableCell>
                     </TableRow>
                 </CollapsibleContent>
-            </>
+            </tbody>
         </Collapsible>
     )
 }
 
-const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void}) => {
+const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, groupKey }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void, onAddDraft?: (group: ContractGroupKeys, name: string, subGroup: string) => void, groupKey: ContractGroupKeys }) => {
     const totalContractsInGroup = Object.values(contracts).reduce((sum, list) => sum + list.length, 0);
-    const hasAnyContracts = totalContractsInGroup > 0;
     const hasSubgroups = Object.keys(contracts).length > 0 && Object.values(contracts).some(list => list.length > 0);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [draftName, setDraftName] = useState('');
+    const [draftSubGroup, setDraftSubGroup] = useState('');
+
+    const handleAddDraft = () => {
+        if (onAddDraft && draftName && draftSubGroup) {
+            onAddDraft(groupKey, draftName, draftSubGroup);
+            setDraftName('');
+            setDraftSubGroup('');
+            setIsDialogOpen(false);
+        }
+    };
 
     return (
         <AccordionItem value={title}>
@@ -188,11 +202,9 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
                                 <AccordionContent>
                                      {contractList.length > 0 ? (
                                         <Table>
-                                            <TableBody>
-                                                {contractList.map((contract) => (
-                                                    <ContractRow key={contract.id} contract={contract} onApprove={onApprove} />
-                                                ))}
-                                            </TableBody>
+                                            {contractList.map((contract) => (
+                                                <ContractRow key={contract.id} contract={contract} onApprove={onApprove} />
+                                            ))}
                                         </Table>
                                      ) : (
                                         <div className="text-center text-muted-foreground p-4">Bu alt grupta sözleşme bulunmuyor.</div>
@@ -207,10 +219,36 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
                 )}
                  {onApprove && (
                     <div className="pt-2 pl-6 mt-2 border-t">
-                        <Button variant="ghost" size="sm">
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Yeni Taslak Ekle
-                        </Button>
+                        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                            <DialogTrigger asChild>
+                                 <Button variant="ghost" size="sm">
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Yeni Taslak Ekle
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>{title} Grubuna Yeni Taslak Ekle</DialogTitle>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="name" className="text-right">Sözleşme Adı</Label>
+                                        <Input id="name" value={draftName} onChange={(e) => setDraftName(e.target.value)} className="col-span-3" />
+                                    </div>
+                                     <div className="grid grid-cols-4 items-center gap-4">
+                                        <Label htmlFor="subgroup" className="text-right">Alt Grup</Label>
+                                        <Input id="subgroup" value={draftSubGroup} onChange={(e) => setDraftSubGroup(e.target.value)} className="col-span-3" />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <DialogClose asChild>
+                                        <Button type="button" variant="secondary">İptal</Button>
+                                    </DialogClose>
+                                    <Button type="submit" onClick={handleAddDraft}>Kaydet</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+
                     </div>
                  )}
             </AccordionContent>
@@ -260,6 +298,36 @@ export default function ContractsPage() {
                 [selectedProject.id]: {
                     drafts: updatedDrafts,
                     approved: updatedApproved
+                }
+            }
+        });
+    };
+
+    const addDraftTender = (group: ContractGroupKeys, name: string, subGroup: string) => {
+        if (!selectedProject) return;
+
+        const newIdNumber = (draftContracts.length + Object.keys(projectContracts).reduce((acc, key) => acc + projectContracts[key].drafts.length, 0) + 8);
+        const newTenderId = `IHALE-${String(newIdNumber).padStart(3, '0')}`;
+
+        const newDraft = {
+            id: newTenderId,
+            name,
+            group,
+            subGroup,
+            status: 'Hazırlık',
+            date: new Date().toISOString().split('T')[0],
+            items: []
+        };
+
+        setProjectContracts(prevData => {
+            const currentProjectData = prevData[selectedProject.id] || { drafts: [], approved: [] };
+            const updatedDrafts = [...currentProjectData.drafts, newDraft].sort((a, b) => a.id.localeCompare(b.id));
+            
+            return {
+                ...prevData,
+                [selectedProject.id]: {
+                    drafts: updatedDrafts,
+                    approved: currentProjectData.approved
                 }
             }
         });
@@ -340,6 +408,8 @@ export default function ContractsPage() {
                             title={contractGroups[groupKey]} 
                             contracts={contractsInGroup || {}}
                             onApprove={approveTender}
+                            onAddDraft={addDraftTender}
+                            groupKey={groupKey}
                         />
                     );
                 })}
@@ -355,6 +425,7 @@ export default function ContractsPage() {
                             key={groupKey} 
                             title={contractGroups[groupKey]} 
                             contracts={contractsInGroup || {}}
+                            groupKey={groupKey}
                         />
                     );
                 })}
