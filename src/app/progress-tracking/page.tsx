@@ -106,7 +106,7 @@ export default function ProgressTrackingPage() {
                             <SelectItem value="yok">(Durum Yok)</SelectItem>
                             <SelectItem value="sahada">Sahada</SelectItem>
                             <SelectItem value="imzada">İmzada</SelectItem>
-                            <SelectItem value="onayda">Onayda</Oreal>
+                            <SelectItem value="onayda">Onayda</SelectItem>
                             <SelectItem value="pas_gec">Bu Ay Hakediş Yok</SelectItem>
                         </SelectContent>
                     </Select>
