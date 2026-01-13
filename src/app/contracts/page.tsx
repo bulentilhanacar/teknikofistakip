@@ -5,11 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { PlusCircle, CheckCircle, ChevronDown } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { cn } from '@/lib/utils';
 import { useProject } from '@/context/project-context';
 
 const contractGroups = {
@@ -93,26 +92,28 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
         <Collapsible asChild>
             <>
                 <TableRow>
-                    <CollapsibleTrigger asChild>
-                        <td colSpan={onApprove ? 7 : 6} className="p-0">
-                            <div className="flex items-center p-4 w-full cursor-pointer group">
-                                <ChevronDown className="h-4 w-4 mr-2 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                                <span className="font-medium w-28">{contract.id}</span>
-                                <span className='flex-1'>{contract.name}</span>
-                                <Badge variant={isApproved ? "default" : "secondary"} className="w-28 justify-center">{contract.status}</Badge>
-                                <span className="w-28 text-center">{contract.date}</span>
-                                <span className="w-32 text-right">{formatCurrency(budget)}</span>
-                            </div>
-                        </td>
-                    </CollapsibleTrigger>
-                    {onApprove && (
-                        <td className="p-0 text-right w-28">
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove && onApprove(contract.id); }}>
-                                <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
-                                Onayla
-                            </Button>
-                        </td>
-                    )}
+                    <td colSpan={onApprove ? 7 : 6} className="p-0">
+                        <div className="flex items-center p-4 w-full group">
+                            <CollapsibleTrigger asChild>
+                                <button className='flex items-center flex-1 text-left'>
+                                    <ChevronDown className="h-4 w-4 mr-2 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                    <span className="font-medium w-28">{contract.id}</span>
+                                    <span className='flex-1'>{contract.name}</span>
+                                </button>
+                            </CollapsibleTrigger>
+                            <Badge variant={isApproved ? "default" : "secondary"} className="w-28 justify-center">{contract.status}</Badge>
+                            <span className="w-28 text-center">{contract.date}</span>
+                            <span className="w-32 text-right">{formatCurrency(budget)}</span>
+                            {onApprove && (
+                                <div className="text-right w-28 pl-4">
+                                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove && onApprove(contract.id); }}>
+                                        <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
+                                        Onayla
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </td>
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
@@ -162,6 +163,8 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
 
 const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void}) => {
     const totalContractsInGroup = Object.values(contracts).reduce((sum, list) => sum + list.length, 0);
+    const hasAnyContracts = totalContractsInGroup > 0;
+    const hasSubgroups = Object.keys(contracts).length > 0 && Object.values(contracts).some(list => list.length > 0);
 
     return (
         <AccordionItem value={title}>
@@ -171,30 +174,33 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
                 </div>
             </AccordionTrigger>
             <AccordionContent>
-                {Object.keys(contracts).length > 0 && Object.values(contracts).some(list => list.length > 0) ? (
+                {hasSubgroups ? (
                     <Accordion type="multiple" className="w-full pl-4 border-l">
-                    {Object.entries(contracts).map(([subGroup, contractList]) => (
-                        <AccordionItem value={subGroup} key={subGroup}>
-                            <AccordionTrigger className="text-sm font-semibold hover:no-underline">
-                                <div className='flex justify-between items-center w-full pr-4'>
-                                    <span>{subGroup} ({contractList.length})</span>
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                 {contractList.length > 0 ? (
-                                    <Table>
-                                        <TableBody>
-                                            {contractList.map((contract) => (
-                                                <ContractRow key={contract.id} contract={contract} onApprove={onApprove} />
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                 ) : (
-                                    <div className="text-center text-muted-foreground p-4">Bu alt grupta sözleşme bulunmuyor.</div>
-                                 )}
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
+                    {Object.entries(contracts).map(([subGroup, contractList]) => {
+                        if (contractList.length === 0 && !onApprove) return null;
+                        return (
+                            <AccordionItem value={subGroup} key={subGroup}>
+                                <AccordionTrigger className="text-sm font-semibold hover:no-underline">
+                                    <div className='flex justify-between items-center w-full pr-4'>
+                                        <span>{subGroup} ({contractList.length})</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                     {contractList.length > 0 ? (
+                                        <Table>
+                                            <TableBody>
+                                                {contractList.map((contract) => (
+                                                    <ContractRow key={contract.id} contract={contract} onApprove={onApprove} />
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                     ) : (
+                                        <div className="text-center text-muted-foreground p-4">Bu alt grupta sözleşme bulunmuyor.</div>
+                                     )}
+                                </AccordionContent>
+                            </AccordionItem>
+                        )
+                    })}
                     </Accordion>
                 ) : (
                      <div className="pl-4 text-muted-foreground py-4">Bu grupta alt başlık veya sözleşme bulunmuyor.</div>
@@ -235,20 +241,25 @@ export default function ContractsPage() {
         if (!tenderToApprove) return;
 
         const newIdNumber = (approvedContracts.length + Object.keys(projectContracts).reduce((acc, key) => acc + projectContracts[key].approved.length, 0) + 1);
+        const newContractId = `SOZ-${String(newIdNumber).padStart(3, '0')}`;
+
         const newApprovedContract = {
             ...tenderToApprove,
-            id: `SOZ-${String(newIdNumber).padStart(3, '0')}`,
+            id: newContractId,
             status: 'Onaylandı',
             date: new Date().toISOString().split('T')[0],
         };
 
         setProjectContracts(prevData => {
             const currentProjectData = prevData[selectedProject.id] || { drafts: [], approved: [] };
+            const updatedDrafts = currentProjectData.drafts.filter(t => t.id !== tenderId);
+            const updatedApproved = [...currentProjectData.approved, newApprovedContract].sort((a, b) => a.id.localeCompare(b.id));
+            
             return {
                 ...prevData,
                 [selectedProject.id]: {
-                    drafts: currentProjectData.drafts.filter(t => t.id !== tenderId),
-                    approved: [...currentProjectData.approved, newApprovedContract].sort((a, b) => a.id.localeCompare(b.id))
+                    drafts: updatedDrafts,
+                    approved: updatedApproved
                 }
             }
         });
@@ -260,15 +271,28 @@ export default function ContractsPage() {
           return acc;
       }, {} as Record<ContractGroupKeys, Record<string, Contract[]>>);
 
-      return contracts.reduce((acc, contract) => {
-          if (acc[contract.group]) {
-              if (!acc[contract.group][contract.subGroup]) {
-                  acc[contract.group][contract.subGroup] = [];
-              }
-              acc[contract.group][contract.subGroup].push(contract);
+      contracts.forEach(contract => {
+        if (allGroups[contract.group]) {
+          if (!allGroups[contract.group][contract.subGroup]) {
+            allGroups[contract.group][contract.subGroup] = [];
           }
-          return acc;
-      }, allGroups);
+          allGroups[contract.group][contract.subGroup].push(contract);
+        }
+      });
+
+      // Alt grupları doldur
+      for (const groupKey in allGroups) {
+          const typedGroupKey = groupKey as ContractGroupKeys;
+          const subGroups = Array.from(new Set(contracts.filter(c => c.group === typedGroupKey).map(c => c.subGroup)));
+          subGroups.forEach(subGroup => {
+              if (!allGroups[typedGroupKey][subGroup]) {
+                  allGroups[typedGroupKey][subGroup] = [];
+              }
+          });
+      }
+
+
+      return allGroups;
     };
     
     const groupedDrafts = groupContracts(draftContracts);
