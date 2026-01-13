@@ -85,8 +85,72 @@ const initialContractsData: Record<string, {drafts: Contract[], approved: Contra
     }
 }
 
+const AddItemDialog = ({ contract, onAddItem }: { contract: Contract, onAddItem: (contractId: string, item: ContractItem) => void }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [newItem, setNewItem] = useState<Omit<ContractItem, 'quantity' | 'unitPrice'> & { quantity: string, unitPrice: string }>({
+        poz: '',
+        description: '',
+        unit: '',
+        quantity: '',
+        unitPrice: ''
+    });
 
-const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: (contractId: string) => void }) => {
+    const handleSave = () => {
+        const item: ContractItem = {
+            ...newItem,
+            quantity: parseFloat(newItem.quantity) || 0,
+            unitPrice: parseFloat(newItem.unitPrice) || 0,
+        };
+        onAddItem(contract.id, item);
+        setIsOpen(false);
+        setNewItem({ poz: '', description: '', unit: '', quantity: '', unitPrice: '' });
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Yeni Kalem Ekle
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Yeni Kalem Ekle: {contract.name}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="poz" className="text-right">Poz No</Label>
+                        <Input id="poz" value={newItem.poz} onChange={(e) => setNewItem({ ...newItem, poz: e.target.value })} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="description" className="text-right">Açıklama</Label>
+                        <Input id="description" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="unit" className="text-right">Birim</Label>
+                        <Input id="unit" value={newItem.unit} onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="quantity" className="text-right">Miktar</Label>
+                        <Input id="quantity" type="number" value={newItem.quantity} onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })} className="col-span-3" />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="unitPrice" className="text-right">Birim Fiyat</Label>
+                        <Input id="unitPrice" type="number" value={newItem.unitPrice} onChange={(e) => setNewItem({ ...newItem, unitPrice: e.target.value })} className="col-span-3" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="secondary">İptal</Button></DialogClose>
+                    <Button type="submit" onClick={handleSave}>Kaydet</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+
+const ContractRow = ({ contract, onApprove, onAddItem }: { contract: Contract, onApprove?: (contractId: string) => void, onAddItem?: (contractId: string, item: ContractItem) => void }) => {
     const budget = contract.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
     const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
     const isApproved = contract.status === 'Onaylandı';
@@ -122,7 +186,10 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
                     <TableRow>
                         <TableCell colSpan={onApprove ? 7 : 6} className="p-0">
                             <div className="p-4 bg-muted/50">
-                                <h4 className='text-base font-semibold mb-2 pl-2'>Sözleşme Detayları</h4>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h4 className='text-base font-semibold pl-2'>Sözleşme Detayları</h4>
+                                    {onAddItem && <AddItemDialog contract={contract} onAddItem={onAddItem} />}
+                                </div>
                                  {contract.items.length > 0 ? (
                                     <Table>
                                         <TableHeader>
@@ -164,9 +231,8 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
     )
 }
 
-const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, groupKey }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void, onAddDraft?: (group: ContractGroupKeys, name: string, subGroup: string) => void, groupKey: ContractGroupKeys }) => {
+const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, groupKey, onAddItem }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void, onAddDraft?: (group: ContractGroupKeys, name: string, subGroup: string) => void, groupKey: ContractGroupKeys, onAddItem?: (contractId: string, item: ContractItem) => void }) => {
     const totalContractsInGroup = Object.values(contracts).reduce((sum, list) => sum + list.length, 0);
-    const hasSubgroups = Object.keys(contracts).length > 0 && Object.values(contracts).some(list => list.length > 0);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [draftName, setDraftName] = useState('');
     const [draftSubGroup, setDraftSubGroup] = useState('');
@@ -179,6 +245,8 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, group
             setIsDialogOpen(false);
         }
     };
+    
+    const hasAnyContracts = Object.values(contracts).some(subgroup => subgroup.length > 0);
 
     return (
         <AccordionItem value={title}>
@@ -188,10 +256,19 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, group
                 </div>
             </AccordionTrigger>
             <AccordionContent>
-                {hasSubgroups ? (
+                {hasAnyContracts ? (
                     <Accordion type="multiple" className="w-full pl-4 border-l">
                     {Object.entries(contracts).map(([subGroup, contractList]) => {
-                        if (contractList.length === 0 && !onApprove) return null;
+                        if (contractList.length === 0) return (
+                           <AccordionItem value={subGroup} key={subGroup} disabled={!onApprove}>
+                                <AccordionTrigger className="text-sm font-semibold hover:no-underline py-2 text-muted-foreground">
+                                    <span>{subGroup} (0)</span>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="text-center text-muted-foreground p-4">Bu alt grupta sözleşme bulunmuyor.</div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        );
                         return (
                             <AccordionItem value={subGroup} key={subGroup}>
                                 <AccordionTrigger className="text-sm font-semibold hover:no-underline">
@@ -200,15 +277,11 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, group
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent>
-                                     {contractList.length > 0 ? (
-                                        <Table>
-                                            {contractList.map((contract) => (
-                                                <ContractRow key={contract.id} contract={contract} onApprove={onApprove} />
-                                            ))}
-                                        </Table>
-                                     ) : (
-                                        <div className="text-center text-muted-foreground p-4">Bu alt grupta sözleşme bulunmuyor.</div>
-                                     )}
+                                     <Table>
+                                        {contractList.map((contract) => (
+                                            <ContractRow key={contract.id} contract={contract} onApprove={onApprove} onAddItem={onAddItem} />
+                                        ))}
+                                    </Table>
                                 </AccordionContent>
                             </AccordionItem>
                         )
@@ -332,6 +405,28 @@ export default function ContractsPage() {
             }
         });
     };
+
+    const addItemToContract = (contractId: string, item: ContractItem) => {
+         if (!selectedProject) return;
+
+        setProjectContracts(prevData => {
+            const currentProjectData = prevData[selectedProject.id] || { drafts: [], approved: [] };
+            const updatedDrafts = currentProjectData.drafts.map(draft => {
+                if (draft.id === contractId) {
+                    return { ...draft, items: [...draft.items, item] };
+                }
+                return draft;
+            });
+
+            return {
+                ...prevData,
+                [selectedProject.id]: {
+                    drafts: updatedDrafts,
+                    approved: currentProjectData.approved
+                }
+            };
+        });
+    };
     
     const groupContracts = (contracts: Contract[]): Record<ContractGroupKeys, Record<string, Contract[]>> => {
       const allGroups = (Object.keys(contractGroups) as ContractGroupKeys[]).reduce((acc, groupKey) => {
@@ -409,6 +504,7 @@ export default function ContractsPage() {
                             contracts={contractsInGroup || {}}
                             onApprove={approveTender}
                             onAddDraft={addDraftTender}
+                            onAddItem={addItemToContract}
                             groupKey={groupKey}
                         />
                     );
