@@ -114,7 +114,7 @@ export default function DeductionsPage() {
         });
 
         // Formu temizle
-        setNewDeduction(newDeductionInitialState);
+        setNewDeduction(prev => ({...newDeductionInitialState, contractId: prev.contractId}));
         setDate(new Date());
     };
     
@@ -196,7 +196,7 @@ export default function DeductionsPage() {
                      <div className="grid gap-4 content-start">
                          <div>
                             <Label htmlFor="type">Kesinti Türü</Label>
-                            <Select value={newDeduction.type} onValueChange={(value) => handleInputChange(value, 'type')}>
+                            <Select value={newDeduction.type} onValueChange={(value) => handleInputChange(value as 'muhasebe' | 'tutanakli', 'type')}>
                                 <SelectTrigger id="type">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -285,3 +285,5 @@ export default function DeductionsPage() {
         </div>
     );
 }
+
+    
