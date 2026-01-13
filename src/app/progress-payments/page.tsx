@@ -10,7 +10,7 @@ import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
 import { Paperclip, Calendar as CalendarIcon, PlusCircle, Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ProgressPayment, ProgressItem, Deduction, ExtraWorkItem } from '@/context/types';
+import { ProgressPayment, ProgressItem, Deduction, ExtraWorkItem, Contract } from '@/context/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -23,6 +23,8 @@ export default function ProgressPaymentsPage() {
   const { selectedProject, projectData, saveProgressPayment, getContractsByProject } = useProject();
   
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+  const [editingPaymentNumber, setEditingPaymentNumber] = useState<number | null>(null); // null for new, number for editing
+
   const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
   const [extraWorkItems, setExtraWorkItems] = useState<ExtraWorkItem[]>([]);
   const [selectedDeductionIds, setSelectedDeductionIds] = useState<string[]>([]);
@@ -43,20 +45,45 @@ export default function ProgressPaymentsPage() {
     }
     return [];
   }, [selectedProject, selectedContractId, projectData]);
-
-  const lastProgressPayment = useMemo(() => {
-    return contractProgressHistory.length > 0 ? contractProgressHistory.sort((a, b) => b.progressPaymentNumber - a.progressPaymentNumber)[0] : null;
-  }, [contractProgressHistory]);
   
+  const selectedContract = useMemo(() => {
+    if (!selectedContractId) return null;
+    const projectContracts = getContractsByProject();
+    return projectContracts.find(c => c.id === selectedContractId) as Contract | null;
+  }, [selectedContractId, getContractsByProject]);
+
+  const paymentToEdit = useMemo(() => {
+      if (editingPaymentNumber === null) return null;
+      return contractProgressHistory.find(p => p.progressPaymentNumber === editingPaymentNumber) || null;
+  }, [editingPaymentNumber, contractProgressHistory]);
+
+  const previousPayment = useMemo(() => {
+    if (!selectedContractId) return null;
+    const paymentNumber = editingPaymentNumber === null 
+      ? (contractProgressHistory.at(-1)?.progressPaymentNumber || 0)
+      : (editingPaymentNumber || 1) - 1;
+    
+    if (paymentNumber === 0) return null;
+    return contractProgressHistory.find(p => p.progressPaymentNumber === paymentNumber) || null;
+  }, [editingPaymentNumber, contractProgressHistory, selectedContractId]);
+
+
   const availableDeductions = useMemo(() => {
       if (!selectedProject || !selectedContractId) return [];
       const allDeductions = projectData.deductions[selectedProject.id] || [];
-      return allDeductions.filter(d => (d.contractId === selectedContractId || d.contractId === "all") && d.appliedInPaymentNumber === null);
-  }, [selectedProject, selectedContractId, projectData]);
+      // When editing, show deductions linked to this payment OR unlinked ones.
+      // When creating, show only unlinked ones.
+      return allDeductions.filter(d => 
+        (d.contractId === selectedContractId || d.contractId === "all") && 
+        (d.appliedInPaymentNumber === null || d.appliedInPaymentNumber === editingPaymentNumber)
+      );
+  }, [selectedProject, selectedContractId, projectData, editingPaymentNumber]);
 
 
   useEffect(() => {
+    // Reset everything when the project changes
     setSelectedContractId(null);
+    setEditingPaymentNumber(null);
     setProgressItems([]);
     setExtraWorkItems([]);
     setSelectedDeductionIds([]);
@@ -64,38 +91,66 @@ export default function ProgressPaymentsPage() {
   }, [selectedProject]);
 
 
+  const loadStateForPayment = (contract: Contract, payment: ProgressPayment | null, prevPayment: ProgressPayment | null) => {
+    // If no payment is provided (new payment mode), load initial state
+    // If a payment is provided (edit mode), load its data
+
+    setExtraWorkItems(payment?.extraWorkItems || []);
+    setProgressDate(payment ? new Date(payment.date) : new Date());
+    setSelectedDeductionIds(payment?.appliedDeductionIds || []);
+
+    setProgressItems(contract.items.map((item: any) => {
+      const prevItemState = prevPayment?.items.find(pi => pi.id === item.poz);
+      const previousCumulativeQuantity = prevItemState?.cumulativeQuantity || 0;
+      
+      const currentItemState = payment?.items.find(pi => pi.id === item.poz);
+      const currentCumulativeQuantity = currentItemState?.cumulativeQuantity || previousCumulativeQuantity;
+      
+      const percentage = item.quantity > 0 ? (currentCumulativeQuantity / item.quantity * 100).toFixed(2) : "0.00";
+      
+      return { 
+         id: item.poz,
+         description: item.description,
+         unit: item.unit,
+         unitPrice: item.unitPrice,
+         contractQuantity: item.quantity,
+         previousCumulativeQuantity: previousCumulativeQuantity,
+         currentCumulativeQuantity: currentCumulativeQuantity,
+         currentCumulativePercentage: isNaN(parseFloat(percentage)) ? "0.00" : percentage,
+      };
+    }));
+  }
+
   const handleContractChange = (contractId: string) => {
     setSelectedContractId(contractId);
-    setSelectedDeductionIds([]);
-    setProgressDate(new Date());
-    setExtraWorkItems([]);
-    const projectContracts = getContractsByProject();
-    const contract = projectContracts.find(c => c.id === contractId);
-    
+    setEditingPaymentNumber(null); // Switch to new payment mode when contract changes
+    const contract = getContractsByProject().find(c => c.id === contractId);
     if (contract) {
-       const history = (selectedProject && projectData.progressPayments[selectedProject.id]?.[contractId]) || [];
-       const lastPayment = history.length > 0 ? history.sort((a,b) => b.progressPaymentNumber - a.progressPaymentNumber)[0] : null;
-
-       setProgressItems(contract.items.map((item: any) => {
-         const previousItem = lastPayment?.items.find(pi => pi.id === item.poz);
-         const previousCumulativeQuantity = previousItem?.cumulativeQuantity || 0;
-         const percentage = item.quantity > 0 ? (previousCumulativeQuantity / item.quantity * 100).toFixed(2) : "0.00";
-         
-         return { 
-            id: item.poz,
-            description: item.description,
-            unit: item.unit,
-            unitPrice: item.unitPrice,
-            contractQuantity: item.quantity,
-            previousCumulativeQuantity: previousCumulativeQuantity,
-            currentCumulativeQuantity: previousCumulativeQuantity,
-            currentCumulativePercentage: isNaN(parseFloat(percentage)) ? "0.00" : percentage,
-         };
-       }));
+        const history = (selectedProject && projectData.progressPayments[selectedProject.id]?.[contractId]) || [];
+        const lastPayment = history.at(-1) || null;
+        loadStateForPayment(contract, null, lastPayment);
     } else {
-      setProgressItems([]);
+        setProgressItems([]);
     }
   };
+  
+  const handlePaymentSelectionChange = (paymentNumberStr: string) => {
+    if (!selectedContract) return;
+    const paymentNumber = paymentNumberStr === "new" ? null : parseInt(paymentNumberStr, 10);
+    setEditingPaymentNumber(paymentNumber);
+
+    if (paymentNumber === null) { // New payment
+        const lastPayment = contractProgressHistory.at(-1) || null;
+        loadStateForPayment(selectedContract, null, lastPayment);
+    } else { // Editing existing payment
+        const paymentToLoad = contractProgressHistory.find(p => p.progressPaymentNumber === paymentNumber);
+        const prevPayment = contractProgressHistory.find(p => p.progressPaymentNumber === paymentNumber - 1) || null;
+        if (paymentToLoad) {
+            loadStateForPayment(selectedContract, paymentToLoad, prevPayment);
+        }
+    }
+  }
+
 
   const handlePercentageChange = (itemId: string, percentageStr: string) => {
     const percentage = parseFloat(percentageStr);
@@ -164,7 +219,7 @@ export default function ProgressPaymentsPage() {
   }
   
   const summary = useMemo(() => {
-    const totalPreviousAmount = lastProgressPayment?.totalAmount || 0;
+    const totalPreviousAmount = previousPayment?.totalAmount || 0;
 
     const cumulativeSubTotal = progressItems.reduce((acc, item) => acc + (item.currentCumulativeQuantity * item.unitPrice), 0);
     const currentSubTotal = progressItems.reduce((acc, item) => acc + ((item.currentCumulativeQuantity - item.previousCumulativeQuantity) * item.unitPrice), 0);
@@ -196,16 +251,30 @@ export default function ProgressPaymentsPage() {
       finalPaymentAmount,
       hasProgress,
     };
-  }, [progressItems, extraWorkItems, lastProgressPayment, selectedDeductionIds, availableDeductions]);
+  }, [progressItems, extraWorkItems, previousPayment, selectedDeductionIds, availableDeductions]);
 
   const handleSaveProgressPayment = () => {
     if (!selectedProject || !selectedContractId || !progressDate) return;
-    const newCumulativeTotal = summary.cumulativeSubTotal + summary.extraWorkTotal;
-    saveProgressPayment(selectedContractId, newCumulativeTotal, progressItems, extraWorkItems, selectedDeductionIds, progressDate);
-    // Formu sıfırla
-    handleContractChange(selectedContractId);
-    setSelectedDeductionIds([]);
-    setExtraWorkItems([]);
+    
+    const paymentData: Omit<ProgressPayment, 'progressPaymentNumber'> = {
+        date: format(progressDate, 'yyyy-MM-dd'),
+        totalAmount: summary.cumulativeSubTotal + summary.extraWorkTotal,
+        items: progressItems.map(item => ({
+            id: item.id,
+            cumulativeQuantity: item.currentCumulativeQuantity,
+        })),
+        extraWorkItems,
+        appliedDeductionIds: selectedDeductionIds,
+    };
+    
+    saveProgressPayment(selectedContractId, paymentData, editingPaymentNumber);
+
+    // Formu sıfırla ve yeni hakediş moduna geç
+    if (selectedContract) {
+       const latestPayment = contractProgressHistory.at(-1) || null;
+       setEditingPaymentNumber(null);
+       loadStateForPayment(selectedContract, null, latestPayment);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -232,7 +301,7 @@ export default function ProgressPaymentsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">Hakediş Hesaplama</CardTitle>
-          <CardDescription>{selectedProject.name} | Sözleşme seçerek yeni bir hakediş raporu oluşturun.</CardDescription>
+          <CardDescription>{selectedProject.name} | Sözleşme seçerek yeni bir hakediş raporu oluşturun veya eskisini düzenleyin.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
@@ -251,42 +320,61 @@ export default function ProgressPaymentsPage() {
                 </SelectContent>
                 </Select>
             </div>
-            <div>
-                <Label>Hakediş No</Label>
-                <Input value={`Hakediş No: ${(lastProgressPayment?.progressPaymentNumber || 0) + 1}`} disabled />
-            </div>
-            <div>
-                <Label>Hakediş Tarihi</Label>
-                <Popover>
-                    <PopoverTrigger asChild>
-                    <Button
-                        variant={"outline"}
-                        className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !progressDate && "text-muted-foreground"
-                        )}
-                    >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {progressDate ? format(progressDate, "PPP") : <span>Tarih seçin</span>}
-                    </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar
-                            mode="single"
-                            selected={progressDate}
-                            onSelect={setProgressDate}
-                            initialFocus
-                        />
-                    </PopoverContent>
-                </Popover>
-            </div>
+            {selectedContractId && (
+              <>
+                <div>
+                  <Label>Hakediş No</Label>
+                  <Select 
+                      value={editingPaymentNumber === null ? "new" : String(editingPaymentNumber)}
+                      onValueChange={handlePaymentSelectionChange}
+                  >
+                      <SelectTrigger>
+                          <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="new">Yeni Hakediş Oluştur (#{(contractProgressHistory.at(-1)?.progressPaymentNumber || 0) + 1})</SelectItem>
+                          {contractProgressHistory.map(p => (
+                              <SelectItem key={p.progressPaymentNumber} value={String(p.progressPaymentNumber)}>
+                                  Hakediş #{p.progressPaymentNumber} Düzenle
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                    <Label>Hakediş Tarihi</Label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <Button
+                            variant={"outline"}
+                            className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !progressDate && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {progressDate ? format(progressDate, "PPP") : <span>Tarih seçin</span>}
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={progressDate}
+                                onSelect={setProgressDate}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
       
       {selectedContractId && (
         <>
-          {contractProgressHistory.length > 0 && (
+          {contractProgressHistory.length > 0 && editingPaymentNumber === null && (
             <Card>
                 <CardHeader>
                     <CardTitle className="text-lg font-semibold">Önceki Hakedişler</CardTitle>
@@ -527,7 +615,9 @@ export default function ProgressPaymentsPage() {
           </div>
 
           <div className="flex justify-end">
-            <Button size="lg" onClick={handleSaveProgressPayment} disabled={!summary.hasProgress}>Hakedişi Kaydet ve Raporla</Button>
+            <Button size="lg" onClick={handleSaveProgressPayment} disabled={!summary.hasProgress}>
+                {editingPaymentNumber === null ? 'Hakedişi Kaydet ve Raporla' : 'Değişiklikleri Kaydet'}
+            </Button>
           </div>
         </>
       )}

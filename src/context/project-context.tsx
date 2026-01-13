@@ -25,7 +25,7 @@ interface ProjectContextType {
     updateContractItem: (contractId: string, updatedItem: ContractItem, originalPoz: string) => void;
     deleteContractItem: (contractId: string, itemPoz: string) => void;
     addDeduction: (deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => void;
-    saveProgressPayment: (contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], extraWorkItems: ExtraWorkItem[], selectedDeductionIds: string[], date: Date) => void;
+    saveProgressPayment: (contractId: string, paymentData: Omit<ProgressPayment, 'progressPaymentNumber'>, editingPaymentNumber: number | null) => void;
     updateProgressPaymentStatus: (month: string, contractId: string, status: ProgressPaymentStatus) => void;
     getDashboardData: () => any;
     getContractsByProject: () => Contract[];
@@ -417,34 +417,50 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         });
     }, [selectedProjectId]);
 
-    const saveProgressPayment = useCallback((contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], extraWorkItems: ExtraWorkItem[], selectedDeductionIds: string[], date: Date) => {
+    const saveProgressPayment = useCallback((contractId: string, paymentData: Omit<ProgressPayment, 'progressPaymentNumber'>, editingPaymentNumber: number | null) => {
         if (!selectedProjectId) return;
-
+    
         setProjectData(prev => {
-            const contractHistory = prev.progressPayments[selectedProjectId]?.[contractId] || [];
-            const lastPayment = contractHistory.length > 0 ? contractHistory[contractHistory.length - 1] : null;
-            const newPaymentNumber = (lastPayment?.progressPaymentNumber || 0) + 1;
-            const currentMonth = format(date, 'yyyy-MM');
-
-            const newPayment: ProgressPayment = {
-                progressPaymentNumber: newPaymentNumber,
-                date: format(date, 'yyyy-MM-dd'),
-                totalAmount: cumulativeSubTotal,
-                items: progressItems.map(item => ({
-                    id: item.id,
-                    cumulativeQuantity: item.currentCumulativeQuantity,
-                })),
-                extraWorkItems,
-                appliedDeductionIds: selectedDeductionIds,
-            };
-
-            const newContractHistory = [...contractHistory, newPayment];
-            const newProjectHistory = { ...(prev.progressPayments[selectedProjectId] || {}), [contractId]: newContractHistory };
+            const contractHistory = [...(prev.progressPayments[selectedProjectId]?.[contractId] || [])];
+            let paymentNumberToSave: number;
+    
+            if (editingPaymentNumber !== null) {
+                // Düzenleme modu: Mevcut hakedişi güncelle
+                paymentNumberToSave = editingPaymentNumber;
+                const paymentIndex = contractHistory.findIndex(p => p.progressPaymentNumber === editingPaymentNumber);
+                if (paymentIndex !== -1) {
+                    contractHistory[paymentIndex] = { ...paymentData, progressPaymentNumber: editingPaymentNumber };
+                } else {
+                    // Bu senaryo normalde olmamalı ama bir güvenlik önlemi
+                    return prev;
+                }
+            } else {
+                // Yeni hakediş modu: Yeni hakediş ekle
+                const lastPayment = contractHistory.length > 0 ? contractHistory[contractHistory.length - 1] : null;
+                paymentNumberToSave = (lastPayment?.progressPaymentNumber || 0) + 1;
+                const newPayment: ProgressPayment = {
+                    ...paymentData,
+                    progressPaymentNumber: paymentNumberToSave,
+                };
+                contractHistory.push(newPayment);
+            }
+    
+            const newProjectHistory = { ...(prev.progressPayments[selectedProjectId] || {}), [contractId]: contractHistory };
             
-            const newProjectDeductions = (prev.deductions[selectedProjectId] || []).map(d => 
-                selectedDeductionIds.includes(d.id) ? { ...d, appliedInPaymentNumber: newPaymentNumber } : d
-            );
+            // İlgili kesintileri bu hakedişe bağla/bağlantısını kopar
+            const newProjectDeductions = (prev.deductions[selectedProjectId] || []).map(d => {
+                if (paymentData.appliedDeductionIds.includes(d.id)) {
+                    // Bu hakedişte seçildiyse, numarayı ata
+                    return { ...d, appliedInPaymentNumber: paymentNumberToSave };
+                } else if (d.appliedInPaymentNumber === paymentNumberToSave) {
+                    // Bu hakedişte seçimi kaldırıldıysa, bağlantıyı kopar
+                    return { ...d, appliedInPaymentNumber: null };
+                }
+                return d;
+            });
             
+            // Hakediş takvimini güncelle
+            const currentMonth = format(new Date(paymentData.date), 'yyyy-MM');
             const projectStatuses = prev.progressStatuses[selectedProjectId] || {};
             const monthStatuses = projectStatuses[currentMonth] || {};
             const newProgressStatuses = { 
@@ -454,8 +470,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                     [contractId]: 'odendi' as ProgressPaymentStatus
                 }
              };
-
-
+    
             return {
                 ...prev,
                 progressPayments: { ...prev.progressPayments, [selectedProjectId]: newProjectHistory },
