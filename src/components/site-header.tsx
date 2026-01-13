@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const breadcrumbNameMap: { [key: string]: string } = {
+  '/': 'Finansal Özet',
   '/contracts': 'Sözleşme Yönetimi',
   '/progress-payments': 'Hakediş Hesaplama',
 };
@@ -14,7 +15,9 @@ const breadcrumbNameMap: { [key: string]: string } = {
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const pathnames = pathname.split('/').filter(x => x);
+  // Simplified logic for breadcrumbs. In a real app with dynamic project routes,
+  // this would need to be more sophisticated to handle /projects/[id]/...
+  const pathnames = pathname === '/' ? [] : pathname.split('/').filter(x => x);
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">

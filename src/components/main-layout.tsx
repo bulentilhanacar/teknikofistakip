@@ -8,6 +8,9 @@ import {
   Calculator,
   FileSignature,
   LayoutDashboard,
+  PlusCircle,
+  FolderKanban,
+  ChevronsUpDown,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -19,6 +22,9 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarInset,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -31,17 +37,34 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SiteHeader } from "./site-header";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { Button } from "./ui/button";
 
-
-const menuItems = [
+const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
   { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
   { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
 ];
 
+const initialProjects = [
+    { id: "proje-istanbul", name: "İstanbul Ofis Projesi" },
+    { id: "proje-ankara", name: "Ankara Konut Projesi" },
+];
+
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
+  const [projects, setProjects] = React.useState(initialProjects);
+  const [openProject, setOpenProject] = React.useState<string | null>(initialProjects[0].id);
+
+  // TODO: Implement proper project creation logic
+  const handleAddProject = () => {
+    const newProject = {
+        id: `proje-yeni-${projects.length + 1}`,
+        name: `Yeni Proje ${projects.length + 1}`,
+    };
+    setProjects(prev => [...prev, newProject]);
+    setOpenProject(newProject.id);
+  }
 
   return (
     <SidebarProvider>
@@ -56,21 +79,51 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
+            <div className="p-2">
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+                            <span className="truncate group-data-[collapsible=icon]:hidden">{projects.find(p => p.id === openProject)?.name ?? "Proje Seçin"}</span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 group-data-[collapsible=icon]:hidden"/>
+                            <FolderKanban className="hidden h-5 w-5 group-data-[collapsible=icon]:block" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-[var(--sidebar-width)] -translate-x-2">
+                        <DropdownMenuLabel>Projeler</DropdownMenuLabel>
+                        <DropdownMenuSeparator/>
+                        {projects.map(project => (
+                            <DropdownMenuItem key={project.id} onClick={() => setOpenProject(project.id)}>
+                                {project.name}
+                            </DropdownMenuItem>
+                        ))}
+                         <DropdownMenuSeparator/>
+                        <DropdownMenuItem onClick={handleAddProject}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            <span>Yeni Proje Ekle</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                 </DropdownMenu>
+            </div>
           <SidebarMenu>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === item.href}
-                  tooltip={item.label}
-                >
-                  <Link href={item.href}>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {projectMenuItems.map((item) => {
+              // Note: This routing is simplified. A real app would use /projects/{openProject}{item.href}
+              const itemPath = item.href === "/" ? "/" : item.href;
+              const isActive = pathname === itemPath;
+              return (
+                 <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.label}
+                    >
+                        <Link href={itemPath}>
+                            <item.icon />
+                            <span>{item.label}</span>
+                        </Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
