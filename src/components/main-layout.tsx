@@ -60,12 +60,10 @@ function AddProjectDialog({ isOpen, onOpenChange, onSave }: { isOpen: boolean, o
     const handleSave = () => {
         if (name.trim()) {
             onSave(name.trim());
-            setName("");
-            onOpenChange(false);
+            onOpenChange(false); // Close dialog on successful save
         }
     };
     
-    // Reset name when dialog is closed
     React.useEffect(() => {
         if (!isOpen) {
             setName("");
@@ -99,8 +97,6 @@ function RenameProjectDialog({ project, isOpen, onOpenChange, onSave }: { projec
     React.useEffect(() => {
         if (project && isOpen) {
             setName(project.name);
-        } else if (!isOpen) {
-            setName("");
         }
     }, [project, isOpen]);
 
@@ -144,16 +140,6 @@ function ProjectSelector() {
     setProjectToRename(project);
     setIsRenameOpen(true);
   }
-  
-  const handleSaveRename = (id: string, newName: string) => {
-      updateProjectName(id, newName);
-      setProjectToRename(null);
-  }
-
-  const handleSaveAdd = (name: string) => {
-      addProject(name);
-  }
-
 
   return (
     <>
@@ -205,8 +191,8 @@ function ProjectSelector() {
             </DropdownMenuContent>
         </DropdownMenu>
         
-        <AddProjectDialog isOpen={isAddOpen} onOpenChange={setIsAddOpen} onSave={handleSaveAdd} />
-        <RenameProjectDialog project={projectToRename} isOpen={isRenameOpen} onOpenChange={setIsRenameOpen} onSave={handleSaveRename} />
+        <AddProjectDialog isOpen={isAddOpen} onOpenChange={setIsAddOpen} onSave={addProject} />
+        <RenameProjectDialog project={projectToRename} isOpen={isRenameOpen} onOpenChange={setIsRenameOpen} onSave={updateProjectName} />
     </>
   );
 }
