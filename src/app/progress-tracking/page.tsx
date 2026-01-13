@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import type { ProgressPaymentStatus, Contract } from '@/context/types';
 import { format, addMonths, subMonths } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 // Helper to generate month options
 const getMonthOptions = () => {
