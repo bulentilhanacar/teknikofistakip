@@ -95,7 +95,7 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
                 <TableRow>
                     <CollapsibleTrigger asChild>
                         <td colSpan={onApprove ? 7 : 6} className="p-0">
-                            <div className="flex items-center p-4 w-full cursor-pointer">
+                            <div className="flex items-center p-4 w-full cursor-pointer group">
                                 <ChevronDown className="h-4 w-4 mr-2 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                                 <span className="font-medium w-28">{contract.id}</span>
                                 <span className='flex-1'>{contract.name}</span>
@@ -162,21 +162,7 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
 
 const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void}) => {
     const totalContractsInGroup = Object.values(contracts).reduce((sum, list) => sum + list.length, 0);
-    
-    const hasContent = totalContractsInGroup > 0 || !!onApprove;
 
-    if (!hasContent) {
-        return (
-            <AccordionItem value={title} disabled>
-                <AccordionTrigger className="text-base font-headline hover:no-underline opacity-50">
-                    <div className='flex justify-between items-center w-full pr-4'>
-                        <span>{title} (0)</span>
-                    </div>
-                </AccordionTrigger>
-            </AccordionItem>
-        );
-    }
-    
     return (
         <AccordionItem value={title}>
             <AccordionTrigger className="text-base font-headline hover:no-underline">
@@ -185,7 +171,7 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
                 </div>
             </AccordionTrigger>
             <AccordionContent>
-                {Object.keys(contracts).length > 0 ? (
+                {Object.keys(contracts).length > 0 && Object.values(contracts).some(list => list.length > 0) ? (
                     <Accordion type="multiple" className="w-full pl-4 border-l">
                     {Object.entries(contracts).map(([subGroup, contractList]) => (
                         <AccordionItem value={subGroup} key={subGroup}>
@@ -204,14 +190,14 @@ const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string
                                         </TableBody>
                                     </Table>
                                  ) : (
-                                    <div className="text-center text-muted-foreground p-4">Bu grupta sözleşme bulunmuyor.</div>
+                                    <div className="text-center text-muted-foreground p-4">Bu alt grupta sözleşme bulunmuyor.</div>
                                  )}
                             </AccordionContent>
                         </AccordionItem>
                     ))}
                     </Accordion>
                 ) : (
-                     <div className="text-center text-muted-foreground p-4">Bu grupta alt başlık bulunmuyor.</div>
+                     <div className="pl-4 text-muted-foreground py-4">Bu grupta alt başlık veya sözleşme bulunmuyor.</div>
                 )}
                  {onApprove && (
                     <div className="pt-2 pl-6 mt-2 border-t">
