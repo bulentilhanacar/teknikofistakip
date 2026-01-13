@@ -14,7 +14,8 @@ import {
   Gavel,
   MoreHorizontal,
   Edit,
-  Trash
+  Trash,
+  ClipboardList
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -50,6 +51,7 @@ const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
   { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
   { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
+  { href: "/progress-tracking", label: "Hakediş Takip", icon: ClipboardList },
   { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
 ];
 
@@ -60,12 +62,11 @@ function AddProjectDialog({ isOpen, onOpenChange, onSave }: { isOpen: boolean, o
     const handleSave = () => {
         if (name.trim()) {
             onSave(name.trim());
-            onOpenChange(false); // Close dialog on successful save
+            onOpenChange(false);
         }
     };
     
     React.useEffect(() => {
-        // Reset name when dialog is closed
         if (!isOpen) {
             setName("");
         }

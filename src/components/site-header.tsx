@@ -10,6 +10,7 @@ const breadcrumbNameMap: { [key: string]: string } = {
   '/': 'Finansal Özet',
   '/contracts': 'Sözleşme Yönetimi',
   '/progress-payments': 'Hakediş Hesaplama',
+  '/progress-tracking': 'Hakediş Takip',
   '/deductions': 'Kesinti Yönetimi',
 };
 

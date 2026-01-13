@@ -63,9 +63,13 @@ export interface Deduction {
     appliedInPaymentNumber: number | null; 
 }
 
+export type ProgressPaymentStatus = 'yok' | 'sahada' | 'imzada' | 'onayda' | 'pas_gec';
+
+
 export interface AllProjectData {
     contracts: Record<string, { drafts: Contract[], approved: Contract[] }>;
     progressPayments: Record<string, Record<string, ProgressPayment[]>>;
     deductions: Record<string, Deduction[]>;
+    progressStatuses: Record<string, Record<string, ProgressPaymentStatus>>;
     dashboard: Record<string, any>;
 }

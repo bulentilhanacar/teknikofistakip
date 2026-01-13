@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback } from 'react';
-import { Contract, ContractGroupKeys, ContractItem, Deduction, ProgressPayment, ProgressItem as ContextProgressItem, AllProjectData, contractGroups } from './types';
+import { Contract, ContractGroupKeys, ContractItem, Deduction, ProgressPayment, ProgressItem as ContextProgressItem, AllProjectData, ProgressPaymentStatus } from './types';
 
 
 // Proje ve veri tiplerini tanımlıyoruz
@@ -25,6 +25,7 @@ interface ProjectContextType {
     deleteContractItem: (contractId: string, itemPoz: string) => void;
     addDeduction: (deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => void;
     saveProgressPayment: (contractId: string, cumulativeSubTotal: number, progressItems: ContextProgressItem[], selectedDeductionIds: string[]) => void;
+    updateProgressPaymentStatus: (contractId: string, status: ProgressPaymentStatus) => void;
     getDashboardData: () => any;
     getContractsByProject: () => Contract[];
 }
@@ -96,10 +97,8 @@ const initialProgressHistory: Record<string, Record<string, ProgressPayment[]>> 
                 date: "2024-07-20",
                 totalAmount: 227500,
                 items: [
-                    { id: 'Y.16.050/01', cumulativeQuantity: 500 },
-                    { id: '15.140.1001', cumulativeQuantity: 200 },
-                    { id: '23.215.1105', cumulativeQuantity: 0 },
-                    { id: '18.195.1101', cumulativeQuantity: 0 },
+                    { id: '15.150.1005', cumulativeQuantity: 500 },
+                    { id: 'C30', cumulativeQuantity: 200 },
                 ],
                 appliedDeductionIds: []
             }
@@ -114,6 +113,14 @@ const initialDeductionsData: Record<string, Deduction[]> = {
         { id: 'DED-003', contractId: 'SOZ-002', type: 'muhasebe', date: '2024-07-25', amount: 2500, description: 'Damga Vergisi', appliedInPaymentNumber: null },
     ],
     "proje-ankara": []
+};
+
+const initialProgressStatuses: Record<string, Record<string, ProgressPaymentStatus>> = {
+    "proje-istanbul": {
+        "SOZ-001": "sahada",
+        "SOZ-002": "pas_gec"
+    },
+    "proje-ankara": {}
 };
 
 const projectDashboardData: Record<string, any> = {
@@ -147,7 +154,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         contracts: initialContractsData,
         progressPayments: initialProgressHistory,
         deductions: initialDeductionsData,
-        dashboard: projectDashboardData
+        dashboard: projectDashboardData,
+        progressStatuses: initialProgressStatuses,
     }));
 
     const [isLoaded, setIsLoaded] = useState(false);
@@ -185,6 +193,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             newData.progressPayments[newId] = {};
             newData.deductions[newId] = [];
             newData.dashboard[newId] = JSON.parse(JSON.stringify(emptyDashboardData)); // Deep copy
+            newData.progressStatuses[newId] = {};
             return newData;
         });
 
@@ -210,6 +219,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             delete newData.progressPayments[projectId];
             delete newData.deductions[projectId];
             delete newData.dashboard[projectId];
+            delete newData.progressStatuses[projectId];
             return newData;
         });
     };
@@ -227,7 +237,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             const newIdNumber = allApprovedCount + 1;
             const newContractId = `SOZ-${String(newIdNumber).padStart(3, '0')}`;
 
-            const newApprovedContract: Contract = {
+            const newContract: Contract = {
                 ...tenderToApprove,
                 id: newContractId,
                 status: 'Onaylandı',
@@ -235,7 +245,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             };
 
             const updatedDrafts = currentProjectContracts.drafts.filter(t => t.id !== tenderId);
-            const updatedApproved = [...currentProjectContracts.approved, newApprovedContract].sort((a, b) => a.id.localeCompare(b.id));
+            const updatedApproved = [...currentProjectContracts.approved, newContract].sort((a, b) => a.id.localeCompare(b.id));
 
             return {
                 ...prevData,
@@ -408,14 +418,38 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             const newProjectDeductions = (prev.deductions[selectedProjectId] || []).map(d => 
                 selectedDeductionIds.includes(d.id) ? { ...d, appliedInPaymentNumber: newPaymentNumber } : d
             );
+            
+            const newProgressStatuses = { ...(prev.progressStatuses[selectedProjectId] || {}) };
+            newProgressStatuses[contractId] = 'yok';
+
 
             return {
                 ...prev,
                 progressPayments: { ...prev.progressPayments, [selectedProjectId]: newProjectHistory },
-                deductions: { ...prev.deductions, [selectedProjectId]: newProjectDeductions }
+                deductions: { ...prev.deductions, [selectedProjectId]: newProjectDeductions },
+                progressStatuses: { ...prev.progressStatuses, [selectedProjectId]: newProgressStatuses }
             };
         });
     }, [selectedProjectId]);
+    
+    const updateProgressPaymentStatus = useCallback((contractId: string, status: ProgressPaymentStatus) => {
+        if (!selectedProjectId) return;
+        
+        setProjectData(prev => {
+            const projectStatuses = prev.progressStatuses[selectedProjectId] || {};
+            const updatedStatuses = { ...projectStatuses, [contractId]: status };
+
+            return {
+                ...prev,
+                progressStatuses: {
+                    ...prev.progressStatuses,
+                    [selectedProjectId]: updatedStatuses,
+                }
+            }
+        });
+
+    }, [selectedProjectId]);
+
 
     const getDashboardData = useCallback(() => {
         if (!selectedProjectId || !projectData.dashboard[selectedProjectId]) {
@@ -457,6 +491,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         deleteContractItem,
         addDeduction,
         saveProgressPayment,
+        updateProgressPaymentStatus,
         getDashboardData,
         getContractsByProject
     };
