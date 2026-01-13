@@ -65,6 +65,13 @@ function AddProjectDialog({ isOpen, onOpenChange, onSave }: { isOpen: boolean, o
         }
     };
     
+    // Reset name when dialog is closed
+    React.useEffect(() => {
+        if (!isOpen) {
+            setName("");
+        }
+    }, [isOpen]);
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
              <DialogContent>
@@ -90,10 +97,12 @@ function RenameProjectDialog({ project, isOpen, onOpenChange, onSave }: { projec
     const [name, setName] = React.useState("");
 
     React.useEffect(() => {
-        if (project) {
+        if (project && isOpen) {
             setName(project.name);
+        } else if (!isOpen) {
+            setName("");
         }
-    }, [project]);
+    }, [project, isOpen]);
 
     const handleSave = () => {
         if (name.trim() && project) {
@@ -138,13 +147,11 @@ function ProjectSelector() {
   
   const handleSaveRename = (id: string, newName: string) => {
       updateProjectName(id, newName);
-      setIsRenameOpen(false);
       setProjectToRename(null);
   }
 
   const handleSaveAdd = (name: string) => {
       addProject(name);
-      setIsAddOpen(false);
   }
 
 
