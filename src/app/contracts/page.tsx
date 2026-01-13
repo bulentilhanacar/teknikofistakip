@@ -33,7 +33,7 @@ interface ContractItem {
     unitPrice: number;
 }
 
-interface DraftContract {
+interface Contract {
     id: string;
     name: string;
     group: ContractGroupKeys;
@@ -43,7 +43,7 @@ interface DraftContract {
     items: ContractItem[];
 }
 
-const initialDraftContracts: DraftContract[] = [
+const initialDraftContracts: Contract[] = [
   { id: 'IHALE-001', name: 'Ankara Konut Projesi - Hafriyat', group: 'kaba-isler', subGroup: 'Hafriyat İşleri', status: 'Değerlendirmede', date: '2024-09-15', items: [
     { poz: '15.150.1005', description: 'Makine ile Kazı', unit: 'm³', quantity: 5000, unitPrice: 180 },
     { poz: '15.160.1002', description: 'Dolgu Serme ve Sıkıştırma', unit: 'm³', quantity: 2500, unitPrice: 240 },
@@ -68,38 +68,47 @@ const initialDraftContracts: DraftContract[] = [
   { id: 'IHALE-012', name: 'Havuz ve Spor Alanları Ekipmanları', group: 'sosyal-tesisler', subGroup: 'Ekipman Tedariği', status: 'Değerlendirmede', date: '2024-10-02', items: [] },
 ];
 
-const initialApprovedContracts = [
-    { id: 'SOZ-001', project: 'İstanbul Ofis Binası', client: 'ABC Holding', startDate: '2024-08-10', value: '₺24,500,000', originalTenderId: 'IHALE-002' },
-    { id: 'SOZ-002', project: 'Eskişehir Villa Projesi', client: 'Yılmaz Ailesi', startDate: '2024-06-15', value: '₺3,200,000' },
+const initialApprovedContracts: Contract[] = [
+    { id: 'SOZ-001', name: 'İstanbul Ofis Binası - Betonarme', group: 'kaba-isler', subGroup: 'Betonarme ve Çelik', status: 'Onaylandı', date: '2024-08-10', items: [
+      { poz: '15.150.1005', description: 'Makine ile Kazı', unit: 'm³', quantity: 8000, unitPrice: 175 },
+      { poz: '15.160.1002', description: 'Dolgu Serme ve Sıkıştırma', unit: 'm³', quantity: 4000, unitPrice: 230 },
+      { poz: 'C30', description: 'C30 Beton', unit: 'm³', quantity: 2500, unitPrice: 3200 },
+    ]},
+    { id: 'SOZ-002', name: 'Eskişehir Villa Projesi - Lamine Parke', group: 'ince-isler', subGroup: 'Zemin Kaplamaları', status: 'Onaylandı', date: '2024-06-15', items: [
+       { poz: '25.115.1402', description: 'Lamine Parke', unit: 'm²', quantity: 450, unitPrice: 1800 },
+    ]},
 ];
 
-const TenderRow = ({ tender, onApprove }: { tender: DraftContract, onApprove: (tenderId: string) => void }) => {
+const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: (contractId: string) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const budget = tender.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const budget = contract.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
     const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
+    const isApproved = contract.status === 'Onaylandı';
 
     return (
         <Collapsible asChild>
             <>
                 <TableRow className={cn("cursor-pointer", isOpen && "bg-muted/50")}>
-                     <CollapsibleTrigger asChild className="w-full" onClick={() => setIsOpen(!isOpen)}>
-                        <td colSpan={5} className="p-0">
+                    <CollapsibleTrigger asChild className="w-full" onClick={() => setIsOpen(!isOpen)}>
+                        <td colSpan={onApprove ? 5 : 6} className="p-0">
                             <div className="flex items-center p-4">
                                 {isOpen ? <ChevronUp className="h-4 w-4 mr-2"/> : <ChevronDown className="h-4 w-4 mr-2" />}
-                                <span className="font-medium w-28">{tender.id}</span>
-                                <span className='flex-1'>{tender.name}</span>
-                                <Badge variant="secondary" className="w-28 justify-center">{tender.status}</Badge>
-                                <span className="w-28 text-center">{tender.date}</span>
+                                <span className="font-medium w-28">{contract.id}</span>
+                                <span className='flex-1'>{contract.name}</span>
+                                <Badge variant={isApproved ? "default" : "secondary"} className="w-28 justify-center">{contract.status}</Badge>
+                                <span className="w-28 text-center">{contract.date}</span>
                                 <span className="w-32 text-right">{formatCurrency(budget)}</span>
                             </div>
                         </td>
                     </CollapsibleTrigger>
-                    <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove(tender.id); }}>
-                            <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
-                            Onayla
-                        </Button>
-                    </TableCell>
+                    {onApprove && (
+                        <TableCell className="text-right">
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove(contract.id); }}>
+                                <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
+                                Onayla
+                            </Button>
+                        </TableCell>
+                    )}
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
@@ -118,7 +127,7 @@ const TenderRow = ({ tender, onApprove }: { tender: DraftContract, onApprove: (t
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {tender.items.map(item => (
+                                        {contract.items.map(item => (
                                             <TableRow key={item.poz}>
                                                 <TableCell>{item.poz}</TableCell>
                                                 <TableCell>{item.description}</TableCell>
@@ -143,10 +152,53 @@ const TenderRow = ({ tender, onApprove }: { tender: DraftContract, onApprove: (t
     )
 }
 
+const ContractGroupAccordion = ({ title, contracts, onApprove }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void}) => {
+    const totalContractsInGroup = Object.values(contracts).reduce((sum, list) => sum + list.length, 0);
+    if (totalContractsInGroup === 0) return null;
+
+    return (
+        <AccordionItem value={title}>
+            <AccordionTrigger className="text-base font-headline hover:no-underline">
+                <div className='flex justify-between items-center w-full pr-4'>
+                    <span>{title} ({totalContractsInGroup})</span>
+                </div>
+            </AccordionTrigger>
+            <AccordionContent>
+                <Accordion type="multiple" className="w-full pl-4 border-l">
+                {Object.entries(contracts).map(([subGroup, contractList]) => (
+                    <AccordionItem value={subGroup} key={subGroup}>
+                        <AccordionTrigger className="text-sm font-semibold hover:no-underline">
+                            <div className='flex justify-between items-center w-full pr-4'>
+                                <span>{subGroup} ({contractList.length})</span>
+                                {onApprove && (
+                                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); /* TODO: Add new contract logic */ }}>
+                                        <PlusCircle className="mr-2 h-4 w-4" />
+                                        Yeni Taslak Ekle
+                                    </Button>
+                                )}
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            <Table>
+                                <TableBody>
+                                    {contractList.map((contract) => (
+                                        <ContractRow key={contract.id} contract={contract} onApprove={onApprove} />
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+                </Accordion>
+            </AccordionContent>
+        </AccordionItem>
+    );
+};
+
 
 export default function ContractsPage() {
-    const [draftContracts, setDraftContracts] = useState(initialDraftContracts);
-    const [approvedContracts, setApprovedContracts] = useState(initialApprovedContracts);
+    const [draftContracts, setDraftContracts] = useState<Contract[]>(initialDraftContracts);
+    const [approvedContracts, setApprovedContracts] = useState<Contract[]>(initialApprovedContracts);
 
     const approveTender = (tenderId: string) => {
         const tenderToApprove = draftContracts.find(t => t.id === tenderId);
@@ -154,27 +206,29 @@ export default function ContractsPage() {
 
         setDraftContracts(draftContracts.filter(t => t.id !== tenderId));
         
-        const budget = tenderToApprove.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
         const newContract = {
+            ...tenderToApprove,
             id: `SOZ-${String(approvedContracts.length + 3).padStart(3, '0')}`,
-            project: tenderToApprove.name,
-            client: 'Belirlenecek',
-            startDate: new Date().toISOString().split('T')[0],
-            value: new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(budget),
-            originalTenderId: tenderToApprove.id
+            status: 'Onaylandı',
+            date: new Date().toISOString().split('T')[0],
         };
         setApprovedContracts(prev => [...prev, newContract].sort((a, b) => a.id.localeCompare(b.id)));
     };
     
-    const groupedDrafts = (Object.keys(contractGroups) as ContractGroupKeys[]).reduce((acc, groupKey) => {
-        const contractsInGroup = draftContracts.filter(c => c.group === groupKey);
-        const subGroups = contractsInGroup.reduce((subAcc, contract) => {
-            (subAcc[contract.subGroup] = subAcc[contract.subGroup] || []).push(contract);
-            return subAcc;
-        }, {} as Record<string, DraftContract[]>);
-        acc[groupKey] = subGroups;
-        return acc;
-    }, {} as Record<ContractGroupKeys, Record<string, DraftContract[]>>);
+    const groupContracts = (contracts: Contract[]): Record<ContractGroupKeys, Record<string, Contract[]>> => {
+      return (Object.keys(contractGroups) as ContractGroupKeys[]).reduce((acc, groupKey) => {
+          const contractsInGroup = contracts.filter(c => c.group === groupKey);
+          const subGroups = contractsInGroup.reduce((subAcc, contract) => {
+              (subAcc[contract.subGroup] = subAcc[contract.subGroup] || []).push(contract);
+              return subAcc;
+          }, {} as Record<string, Contract[]>);
+          acc[groupKey] = subGroups;
+          return acc;
+      }, {} as Record<ContractGroupKeys, Record<string, Contract[]>>);
+    };
+    
+    const groupedDrafts = groupContracts(draftContracts);
+    const groupedApproved = groupContracts(approvedContracts);
 
 
   return (
@@ -193,85 +247,35 @@ export default function ContractsPage() {
             <TabsTrigger value="drafts">Taslak Sözleşmeler ({draftContracts.length})</TabsTrigger>
             <TabsTrigger value="approved">Onaylı Sözleşmeler ({approvedContracts.length})</TabsTrigger>
           </TabsList>
+          
           <TabsContent value="drafts" className="mt-4">
              <Accordion type="multiple" className="w-full">
-                {(Object.keys(groupedDrafts) as ContractGroupKeys[]).map((groupKey) => {
-                    const subGroups = groupedDrafts[groupKey];
-                    const groupName = contractGroups[groupKey];
-                    const totalContractsInGroup = Object.values(subGroups).reduce((sum, contracts) => sum + contracts.length, 0);
-                    
-                    if (totalContractsInGroup === 0) return null;
-
-                    return (
-                        <AccordionItem value={groupKey} key={groupKey}>
-                            <AccordionTrigger className="text-base font-headline hover:no-underline">
-                                <div className='flex justify-between items-center w-full pr-4'>
-                                    <span>{groupName} ({totalContractsInGroup})</span>
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                {Object.keys(subGroups).length > 0 ? (
-                                    <Accordion type="multiple" className="w-full pl-4 border-l">
-                                    {Object.entries(subGroups).map(([subGroup, contracts]) => (
-                                        <AccordionItem value={subGroup} key={subGroup}>
-                                             <AccordionTrigger className="text-sm font-semibold hover:no-underline">
-                                                <div className='flex justify-between items-center w-full pr-4'>
-                                                    <span>{subGroup} ({contracts.length})</span>
-                                                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); /* TODO: Add new contract logic */ }}>
-                                                        <PlusCircle className="mr-2 h-4 w-4" />
-                                                        Yeni Taslak Ekle
-                                                    </Button>
-                                                </div>
-                                            </AccordionTrigger>
-                                            <AccordionContent>
-                                                <Table>
-                                                    <TableBody>
-                                                        {contracts.map((tender) => (
-                                                            <TenderRow key={tender.id} tender={tender} onApprove={approveTender} />
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </AccordionContent>
-                                        </AccordionItem>
-                                    ))}
-                                    </Accordion>
-                                ) : (
-                                    <div className="text-center text-muted-foreground p-4">
-                                        Bu grup için henüz taslak sözleşme yok.
-                                    </div>
-                                )}
-                            </AccordionContent>
-                        </AccordionItem>
-                    );
-                })}
+                {(Object.keys(groupedDrafts) as ContractGroupKeys[]).map((groupKey) => (
+                    <ContractGroupAccordion 
+                        key={groupKey} 
+                        title={contractGroups[groupKey]} 
+                        contracts={groupedDrafts[groupKey]}
+                        onApprove={approveTender}
+                    />
+                ))}
              </Accordion>
           </TabsContent>
+
           <TabsContent value="approved" className="mt-4">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                    <TableHead>Sözleşme Kodu</TableHead>
-                    <TableHead>Proje</TableHead>
-                    <TableHead>İşveren</TableHead>
-                    <TableHead>Başlangıç Tarihi</TableHead>
-                    <TableHead className="text-right">Sözleşme Bedeli</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {approvedContracts.map((contract) => (
-                    <TableRow key={contract.id}>
-                        <TableCell className="font-medium">{contract.id}</TableCell>
-                        <TableCell>{contract.project}</TableCell>
-                        <TableCell>{contract.client}</TableCell>
-                        <TableCell>{contract.startDate}</TableCell>
-                        <TableCell className="text-right">{contract.value}</TableCell>
-                    </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            <Accordion type="multiple" className="w-full">
+                {(Object.keys(groupedApproved) as ContractGroupKeys[]).map((groupKey) => (
+                    <ContractGroupAccordion 
+                        key={groupKey} 
+                        title={contractGroups[groupKey]} 
+                        contracts={groupedApproved[groupKey]}
+                    />
+                ))}
+            </Accordion>
           </TabsContent>
+
         </Tabs>
       </CardContent>
     </Card>
   );
 }
+
