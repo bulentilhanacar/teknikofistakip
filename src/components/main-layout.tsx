@@ -38,6 +38,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Button } from "./ui/button";
 import { useProject } from "@/context/project-context";
 import { Skeleton } from "./ui/skeleton";
+import { cn } from "@/lib/utils";
 
 const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
@@ -118,7 +119,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             {isClient ? (
               <ProjectSelector />
             ) : (
-              <Skeleton className="h-10 w-full" />
+               <Skeleton className="h-10 w-full" />
             )}
           </div>
           {selectedProject && (
