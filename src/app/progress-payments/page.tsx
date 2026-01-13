@@ -61,6 +61,7 @@ interface ProgressItem {
   contractQuantity: number;
   previousCumulativeQuantity: number;
   currentCumulativeQuantity: number;
+  currentCumulativePercentage: string; // Yüzde girişi için string
 }
 
 interface ProgressPayment {
@@ -116,10 +117,13 @@ export default function ProgressPaymentsPage() {
        setProgressItems(contract.items.map((item: any) => {
          const previousItem = lastPayment?.items.find(pi => pi.id === item.id);
          const previousCumulativeQuantity = previousItem?.cumulativeQuantity || 0;
+         const percentage = item.contractQuantity > 0 ? (previousCumulativeQuantity / item.contractQuantity * 100).toFixed(2) : "0.00";
+         
          return { 
             ...item, 
             previousCumulativeQuantity: previousCumulativeQuantity,
-            currentCumulativeQuantity: previousCumulativeQuantity // Başlangıçta öncekiyle aynı
+            currentCumulativeQuantity: previousCumulativeQuantity,
+            currentCumulativePercentage: percentage
          };
        }));
     } else {
@@ -127,12 +131,16 @@ export default function ProgressPaymentsPage() {
     }
   };
 
-  const handleQuantityChange = (itemId: string, quantity: string) => {
-    const newQuantity = parseFloat(quantity) || 0;
+  const handlePercentageChange = (itemId: string, percentageStr: string) => {
+    const percentage = parseFloat(percentageStr);
     setProgressItems(items =>
-      items.map(item =>
-        item.id === itemId ? { ...item, currentCumulativeQuantity: newQuantity } : item
-      )
+      items.map(item => {
+        if (item.id === itemId) {
+          const newCumulativeQuantity = isNaN(percentage) ? item.previousCumulativeQuantity : (item.contractQuantity * percentage) / 100;
+          return { ...item, currentCumulativePercentage: percentageStr, currentCumulativeQuantity: newCumulativeQuantity };
+        }
+        return item;
+      })
     );
   };
   
@@ -280,9 +288,9 @@ export default function ProgressPaymentsPage() {
                     <TableRow>
                       <TableHead>Poz No</TableHead>
                       <TableHead>Açıklama</TableHead>
-                      <TableHead>Birim Fiyat</TableHead>
                       <TableHead>Söz. Miktarı</TableHead>
                       <TableHead>Önceki Miktar</TableHead>
+                      <TableHead>% İlerleme</TableHead>
                       <TableHead>Toplam Miktar</TableHead>
                       <TableHead>Bu Ayki Miktar</TableHead>
                       <TableHead className="text-right">Bu Ayki Tutar</TableHead>
@@ -293,18 +301,23 @@ export default function ProgressPaymentsPage() {
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.id}</TableCell>
                         <TableCell>{item.description}</TableCell>
-                        <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
                         <TableCell>{item.contractQuantity.toLocaleString('tr-TR')} {item.unit}</TableCell>
                         <TableCell>{item.previousCumulativeQuantity.toLocaleString('tr-TR')}</TableCell>
                         <TableCell>
-                            <Input 
-                                className="w-28" 
-                                type="number"
-                                value={item.currentCumulativeQuantity}
-                                onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                            />
+                            <div className="flex items-center">
+                                <Input 
+                                    className="w-20" 
+                                    type="number"
+                                    value={item.currentCumulativePercentage}
+                                    onChange={(e) => handlePercentageChange(item.id, e.target.value)}
+                                    min="0"
+                                    max="100"
+                                />
+                                <span className="ml-1">%</span>
+                            </div>
                         </TableCell>
-                        <TableCell className='font-semibold'>{(item.currentCumulativeQuantity - item.previousCumulativeQuantity).toLocaleString('tr-TR')}</TableCell>
+                        <TableCell>{item.currentCumulativeQuantity.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}</TableCell>
+                        <TableCell className='font-semibold'>{(item.currentCumulativeQuantity - item.previousCumulativeQuantity).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}</TableCell>
                         <TableCell className="text-right font-bold">{formatCurrency((item.currentCumulativeQuantity - item.previousCumulativeQuantity) * item.unitPrice)}</TableCell>
                       </TableRow>
                     ))}
