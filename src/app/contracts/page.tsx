@@ -93,30 +93,30 @@ const ContractRow = ({ contract, onApprove }: { contract: Contract, onApprove?: 
         <Collapsible asChild>
             <>
                 <TableRow className={cn("cursor-pointer", isOpen && "bg-muted/50")}>
-                    <CollapsibleTrigger asChild className="w-full" onClick={() => setIsOpen(!isOpen)}>
-                        <td colSpan={onApprove ? 5 : 6} className="p-0">
-                            <div className="flex items-center p-4">
+                    <CollapsibleTrigger asChild>
+                       <td colSpan={onApprove ? 6 : 7} className="p-0">
+                             <div className="flex items-center p-4 w-full" onClick={() => setIsOpen(!isOpen)}>
                                 {isOpen ? <ChevronUp className="h-4 w-4 mr-2"/> : <ChevronDown className="h-4 w-4 mr-2" />}
                                 <span className="font-medium w-28">{contract.id}</span>
                                 <span className='flex-1'>{contract.name}</span>
                                 <Badge variant={isApproved ? "default" : "secondary"} className="w-28 justify-center">{contract.status}</Badge>
                                 <span className="w-28 text-center">{contract.date}</span>
                                 <span className="w-32 text-right">{formatCurrency(budget)}</span>
+                                 {onApprove && (
+                                    <div className="w-28 text-right">
+                                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove(contract.id); }}>
+                                            <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
+                                            Onayla
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
                         </td>
                     </CollapsibleTrigger>
-                    {onApprove && (
-                        <TableCell className="text-right">
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove(contract.id); }}>
-                                <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
-                                Onayla
-                            </Button>
-                        </TableCell>
-                    )}
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={6} className="p-0">
+                        <TableCell colSpan={7} className="p-0">
                             <div className="p-4 bg-background">
                                 <h4 className='text-base font-semibold mb-2 pl-2'>Sözleşme Detayları</h4>
                                  {contract.items.length > 0 ? (
@@ -231,7 +231,7 @@ export default function ContractsPage() {
 
         const newApprovedContract = {
             ...tenderToApprove,
-            id: `SOZ-${String(approvedContracts.length + 3).padStart(3, '0')}`,
+            id: `SOZ-${String(approvedContracts.length + Object.keys(projectContracts).reduce((acc,key) => acc + projectContracts[key].approved.length, 0) + 1).padStart(3, '0')}`,
             status: 'Onaylandı',
             date: new Date().toISOString().split('T')[0],
         };
@@ -248,11 +248,13 @@ export default function ContractsPage() {
     const groupContracts = (contracts: Contract[]): Record<ContractGroupKeys, Record<string, Contract[]>> => {
       return (Object.keys(contractGroups) as ContractGroupKeys[]).reduce((acc, groupKey) => {
           const contractsInGroup = contracts.filter(c => c.group === groupKey);
-          const subGroups = contractsInGroup.reduce((subAcc, contract) => {
-              (subAcc[contract.subGroup] = subAcc[contract.subGroup] || []).push(contract);
-              return subAcc;
-          }, {} as Record<string, Contract[]>);
-          acc[groupKey] = subGroups;
+          if (contractsInGroup.length > 0) {
+            const subGroups = contractsInGroup.reduce((subAcc, contract) => {
+                (subAcc[contract.subGroup] = subAcc[contract.subGroup] || []).push(contract);
+                return subAcc;
+            }, {} as Record<string, Contract[]>);
+            acc[groupKey] = subGroups;
+          }
           return acc;
       }, {} as Record<ContractGroupKeys, Record<string, Contract[]>>);
     };
@@ -294,26 +296,34 @@ export default function ContractsPage() {
           
           <TabsContent value="drafts" className="mt-4">
              <Accordion type="multiple" className="w-full">
-                {(Object.keys(groupedDrafts) as ContractGroupKeys[]).map((groupKey) => (
-                    <ContractGroupAccordion 
-                        key={groupKey} 
-                        title={contractGroups[groupKey]} 
-                        contracts={groupedDrafts[groupKey]}
-                        onApprove={approveTender}
-                    />
-                ))}
+                {(Object.keys(contractGroups) as ContractGroupKeys[]).map((groupKey) => {
+                    const contractsInGroup = groupedDrafts[groupKey];
+                    if (!contractsInGroup || Object.keys(contractsInGroup).length === 0) return null;
+                    return (
+                        <ContractGroupAccordion 
+                            key={groupKey} 
+                            title={contractGroups[groupKey]} 
+                            contracts={contractsInGroup}
+                            onApprove={approveTender}
+                        />
+                    );
+                })}
              </Accordion>
           </TabsContent>
 
           <TabsContent value="approved" className="mt-4">
             <Accordion type="multiple" className="w-full">
-                {(Object.keys(groupedApproved) as ContractGroupKeys[]).map((groupKey) => (
-                    <ContractGroupAccordion 
-                        key={groupKey} 
-                        title={contractGroups[groupKey]} 
-                        contracts={groupedApproved[groupKey]}
-                    />
-                ))}
+                {(Object.keys(contractGroups) as ContractGroupKeys[]).map((groupKey) => {
+                    const contractsInGroup = groupedApproved[groupKey];
+                    if (!contractsInGroup || Object.keys(contractsInGroup).length === 0) return null;
+                    return (
+                        <ContractGroupAccordion 
+                            key={groupKey} 
+                            title={contractGroups[groupKey]} 
+                            contracts={contractsInGroup}
+                        />
+                    );
+                })}
             </Accordion>
           </TabsContent>
 
