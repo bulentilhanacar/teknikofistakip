@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
 import type { ProgressPaymentStatus, Contract } from '@/context/types';
-import { format, addMonths, subMonths } from 'date-fns';
+import { format, addMonths, lastDayOfMonth } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -42,16 +42,21 @@ export default function ProgressTrackingPage() {
   }, [selectedProject, projectData]);
 
   const getContractProgressInfo = (contract: Contract) => {
-    const history = selectedProject ? projectData.progressPayments[selectedProject.id]?.[contract.id] : [];
-    const lastPayment = history && history.length > 0 ? history[history.length - 1] : null;
+    const history = selectedProject ? projectData.progressPayments[selectedProject.id]?.[contract.id] || [] : [];
+    
+    // Find the last payment made on or before the end of the selected month
+    const selectedMonthEndDate = lastDayOfMonth(new Date(`${selectedMonth}-01T12:00:00`));
+    const lastPaymentForMonth = history
+        .filter(p => new Date(p.date) <= selectedMonthEndDate)
+        .sort((a, b) => b.progressPaymentNumber - a.progressPaymentNumber)[0] || null;
 
     const projectStatusesForMonth = (selectedProject && projectData.progressStatuses[selectedProject.id]?.[selectedMonth]) || {};
     const currentStatus = projectStatusesForMonth[contract.id] || 'yok';
 
     return {
-      lastPaymentNumber: lastPayment?.progressPaymentNumber || 0,
-      lastPaymentAmount: lastPayment?.totalAmount || 0,
-      nextPaymentNumber: (lastPayment?.progressPaymentNumber || 0) + 1,
+      lastPaymentNumber: lastPaymentForMonth?.progressPaymentNumber || 0,
+      lastPaymentAmount: lastPaymentForMonth?.totalAmount || 0,
+      nextPaymentNumber: (lastPaymentForMonth?.progressPaymentNumber || 0) + 1,
       status: currentStatus
     };
   };
@@ -102,6 +107,8 @@ export default function ProgressTrackingPage() {
     );
   }
 
+  const selectedMonthLabel = monthOptions.find(m => m.value === selectedMonth)?.label;
+
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
@@ -126,8 +133,8 @@ export default function ProgressTrackingPage() {
             <TableRow>
               <TableHead className="w-[150px]">Sözleşme No</TableHead>
               <TableHead>Sözleşme Adı</TableHead>
-              <TableHead className="w-[200px]">Genel Hakediş Durumu</TableHead>
-              <TableHead className="w-[250px] text-center">{monthOptions.find(m => m.value === selectedMonth)?.label} Durumu</TableHead>
+              <TableHead className="w-[220px]">{selectedMonthLabel} İtibarıyla Durum</TableHead>
+              <TableHead className="w-[250px] text-center">{selectedMonthLabel} Süreç Durumu</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
