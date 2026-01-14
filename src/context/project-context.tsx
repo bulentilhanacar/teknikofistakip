@@ -4,14 +4,14 @@
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback } from 'react';
 import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, errorEmitter, useCollection, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 
 interface ProjectContextType {
     projects: Project[] | null;
-    setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
     selectedProject: Project | null;
     selectProject: (projectId: string | null) => void;
     addProject: (projectName: string) => Promise<void>;
@@ -38,85 +38,66 @@ const getInitialState = <T,>(key: string, defaultValue: T): T => {
 
 export const ProjectProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
-    const { user } = useUser();
     const firestore = useFirestore();
-
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [loading, setLoading] = useState(true);
+    
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => getInitialState('selectedProjectId', null));
 
+    const projectsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, "projects");
+    }, [firestore]);
 
-    useEffect(() => {
-        if (projects === null) {
-            setLoading(true);
-        } else {
-            setLoading(false);
-        }
-    }, [projects]);
-    
-    useEffect(() => {
-        if (!user) {
-            setProjects([]);
-            setSelectedProjectId(null);
-        }
-    }, [user]);
+    const { data: projects, loading } = useCollection<Project>(projectsQuery);
 
     const selectedProject = useMemo(() => {
         if (!projects || projects.length === 0) return null;
-        const currentProjectExists = projects.some(p => p.id === selectedProjectId);
         
-        if (selectedProjectId && currentProjectExists) {
+        const projectExists = projects.some(p => p.id === selectedProjectId);
+        if (selectedProjectId && projectExists) {
             return projects.find(p => p.id === selectedProjectId) || null;
-        } else {
-            const firstProjectId = projects[0].id;
-            // This causes a re-render, so we should do it in an effect.
-            // However, it's safer to just derive state.
+        } 
+        
+        // If no project is selected or the selected one is gone, select the first one.
+        if (projects.length > 0) {
             return projects[0];
         }
         
+        return null;
+        
     }, [selectedProjectId, projects]);
 
-    // Effect to update localStorage and handle deselection
     useEffect(() => {
-        const projectExists = projects?.some(p => p.id === selectedProjectId);
-        if (selectedProjectId && projectExists) {
-             localStorage.setItem('selectedProjectId', JSON.stringify(selectedProjectId));
-        } else if (projects && projects.length > 0) {
-            // If selected project is gone, select the first one
-            setSelectedProjectId(projects[0].id);
-        } else if (!projects || projects.length === 0) {
-            // No projects left
+        if (selectedProject) {
+            setSelectedProjectId(selectedProject.id);
+            localStorage.setItem('selectedProjectId', JSON.stringify(selectedProject.id));
+        } else if (!loading && (!projects || projects.length === 0)) {
             setSelectedProjectId(null);
             localStorage.removeItem('selectedProjectId');
         }
+    }, [selectedProject, projects, loading]);
 
-    }, [selectedProjectId, projects]);
 
     const selectProject = (projectId: string | null) => {
         setSelectedProjectId(projectId);
     };
 
     const addProject = useCallback(async (projectName: string) => {
-        if (!firestore || !user) {
-            toast({ title: "Hata", description: "Proje eklemek için giriş yapmalısınız.", variant: "destructive" });
+        if (!firestore) {
+            toast({ title: "Hata", description: "Firestore servisi bulunamadı.", variant: "destructive" });
             return;
         }
         try {
-            const newProjectData = {
-                name: projectName,
-                ownerId: user.uid,
-            };
+            const newProjectData = { name: projectName }; // Removed ownerId
             const newProjectRef = await addDoc(collection(firestore, "projects"), newProjectData);
             
-            // The useCollection hook will automatically update the projects list
             selectProject(newProjectRef.id);
             
             toast({ title: "Proje oluşturuldu!" });
         } catch (err) {
-            const permissionError = new FirestorePermissionError({ path: '/projects', operation: 'create', requestResourceData: { name: projectName, ownerId: user.uid } });
+             const permissionError = new FirestorePermissionError({ path: '/projects', operation: 'create', requestResourceData: newProjectData });
             errorEmitter.emit('permission-error', permissionError);
         }
-    }, [firestore, user, toast]);
+    }, [firestore, toast]);
     
     const updateProjectName = (projectId: string, newName: string) => {
          if (!firestore) return;
@@ -133,16 +114,20 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         
         const projectRef = doc(firestore, "projects", projectId);
         deleteDoc(projectRef)
+            .then(() => {
+                if (selectedProjectId === projectId) {
+                    selectProject(null);
+                }
+            })
             .catch(err => {
                 const permissionError = new FirestorePermissionError({ path: projectRef.path, operation: 'delete' });
                 errorEmitter.emit('permission-error', permissionError);
             });
-    }, [firestore, toast]);
+    }, [firestore, selectedProjectId, toast]);
     
 
     const value: ProjectContextType = {
         projects: projects,
-        setProjects,
         selectedProject,
         selectProject,
         addProject,

@@ -15,8 +15,6 @@ import {
   Edit,
   Trash,
   ClipboardList,
-  PlusCircle,
-  MoreHorizontal,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -26,9 +24,8 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
-  SidebarInset,
   SidebarSeparator,
+  SidebarInset,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -37,23 +34,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent
 } from "@/components/ui/dropdown-menu";
 import { SiteHeader } from "./site-header";
 import { Button } from "./ui/button";
 import { useProject } from "@/context/project-context";
 import { Skeleton } from "./ui/skeleton";
-import { useAuth, useFirestore, useUser } from "@/firebase";
 import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 import { Project } from "@/context/types";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { errorEmitter } from "@/firebase/error-emitter";
-import { FirestorePermissionError } from "@/firebase/errors";
-
 
 function ProjectSelector() {
   const { projects, selectedProject, selectProject, deleteProject, updateProjectName, loading } = useProject();
@@ -170,45 +159,7 @@ const projectMenuItems = [
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, isUserLoading } = useUser();
-  const { selectedProject, setProjects } = useProject();
-  const firestore = useFirestore();
-  const [isMounted, setIsMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  React.useEffect(() => {
-    if (user && !isUserLoading && firestore) {
-      const fetchProjects = () => {
-        const q = query(
-          collection(firestore, 'projects'),
-          where('ownerId', '==', user.uid)
-        );
-
-        getDocs(q)
-          .then(querySnapshot => {
-            const userProjects = querySnapshot.docs.map(
-              (doc) => ({ id: doc.id, ...doc.data() } as Project)
-            );
-            setProjects(userProjects);
-          })
-          .catch(error => {
-            const permissionError = new FirestorePermissionError({
-              path: 'projects',
-              operation: 'list',
-            });
-            errorEmitter.emit('permission-error', permissionError);
-          });
-      };
-
-      fetchProjects();
-    } else if (!user && !isUserLoading) {
-        setProjects([]);
-    }
-  }, [user, isUserLoading, firestore, setProjects]);
-
+  const { selectedProject, loading } = useProject();
 
   return (
     <SidebarProvider>
@@ -223,7 +174,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          {!isUserLoading && user && (
             <>
               <ProjectSelector />
               <SidebarSeparator className="my-1"/>
@@ -231,8 +181,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 <AddProjectDialog />
               </div>
             </>
-          )}
-           {isMounted && isUserLoading && (
+           {loading && (
              <div className="p-2 space-y-2">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
@@ -261,9 +210,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
           )}
         </SidebarContent>
-        <SidebarFooter>
-          {/* Footer content can go here */}
-        </SidebarFooter>
       </Sidebar>
       <SidebarInset>
         <SiteHeader />

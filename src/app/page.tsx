@@ -23,13 +23,9 @@ import {
   ChartConfig,
 } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { FileClock, Gavel, FileSignature, LogIn } from "lucide-react";
+import { FileClock, Gavel, FileSignature, FolderKanban } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useProject } from "@/context/project-context";
-import { useMemo } from "react";
-import { useAuth, useUser } from "@/firebase";
-import { Button } from "@/components/ui/button";
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
 
 const chartConfig = {
@@ -46,27 +42,14 @@ const chartConfig = {
 const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
 export default function Home() {
-  const { user, isUserLoading } = useUser();
-  const { selectedProject, loading: isProjectLoading } = useProject();
-  const auth = useAuth();
+  const { selectedProject, loading } = useProject();
 
-  const handleGoogleSignIn = async () => {
-    if (auth) {
-      try {
-        const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
-      } catch (error) {
-        console.error("Google sign-in error", error);
-      }
-    }
-  };
-  
   // const data = useMemo(() => {
   //   return getDashboardData();
   // }, [selectedProject, getDashboardData]);
   const data = emptyDashboardData; // Placeholder until dashboard data is also moved to Firestore
 
-  if (isUserLoading || (user && isProjectLoading)) {
+  if (loading) {
     return (
       <Card>
           <CardHeader>
@@ -74,27 +57,7 @@ export default function Home() {
           </CardHeader>
           <CardContent>
               <div className="flex items-center justify-center h-48 text-muted-foreground">
-                  Kullanıcı ve proje verileri doğrulanıyor...
-              </div>
-          </CardContent>
-      </Card>
-    )
-  }
-
-  if (!user) {
-     return (
-      <Card>
-          <CardHeader>
-              <CardTitle className="font-headline">Hoş Geldiniz!</CardTitle>
-              <CardDescription>Projelerinizi her yerden yönetmeye başlamak için lütfen giriş yapın.</CardDescription>
-          </CardHeader>
-          <CardContent>
-              <div className="flex flex-col items-center justify-center h-48 text-center">
-                  <LogIn className="w-12 h-12 mb-4 text-muted-foreground" />
-                  <Button onClick={handleGoogleSignIn}>
-                    Google ile Giriş Yap
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-4">Verileriniz Google hesabınızla güvende.</p>
+                  Proje verileri yükleniyor...
               </div>
           </CardContent>
       </Card>
@@ -108,7 +71,8 @@ export default function Home() {
               <CardTitle className="font-headline">Proje Seçin</CardTitle>
           </CardHeader>
           <CardContent>
-              <div className="flex items-center justify-center h-48 text-muted-foreground">
+              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground text-center">
+                  <FolderKanban className="w-12 h-12 mb-4" />
                   <p>Devam etmek için lütfen sol menüden bir proje seçin veya yeni bir proje oluşturun.</p>
               </div>
           </CardContent>

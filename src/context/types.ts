@@ -19,7 +19,7 @@ export interface FirestoreDocument {
 
 export interface Project extends FirestoreDocument {
     name: string;
-    ownerId: string;
+    // ownerId: string; // This is removed for simplicity now
 }
 
 export interface ContractItem {
