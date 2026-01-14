@@ -72,7 +72,7 @@ export interface Deduction {
     appliedInPaymentNumber: number | null; 
 }
 
-export type ProgressPaymentStatus = 'yok' | 'sahada' | 'imzada' | 'onayda' | 'odendi' | 'pas_gec';
+export type ProgressPaymentStatus = 'yok' | 'sahada' | 'imzada' | 'onayda' | 'pas_gec';
 
 
 export interface AllProjectData {

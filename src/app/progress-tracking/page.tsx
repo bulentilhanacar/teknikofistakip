@@ -73,7 +73,6 @@ export default function ProgressTrackingPage() {
         case 'sahada': return 'secondary';
         case 'imzada': return 'default';
         case 'onayda': return 'accent';
-        case 'odendi': return 'destructive';
         case 'pas_gec': return 'outline';
         default: return 'outline';
     }
@@ -84,7 +83,6 @@ export default function ProgressTrackingPage() {
       'sahada': 'Sahada',
       'imzada': 'İmzada',
       'onayda': 'Onayda',
-      'odendi': 'Ödendi',
       'pas_gec': 'Bu Ay Pas Geçildi'
   };
 
@@ -158,7 +156,6 @@ export default function ProgressTrackingPage() {
                             progressInfo.status === 'sahada' && "bg-secondary/50 border-secondary-foreground/50",
                             progressInfo.status === 'imzada' && "bg-primary/80 text-primary-foreground border-primary-foreground/50",
                             progressInfo.status === 'onayda' && "bg-accent/80 text-accent-foreground border-accent-foreground/50",
-                            progressInfo.status === 'odendi' && "bg-destructive/80 text-destructive-foreground border-destructive-foreground/50",
                         )}>
                             <SelectValue placeholder="Durum Seçin..." />
                         </SelectTrigger>

@@ -209,7 +209,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             const initialId = getInitialState('selectedProjectId', projects[0].id);
             setSelectedProjectId(initialId);
         }
-    }, []);
+    }, [projects]);
 
     useEffect(() => {
         if(isLoaded) {
@@ -228,6 +228,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             id: `proje-${projectName.toLowerCase().replace(/\s/g, '-')}-${Date.now()}`,
             name: projectName,
         };
+        
         setProjects(prev => [...prev, newProject]);
         
         setProjectData(prev => {
@@ -272,12 +273,13 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
 
         setProjectData(prevData => {
-            const currentProjectContracts = prevData.contracts[selectedProjectId] || { drafts: [], approved: [] };
+            const newPrevData = JSON.parse(JSON.stringify(prevData));
+            const currentProjectContracts = newPrevData.contracts[selectedProjectId] || { drafts: [], approved: [] };
             const tenderToApprove = currentProjectContracts.drafts.find(t => t.id === tenderId);
             
-            if (!tenderToApprove) return prevData;
+            if (!tenderToApprove) return newPrevData;
             
-            const allApprovedCount = Object.values(prevData.contracts).flatMap(p => p.approved).length;
+            const allApprovedCount = Object.values(newPrevData.contracts).flatMap(p => p.approved).length;
             const newIdNumber = allApprovedCount + 1;
             const newContractId = `SOZ-${String(newIdNumber).padStart(3, '0')}`;
 
@@ -291,16 +293,12 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             const updatedDrafts = currentProjectContracts.drafts.filter(t => t.id !== tenderId);
             const updatedApproved = [...currentProjectContracts.approved, newContract].sort((a, b) => a.id.localeCompare(b.id));
 
-            return {
-                ...prevData,
-                contracts: {
-                    ...prevData.contracts,
-                    [selectedProjectId]: {
-                        drafts: updatedDrafts,
-                        approved: updatedApproved
-                    }
-                }
+            newPrevData.contracts[selectedProjectId] = {
+                drafts: updatedDrafts,
+                approved: updatedApproved
             };
+
+            return newPrevData;
         });
     }, [selectedProjectId]);
 
@@ -319,12 +317,13 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
         let revertedTenderId = '';
         setProjectData(prevData => {
-            const currentProjectContracts = prevData.contracts[selectedProjectId!] || { drafts: [], approved: [] };
+            const newPrevData = JSON.parse(JSON.stringify(prevData));
+            const currentProjectContracts = newPrevData.contracts[selectedProjectId!] || { drafts: [], approved: [] };
             const contractToRevert = currentProjectContracts.approved.find(c => c.id === contractId);
 
-            if (!contractToRevert) return prevData;
+            if (!contractToRevert) return newPrevData;
             
-            const allDraftsCount = Object.values(prevData.contracts).flatMap(p => p.drafts).length;
+            const allDraftsCount = Object.values(newPrevData.contracts).flatMap(p => p.drafts).length;
             const newTenderId = `IHALE-${String(allDraftsCount + 10).padStart(3, '0')}`;
             revertedTenderId = newTenderId;
 
@@ -337,16 +336,12 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             const updatedApproved = currentProjectContracts.approved.filter(c => c.id !== contractId);
             const updatedDrafts = [...currentProjectContracts.drafts, newDraft].sort((a, b) => a.id.localeCompare(b.id));
 
-            return {
-                ...prevData,
-                contracts: {
-                    ...prevData.contracts,
-                    [selectedProjectId!]: {
-                        drafts: updatedDrafts,
-                        approved: updatedApproved
-                    }
-                }
-            };
+            newPrevData.contracts[selectedProjectId!] = {
+                drafts: updatedDrafts,
+                approved: updatedApproved
+            }
+
+            return newPrevData;
         });
 
         toast({
@@ -360,7 +355,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
 
         setProjectData(prevData => {
-            const allDraftsCount = Object.values(prevData.contracts).flatMap(p => p.drafts).length;
+            const newPrevData = JSON.parse(JSON.stringify(prevData));
+            const allDraftsCount = Object.values(newPrevData.contracts).flatMap(p => p.drafts).length;
             const newIdNumber = allDraftsCount + 10;
             const newTenderId = `IHALE-${String(newIdNumber).padStart(3, '0')}`;
 
@@ -369,19 +365,15 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 date: new Date().toISOString().split('T')[0], items: []
             };
 
-            const currentProjectContracts = prevData.contracts[selectedProjectId] || { drafts: [], approved: [] };
+            const currentProjectContracts = newPrevData.contracts[selectedProjectId] || { drafts: [], approved: [] };
             const updatedDrafts = [...currentProjectContracts.drafts, newDraft].sort((a, b) => a.id.localeCompare(b.id));
 
-            return {
-                ...prevData,
-                contracts: {
-                    ...prevData.contracts,
-                    [selectedProjectId]: {
-                        ...currentProjectContracts,
-                        drafts: updatedDrafts
-                    }
-                }
+            newPrevData.contracts[selectedProjectId] = {
+                ...currentProjectContracts,
+                drafts: updatedDrafts
             };
+
+            return newPrevData;
         });
     }, [selectedProjectId]);
 
@@ -389,8 +381,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
          if (!selectedProjectId) return;
 
         setProjectData(prevData => {
-            const projectContracts = prevData.contracts[selectedProjectId];
-            if (!projectContracts) return prevData;
+            const newPrevData = JSON.parse(JSON.stringify(prevData));
+            const projectContracts = newPrevData.contracts[selectedProjectId];
+            if (!projectContracts) return newPrevData;
             
             const updatedContracts = { ...projectContracts };
 
@@ -401,13 +394,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                  updatedContracts.drafts[draftIndex] = newDraft;
             }
 
-            return {
-                ...prevData,
-                contracts: {
-                    ...prevData.contracts,
-                    [selectedProjectId]: updatedContracts
-                }
-            };
+            newPrevData.contracts[selectedProjectId] = updatedContracts;
+
+            return newPrevData;
         });
     }, [selectedProjectId]);
     
@@ -415,8 +404,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
 
         setProjectData(prevData => {
-            const projectContracts = prevData.contracts[selectedProjectId];
-            if (!projectContracts) return prevData;
+            const newPrevData = JSON.parse(JSON.stringify(prevData));
+            const projectContracts = newPrevData.contracts[selectedProjectId];
+            if (!projectContracts) return newPrevData;
 
             const updateItems = (contracts: Contract[]) => 
                 contracts.map(c => {
@@ -427,16 +417,12 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                     return c;
                 });
             
-            return {
-                ...prevData,
-                contracts: {
-                    ...prevData.contracts,
-                    [selectedProjectId]: {
-                        drafts: updateItems(projectContracts.drafts),
-                        approved: updateItems(projectContracts.approved),
-                    }
-                }
+            newPrevData.contracts[selectedProjectId] = {
+                drafts: updateItems(projectContracts.drafts),
+                approved: updateItems(projectContracts.approved),
             };
+
+            return newPrevData;
         });
     }, [selectedProjectId]);
 
@@ -444,8 +430,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
 
         setProjectData(prevData => {
-            const projectContracts = prevData.contracts[selectedProjectId];
-            if (!projectContracts) return prevData;
+            const newPrevData = JSON.parse(JSON.stringify(prevData));
+            const projectContracts = newPrevData.contracts[selectedProjectId];
+            if (!projectContracts) return newPrevData;
 
             const updateItems = (contracts: Contract[]) =>
                 contracts.map(c => {
@@ -456,16 +443,11 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                     return c;
                 });
 
-            return {
-                ...prevData,
-                contracts: {
-                    ...prevData.contracts,
-                    [selectedProjectId]: {
-                        drafts: updateItems(projectContracts.drafts),
-                        approved: updateItems(projectContracts.approved),
-                    }
-                }
+            newPrevData.contracts[selectedProjectId] = {
+                drafts: updateItems(projectContracts.drafts),
+                approved: updateItems(projectContracts.approved),
             };
+            return newPrevData;
         });
     }, [selectedProjectId]);
 
@@ -474,20 +456,18 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
         
         setProjectData(prev => {
+            const newPrevData = JSON.parse(JSON.stringify(prev));
             const newId = `DED-${String(Date.now()).slice(-5)}`;
             const newEntry: Deduction = {
                 ...deduction,
                 id: newId,
                 appliedInPaymentNumber: null
             };
-            const updatedProjectDeductions = [...(prev.deductions[selectedProjectId] || []), newEntry];
-            return {
-                ...prev,
-                deductions: {
-                    ...prev.deductions,
-                    [selectedProjectId]: updatedProjectDeductions
-                }
-            };
+            const updatedProjectDeductions = [...(newPrevData.deductions[selectedProjectId] || []), newEntry];
+            
+            newPrevData.deductions[selectedProjectId] = updatedProjectDeductions;
+            
+            return newPrevData;
         });
     }, [selectedProjectId]);
 
@@ -499,11 +479,12 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             let contractHistory: ProgressPayment[] = clonedData.progressPayments[selectedProjectId]?.[contractId] || [];
 
             if (editingPaymentNumber !== null) {
-                // Editing existing payment
-                const paymentIndex = contractHistory.findIndex(p => p.progressPaymentNumber === editingPaymentNumber);
-                if (paymentIndex !== -1) {
-                    contractHistory[paymentIndex] = { ...paymentData, progressPaymentNumber: editingPaymentNumber };
-                }
+                // Editing existing payment - replace it in the array
+                contractHistory = contractHistory.map(p => 
+                    p.progressPaymentNumber === editingPaymentNumber 
+                    ? { ...paymentData, progressPaymentNumber: editingPaymentNumber } 
+                    : p
+                );
             } else {
                 // Creating new payment
                 const lastPaymentNumber = contractHistory.length > 0 
@@ -514,7 +495,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                     ...paymentData,
                     progressPaymentNumber: newPaymentNumber,
                 };
-                contractHistory.push(newPayment);
+                contractHistory = [...contractHistory, newPayment];
             }
             
             const currentPaymentNumber = editingPaymentNumber ?? contractHistory.at(-1)!.progressPaymentNumber;
@@ -532,14 +513,16 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             const currentMonth = format(new Date(paymentData.date), 'yyyy-MM');
             const projectStatuses = clonedData.progressStatuses[selectedProjectId] || {};
             const monthStatuses = projectStatuses[currentMonth] || {};
-            const newProgressStatuses = { 
-                ...projectStatuses,
-                [currentMonth]: {
-                    ...monthStatuses,
-                    [contractId]: 'odendi' as ProgressPaymentStatus
-                }
-             };
-            clonedData.progressStatuses[selectedProjectId] = newProgressStatuses;
+            if (monthStatuses[contractId] !== 'odendi') {
+                const newProgressStatuses = { 
+                    ...projectStatuses,
+                    [currentMonth]: {
+                        ...monthStatuses,
+                        [contractId]: 'onayda' as ProgressPaymentStatus
+                    }
+                };
+                clonedData.progressStatuses[selectedProjectId] = newProgressStatuses;
+            }
 
 
             const projectPayments = clonedData.progressPayments[selectedProjectId] || {};
@@ -583,18 +566,15 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
         
         setProjectData(prev => {
-            const projectStatuses = prev.progressStatuses[selectedProjectId] || {};
+            const newPrevData = JSON.parse(JSON.stringify(prev));
+            const projectStatuses = newPrevData.progressStatuses[selectedProjectId] || {};
             const monthStatuses = projectStatuses[month] || {};
             const updatedMonthStatuses = { ...monthStatuses, [contractId]: status };
             const updatedProjectStatuses = { ...projectStatuses, [month]: updatedMonthStatuses };
 
-            return {
-                ...prev,
-                progressStatuses: {
-                    ...prev.progressStatuses,
-                    [selectedProjectId]: updatedProjectStatuses,
-                }
-            }
+            newPrevData.progressStatuses[selectedProjectId] = updatedProjectStatuses;
+
+            return newPrevData;
         });
 
     }, [selectedProjectId]);
@@ -619,8 +599,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const selectedProject = useMemo(() => {
         if (!isLoaded) return null;
         const project = projects.find(p => p.id === selectedProjectId) || projects[0] || null;
-        if (project && project.id !== selectedProjectId) {
-        }
         return project;
     }, [selectedProjectId, projects, isLoaded]);
 
@@ -660,7 +638,3 @@ export const useProject = (): ProjectContextType => {
     }
     return context;
 };
-
-    
-
-    
