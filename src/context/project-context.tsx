@@ -308,25 +308,24 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const revertContractToDraft = useCallback((contractId: string) => {
         if (!selectedProjectId) return;
 
-        setProjectData(prevData => {
-            const progressPayments = prevData.progressPayments[selectedProjectId]?.[contractId];
-            if (progressPayments && progressPayments.length > 0) {
-                toast({
-                    variant: "destructive",
-                    title: "İşlem Başarısız",
-                    description: "Bu sözleşmenin yapılmış hakedişleri var. Geri almak için önce hakedişleri silmelisiniz.",
-                });
-                return prevData;
-            }
+        const progressPayments = projectData.progressPayments[selectedProjectId]?.[contractId];
+        if (progressPayments && progressPayments.length > 0) {
+            toast({
+                variant: "destructive",
+                title: "İşlem Başarısız",
+                description: "Bu sözleşmenin yapılmış hakedişleri var. Geri almak için önce hakedişleri silmelisiniz.",
+            });
+            return;
+        }
 
-            const currentProjectContracts = prevData.contracts[selectedProjectId] || { drafts: [], approved: [] };
+        setProjectData(prevData => {
+            const currentProjectContracts = prevData.contracts[selectedProjectId!] || { drafts: [], approved: [] };
             const contractToRevert = currentProjectContracts.approved.find(c => c.id === contractId);
 
             if (!contractToRevert) return prevData;
             
             const allDraftsCount = Object.values(prevData.contracts).flatMap(p => p.drafts).length;
             const newTenderId = `IHALE-${String(allDraftsCount + 10).padStart(3, '0')}`;
-
 
             const newDraft: Contract = {
                 ...contractToRevert,
@@ -346,14 +345,14 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 ...prevData,
                 contracts: {
                     ...prevData.contracts,
-                    [selectedProjectId]: {
+                    [selectedProjectId!]: {
                         drafts: updatedDrafts,
                         approved: updatedApproved
                     }
                 }
             };
         });
-    }, [selectedProjectId, toast]);
+    }, [selectedProjectId, projectData, toast]);
 
     const addDraftTender = useCallback((group: ContractGroupKeys, name: string, subGroup: string) => {
         if (!selectedProjectId) return;
@@ -496,14 +495,12 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             let updatedContractHistory: ProgressPayment[];
 
             if (editingPaymentNumber !== null) {
-                // Editing mode: Use map to create a new array with the updated item
                 updatedContractHistory = contractHistory.map((p: ProgressPayment) => 
                     p.progressPaymentNumber === editingPaymentNumber
                         ? { ...paymentData, progressPaymentNumber: editingPaymentNumber }
                         : p
                 );
             } else {
-                // New entry mode: Get the last payment number and add 1
                 const lastPaymentNumber = contractHistory.length > 0 
                     ? Math.max(...contractHistory.map((p: ProgressPayment) => p.progressPaymentNumber)) 
                     : 0;
@@ -512,7 +509,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                     ...paymentData,
                     progressPaymentNumber: newPaymentNumber,
                 };
-                // Create a new array with the new payment
                 updatedContractHistory = [...contractHistory, newPayment];
             }
 
