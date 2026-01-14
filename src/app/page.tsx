@@ -42,7 +42,7 @@ const chartConfig = {
 const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
 export default function Home() {
-  const { user, loading } = useUser();
+  const { user, isUserLoading } = useUser();
   const { selectedProject } = useProject();
   
   // const data = useMemo(() => {
@@ -50,7 +50,7 @@ export default function Home() {
   // }, [selectedProject, getDashboardData]);
   const data = emptyDashboardData; // Placeholder until dashboard data is also moved to Firestore
 
-  if (loading) {
+  if (isUserLoading) {
     return (
       <Card>
           <CardHeader>
@@ -74,7 +74,7 @@ export default function Home() {
           <CardContent>
               <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground">
                   <LogIn className="w-12 h-12 mb-4" />
-                  <p>Uygulamayı kullanmak için kullanıcı oturumu açılıyor...</p>
+                  <p>Uygulama oturumu başlatılıyor...</p>
                   <p className="text-xs mt-2">Lütfen bekleyin.</p>
               </div>
           </CardContent>
@@ -217,5 +217,3 @@ export default function Home() {
     </div>
   );
 }
-
-    

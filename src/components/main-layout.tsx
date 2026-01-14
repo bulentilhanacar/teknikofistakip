@@ -16,9 +16,6 @@ import {
   Edit,
   Trash,
   ClipboardList,
-  User,
-  LogOut,
-  LogIn
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -31,7 +28,6 @@ import {
   SidebarFooter,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,7 +38,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { SiteHeader } from "./site-header";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Button } from "./ui/button";
 import { useProject } from "@/context/project-context";
 import { Skeleton } from "./ui/skeleton";
@@ -50,7 +45,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useUser, useAuth } from "@/firebase";
-import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { signInAnonymously } from "firebase/auth";
 
 
 const projectMenuItems = [
@@ -209,82 +204,22 @@ function ProjectSelector() {
   );
 }
 
-function AuthStatus() {
-    const auth = useAuth();
-    const { user, isUserLoading } = useUser();
-
-    const handleSignIn = () => {
-        if (!auth) return;
-        const provider = new GoogleAuthProvider();
-        signInWithPopup(auth, provider).catch((error) => {
-            console.error("Error signing in with Google", error);
-        });
-    };
-
-    const handleSignOut = () => {
-        if (!auth) return;
-        signOut(auth).catch((error) => {
-            console.error("Error signing out", error);
-        });
-    };
-    
-    if (isUserLoading) {
-      return (
-        <div className="p-2">
-            <Skeleton className="h-10 w-full" />
-        </div>
-      )
-    }
-
-    if (!user) {
-        return (
-             <div className="p-2">
-                <Button variant="outline" className="w-full" onClick={handleSignIn}>
-                    <LogIn className="mr-2 h-4 w-4"/>
-                    Google ile Giriş Yap
-                </Button>
-            </div>
-        );
-    }
-
-    return (
-         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <div className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm cursor-pointer hover:bg-sidebar-accent">
-                    <Avatar className="h-8 w-8">
-                        {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || 'User'}/>}
-                        <AvatarFallback><User/></AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col truncate">
-                        <span className="font-semibold">{user.displayName || 'Kullanıcı'}</span>
-                        <span className="text-xs text-sidebar-foreground/70" title={user.email || user.uid}>
-                            {user.email || user.uid}
-                        </span>
-                    </div>
-                </div>
-            </DropdownMenuTrigger>
-             <DropdownMenuContent align="end" className="w-[var(--sidebar-width)] -translate-x-2 mb-2">
-                <DropdownMenuLabel>Hesabım</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={handleSignOut} className="text-destructive">
-                    <LogOut className="mr-2 h-4 w-4"/>
-                    <span>Çıkış Yap</span>
-                </DropdownMenuItem>
-             </DropdownMenuContent>
-        </DropdownMenu>
-    )
-}
-
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { selectedProject } = useProject();
+  const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setIsClient(true);
-  }, []);
+    if (auth && !user && !isUserLoading) {
+        signInAnonymously(auth).catch((error) => {
+            console.error("Anonymous sign-in failed", error);
+        });
+    }
+  }, [auth, user, isUserLoading]);
 
   return (
     <SidebarProvider>
@@ -304,6 +239,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               <ProjectSelector />
             </div>
           )}
+           {isClient && isUserLoading && (
+             <div className="p-2 space-y-2">
+                <Skeleton className="h-10 w-full" />
+             </div>
+           )}
           {selectedProject && (
             <SidebarMenu>
               {projectMenuItems.map((item) => {
@@ -328,7 +268,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           )}
         </SidebarContent>
         <SidebarFooter>
-            {isClient ? <AuthStatus /> : <Skeleton className="h-12 w-full" />}
+            {/* AuthStatus is removed to simplify UI for anonymous login */}
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
