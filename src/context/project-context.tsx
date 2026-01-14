@@ -438,12 +438,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                     ...paymentData,
                     progressPaymentNumber: paymentNumberToSave,
                 };
-                 const paymentIndex = contractHistory.findIndex(p => p.progressPaymentNumber === paymentNumberToSave);
-                if (paymentIndex !== -1) {
-                    contractHistory[paymentIndex] = newPayment;
-                } else {
-                    contractHistory.push(newPayment);
-                }
+                contractHistory.push(newPayment);
             }
     
             const projectPayments = prev.progressPayments[selectedProjectId] || {};
@@ -566,3 +561,4 @@ export const useProject = (): ProjectContextType => {
     
 
     
+
