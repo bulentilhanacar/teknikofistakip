@@ -1,0 +1,172 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Represents a user's profile information.",
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "The user's display name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address."
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "URL of the user's profile picture."
+        }
+      },
+      "required": ["displayName", "email"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Represents a construction project.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the project."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "The UID of the user who owns the project."
+        }
+      },
+      "required": ["name", "ownerId"]
+    },
+    "ContractItem": {
+        "title": "Contract Item",
+        "description": "An individual item within a contract.",
+        "type": "object",
+        "properties": {
+            "poz": { "type": "string" },
+            "description": { "type": "string" },
+            "unit": { "type": "string" },
+            "quantity": { "type": "number" },
+            "unitPrice": { "type": "number" }
+        },
+        "required": ["poz", "description", "unit", "quantity", "unitPrice"]
+    },
+    "Contract": {
+        "title": "Contract",
+        "description": "Represents a contract or tender.",
+        "type": "object",
+        "properties": {
+            "name": { "type": "string" },
+            "group": { "type": "string" },
+            "subGroup": { "type": "string" },
+            "status": { "type": "string" },
+            "date": { "type": "string" },
+            "items": {
+                "type": "array",
+                "items": { "$ref": "#/entities/ContractItem" }
+            },
+            "isDraft": {"type": "boolean"}
+        },
+        "required": ["name", "group", "subGroup", "status", "date", "items", "isDraft"]
+    },
+    "ProgressItem": {
+        "title": "Progress Item",
+        "description": "Tracks the progress of a single contract item in a payment.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "cumulativeQuantity": { "type": "number" }
+        },
+        "required": ["id", "cumulativeQuantity"]
+    },
+    "ExtraWorkItem": {
+        "title": "Extra Work Item",
+        "description": "Represents work done outside the original contract scope.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "description": { "type": "string" },
+            "unit": { "type": "string" },
+            "quantity": { "type": "number" },
+            "unitPrice": { "type": "number" }
+        },
+        "required": ["id", "description", "unit", "quantity", "unitPrice"]
+    },
+    "ProgressPayment": {
+        "title": "Progress Payment",
+        "description": "Represents a single progress payment (hakediş).",
+        "type": "object",
+        "properties": {
+            "progressPaymentNumber": { "type": "number" },
+            "date": { "type": "string" },
+            "totalAmount": { "type": "number" },
+            "items": {
+                "type": "array",
+                "items": { "$ref": "#/entities/ProgressItem" }
+            },
+            "extraWorkItems": {
+                "type": "array",
+                "items": { "$ref": "#/entities/ExtraWorkItem" }
+            },
+            "appliedDeductionIds": {
+                "type": "array",
+                "items": { "type": "string" }
+            }
+        },
+        "required": ["progressPaymentNumber", "date", "totalAmount", "items", "appliedDeductionIds"]
+    },
+    "Deduction": {
+        "title": "Deduction",
+        "description": "Represents a deduction to be applied to a progress payment.",
+        "type": "object",
+        "properties": {
+            "contractId": { "type": "string" },
+            "type": { "type": "string", "enum": ["muhasebe", "tutanakli"] },
+            "date": { "type": "string" },
+            "amount": { "type": "number" },
+            "description": { "type": "string" },
+            "appliedInPaymentNumber": { "type": ["number", "null"] }
+        },
+        "required": ["contractId", "type", "date", "amount", "description"]
+    },
+    "ProgressStatus": {
+        "title": "Progress Status",
+        "description": "Monthly status of a contract's progress payment.",
+        "type": "object",
+        "properties": {
+           "status": {
+                "type": "string",
+                "enum": ["yok", "sahada", "imzada", "onayda", "pas_gec"]
+           }
+        },
+        "required": ["status"]
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Stores public information about a user."
+    },
+    "/projects/{projectId}": {
+        "schema": { "$ref": "#/entities/Project" },
+        "description": "Top-level collection for projects. Each project is owned by a user."
+    },
+    "/projects/{projectId}/contracts/{contractId}": {
+        "schema": { "$ref": "#/entities/Contract" },
+        "description": "Stores draft and approved contracts for a specific project."
+    },
+    "/projects/{projectId}/deductions/{deductionId}": {
+        "schema": { "$ref": "#/entities/Deduction" },
+        "description": "Stores all deductions related to a specific project."
+    },
+    "/projects/{projectId}/progressPayments/{paymentId}": {
+        "schema": { "$ref": "#/entities/ProgressPayment" },
+        "description": "Stores all progress payments for all contracts within a project. The document ID can be a composite key like '{contractId}_{progressPaymentNumber}'."
+    },
+    "/projects/{projectId}/progressStatuses/{statusId}": {
+        "schema": { "$ref": "#/entities/ProgressStatus" },
+        "description": "Stores the monthly progress status for each contract. The document ID is a composite key like '{month}_{contractId}'."
+    }
+  }
+}

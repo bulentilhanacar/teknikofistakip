@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
-import type { ProgressPaymentStatus, Contract } from '@/context/types';
+import type { ProgressPaymentStatus, Contract, ProgressPayment } from '@/context/types';
 import { format, addMonths } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useCollection, useFirestore } from '@/firebase';
+import { collection, doc, query, setDoc, where } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 // Helper to generate month options
 const getMonthOptions = () => {
@@ -26,43 +29,68 @@ const getMonthOptions = () => {
 };
 
 export default function ProgressTrackingPage() {
-  const { selectedProject, projectData, updateProgressPaymentStatus } = useProject();
+  const { selectedProject } = useProject();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
   const monthOptions = useMemo(() => getMonthOptions(), []);
 
-  useEffect(() => {
-    // Reset to current month when project changes
-    setSelectedMonth(format(new Date(), 'yyyy-MM'));
-  }, [selectedProject]);
+  const contractsQuery = useMemo(() => {
+    if (!firestore || !selectedProject) return null;
+    return query(collection(firestore, `projects/${selectedProject.id}/contracts`), where('isDraft', '==', false));
+  }, [firestore, selectedProject]);
+  const { data: approvedContracts, loading: contractsLoading } = useCollection<Contract>(contractsQuery);
+
+  const paymentsQuery = useMemo(() => {
+    if (!firestore || !selectedProject) return null;
+    return collection(firestore, `projects/${selectedProject.id}/progressPayments`);
+  }, [firestore, selectedProject]);
+  const { data: allPayments, loading: paymentsLoading } = useCollection<ProgressPayment>(paymentsQuery);
+
+  const statusesQuery = useMemo(() => {
+    if (!firestore || !selectedProject || !selectedMonth) return null;
+    return query(
+        collection(firestore, `projects/${selectedProject.id}/progressStatuses`),
+        where('id', '>=', `${selectedMonth}_`),
+        where('id', '<=', `${selectedMonth}_\uf8ff`)
+    );
+  }, [firestore, selectedProject, selectedMonth]);
+  // This query is tricky. Firestore doesn't support substring matches well.
+  // A better structure might be projects/{pid}/statuses/{month}/contracts/{cid}
+  // For now, we fetch all and filter client side.
+   const allStatusesQuery = useMemo(() => {
+    if (!firestore || !selectedProject) return null;
+    return collection(firestore, `projects/${selectedProject.id}/progressStatuses`);
+  }, [firestore, selectedProject]);
+  const { data: allStatuses, loading: statusesLoading } = useCollection<{id: string, status: ProgressPaymentStatus}>(allStatusesQuery);
 
 
-  const approvedContracts = useMemo(() => {
-    if (!selectedProject || !projectData) return [];
-    return (projectData.contracts[selectedProject.id]?.approved || []).sort((a,b) => a.id.localeCompare(b.id));
-  }, [selectedProject, projectData]);
+  const getContractProgressInfo = useCallback((contract: Contract) => {
+    const paymentInSelectedMonth = (allPayments || [])
+        .find(p => p.id.startsWith(`${contract.id}_`) && format(new Date(p.date), 'yyyy-MM') === selectedMonth) || null;
 
-  const getContractProgressInfo = (contract: Contract) => {
-    const history = selectedProject ? projectData.progressPayments[selectedProject.id]?.[contract.id] || [] : [];
-    
-    // Find the payment made specifically in the selected month
-    const paymentInSelectedMonth = history
-        .find(p => format(new Date(p.date), 'yyyy-MM') === selectedMonth) || null;
-
-    const projectStatusesForMonth = (selectedProject && projectData.progressStatuses[selectedProject.id]?.[selectedMonth]) || {};
-    const currentStatus = projectStatusesForMonth[contract.id] || 'yok';
+    const statusDocId = `${selectedMonth}_${contract.id}`;
+    const currentStatusDoc = (allStatuses || []).find(s => s.id === statusDocId);
 
     return {
       paymentNumberInMonth: paymentInSelectedMonth?.progressPaymentNumber || 0,
       paymentAmountInMonth: paymentInSelectedMonth?.totalAmount || 0, // Note: this is cumulative amount from payment object
-      status: currentStatus
+      status: currentStatusDoc?.status || 'yok'
     };
-  };
+  }, [allPayments, allStatuses, selectedMonth]);
 
-  const handleStatusChange = (contractId: string, status: ProgressPaymentStatus) => {
-      if(selectedProject) {
-        updateProgressPaymentStatus(selectedMonth, contractId, status);
+  const handleStatusChange = useCallback(async (contractId: string, status: ProgressPaymentStatus) => {
+      if(!selectedProject || !firestore) return;
+      const statusDocId = `${selectedMonth}_${contractId}`;
+      try {
+        await setDoc(doc(firestore, `projects/${selectedProject.id}/progressStatuses`, statusDocId), { status }, { merge: true });
+        toast({title: "Durum güncellendi."})
+      } catch (error) {
+        console.error("Error updating status: ", error);
+        toast({title: "Hata", description: "Durum güncellenemedi.", variant: "destructive"});
       }
-  };
+  }, [selectedProject, firestore, selectedMonth, toast]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
@@ -103,6 +131,7 @@ export default function ProgressTrackingPage() {
   }
 
   const selectedMonthLabel = monthOptions.find(m => m.value === selectedMonth)?.label;
+  const loading = contractsLoading || paymentsLoading || statusesLoading;
 
   return (
     <Card>
@@ -123,6 +152,9 @@ export default function ProgressTrackingPage() {
         </Select>
       </CardHeader>
       <CardContent>
+        {loading ? (
+             <div className="flex items-center justify-center h-48 text-muted-foreground">Yükleniyor...</div>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -133,11 +165,11 @@ export default function ProgressTrackingPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {approvedContracts.length > 0 ? approvedContracts.map(contract => {
+            {(approvedContracts && approvedContracts.length > 0) ? approvedContracts.map(contract => {
               const progressInfo = getContractProgressInfo(contract);
               return (
                 <TableRow key={contract.id}>
-                  <TableCell className="font-medium">{contract.id}</TableCell>
+                  <TableCell className="font-medium">{contract.id.substring(0,5)}...</TableCell>
                   <TableCell>{contract.name}</TableCell>
                   <TableCell>
                     {progressInfo.paymentNumberInMonth > 0 ? (
@@ -177,6 +209,7 @@ export default function ProgressTrackingPage() {
             )}
           </TableBody>
         </Table>
+        )}
       </CardContent>
     </Card>
   );

@@ -17,10 +17,15 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useCollection, useFirestore } from '@/firebase';
+import { collection, doc, query, setDoc, where, writeBatch } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 
 export default function ProgressPaymentsPage() {
-  const { selectedProject, projectData, saveProgressPayment, getContractsByProject, deleteProgressPaymentsForContract } = useProject();
+  const { selectedProject } = useProject();
+  const firestore = useFirestore();
+  const { toast } = useToast();
   
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [editingPaymentNumber, setEditingPaymentNumber] = useState<number | null>(null); // null for new, number for editing
@@ -30,27 +35,38 @@ export default function ProgressPaymentsPage() {
   const [selectedDeductionIds, setSelectedDeductionIds] = useState<string[]>([]);
   const [progressDate, setProgressDate] = useState<Date | undefined>(new Date());
 
-  const availableContracts = useMemo(() => {
-    return getContractsByProject()
-        .filter(c => c.status === 'Onaylandı')
-        .reduce((acc, c) => {
-            acc[c.id] = { name: c.name };
-            return acc;
-        }, {} as Record<string, {name: string}>);
-  }, [selectedProject, projectData, getContractsByProject]);
-  
-  const contractProgressHistory = useMemo(() => {
-    if (selectedProject && selectedContractId && projectData.progressPayments[selectedProject.id]) {
-        return projectData.progressPayments[selectedProject.id][selectedContractId] || [];
-    }
-    return [];
-  }, [selectedProject, selectedContractId, projectData]);
-  
+  const contractsQuery = useMemo(() => {
+    if (!firestore || !selectedProject) return null;
+    return query(collection(firestore, `projects/${selectedProject.id}/contracts`), where('isDraft', '==', false));
+  }, [firestore, selectedProject]);
+  const { data: approvedContracts, loading: contractsLoading } = useCollection<Contract>(contractsQuery);
+
   const selectedContract = useMemo(() => {
-    if (!selectedContractId) return null;
-    const projectContracts = getContractsByProject();
-    return projectContracts.find(c => c.id === selectedContractId) as Contract | null;
-  }, [selectedContractId, getContractsByProject]);
+    if (!selectedContractId || !approvedContracts) return null;
+    return approvedContracts.find(c => c.id === selectedContractId) as Contract | null;
+  }, [selectedContractId, approvedContracts]);
+
+  const paymentsQuery = useMemo(() => {
+    if (!firestore || !selectedProject) return null;
+    // We fetch all payments for the project and filter client-side.
+    // For larger scale, one might query per contract.
+    return collection(firestore, `projects/${selectedProject.id}/progressPayments`);
+  }, [firestore, selectedProject]);
+  const { data: allPayments, loading: paymentsLoading } = useCollection<ProgressPayment>(paymentsQuery);
+
+  const contractProgressHistory = useMemo(() => {
+    if (!allPayments || !selectedContractId) return [];
+    return allPayments
+        .filter(p => p.id.startsWith(`${selectedContractId}_`))
+        .sort((a,b) => a.progressPaymentNumber - b.progressPaymentNumber);
+  }, [allPayments, selectedContractId]);
+
+  const deductionsQuery = useMemo(() => {
+    if (!firestore || !selectedProject) return null;
+    return collection(firestore, `projects/${selectedProject.id}/deductions`);
+  }, [firestore, selectedProject]);
+  const { data: allDeductions, loading: deductionsLoading } = useCollection<Deduction>(deductionsQuery);
+  
 
   const paymentToEdit = useMemo(() => {
       if (editingPaymentNumber === null) return null;
@@ -78,15 +94,12 @@ export default function ProgressPaymentsPage() {
 
 
   const availableDeductions = useMemo(() => {
-      if (!selectedProject || !selectedContractId) return [];
-      const allDeductions = projectData.deductions[selectedProject.id] || [];
-      // When editing, show deductions linked to this payment OR unlinked ones.
-      // When creating, show only unlinked ones.
+      if (!allDeductions || !selectedContractId) return [];
       return allDeductions.filter(d => 
         (d.contractId === selectedContractId || d.contractId === "all") && 
         (d.appliedInPaymentNumber === null || d.appliedInPaymentNumber === editingPaymentNumber)
       );
-  }, [selectedProject, selectedContractId, projectData, editingPaymentNumber]);
+  }, [allDeductions, selectedContractId, editingPaymentNumber]);
 
 
   const loadStateForPayment = useCallback((contract: Contract | null, payment: ProgressPayment | null, prevQtys: Record<string, number>) => {
@@ -233,7 +246,7 @@ export default function ProgressPaymentsPage() {
     const vat = totalCurrentWork * 0.20;
     const currentPaymentGross = totalCurrentWork + vat;
     
-    const totalSelectedDeductions = availableDeductions
+    const totalSelectedDeductions = (availableDeductions || [])
         .filter(d => selectedDeductionIds.includes(d.id))
         .reduce((sum, d) => sum + d.amount, 0);
 
@@ -256,10 +269,14 @@ export default function ProgressPaymentsPage() {
     };
   }, [progressItems, extraWorkItems, previousCumulativeState, selectedDeductionIds, availableDeductions]);
 
-  const handleSaveProgressPayment = () => {
-    if (!selectedProject || !selectedContractId || !progressDate || !selectedContract) return;
+  const handleSaveProgressPayment = useCallback(async () => {
+    if (!firestore || !selectedProject || !selectedContractId || !progressDate || !selectedContract) return;
+
+    const currentPaymentNumber = editingPaymentNumber ?? (contractProgressHistory.at(-1)?.progressPaymentNumber || 0) + 1;
     
-    const paymentData: Omit<ProgressPayment, 'progressPaymentNumber'> = {
+    const paymentDocId = `${selectedContractId}_${currentPaymentNumber}`;
+
+    const paymentData = {
         date: format(progressDate, 'yyyy-MM-dd'),
         totalAmount: summary.cumulativeSubTotal,
         items: progressItems.map(item => ({
@@ -268,17 +285,76 @@ export default function ProgressPaymentsPage() {
         })),
         extraWorkItems,
         appliedDeductionIds: selectedDeductionIds,
+        progressPaymentNumber: currentPaymentNumber,
     };
     
-    saveProgressPayment(selectedContractId, paymentData, editingPaymentNumber);
-    setEditingPaymentNumber(null);
-  };
+    try {
+        const batch = writeBatch(firestore);
 
-  const handleDeleteHistory = () => {
-    if (!selectedContractId) return;
-    deleteProgressPaymentsForContract(selectedContractId);
-    setEditingPaymentNumber(null); // Reset form
-  }
+        const paymentRef = doc(firestore, `projects/${selectedProject.id}/progressPayments`, paymentDocId);
+        batch.set(paymentRef, paymentData);
+
+        // Update deductions
+        (allDeductions || []).forEach(deduction => {
+            const deductionRef = doc(firestore, `projects/${selectedProject.id}/deductions`, deduction.id);
+            if (selectedDeductionIds.includes(deduction.id)) {
+                if (deduction.appliedInPaymentNumber !== currentPaymentNumber) {
+                    batch.update(deductionRef, { appliedInPaymentNumber: currentPaymentNumber });
+                }
+            } else {
+                if (deduction.appliedInPaymentNumber === currentPaymentNumber) {
+                     batch.update(deductionRef, { appliedInPaymentNumber: null });
+                }
+            }
+        });
+
+        // Update progress status
+        const monthKey = format(progressDate, 'yyyy-MM');
+        const statusDocId = `${monthKey}_${selectedContractId}`;
+        const statusRef = doc(firestore, `projects/${selectedProject.id}/progressStatuses`, statusDocId);
+        batch.set(statusRef, { status: 'onayda' });
+
+
+        await batch.commit();
+
+        toast({ title: "Hakediş kaydedildi." });
+        setEditingPaymentNumber(null);
+    } catch (error) {
+        console.error("Error saving progress payment:", error);
+        toast({ title: "Hata", description: "Hakediş kaydedilemedi.", variant: "destructive" });
+    }
+
+  }, [firestore, selectedProject, selectedContractId, progressDate, selectedContract, editingPaymentNumber, contractProgressHistory, summary, progressItems, extraWorkItems, selectedDeductionIds, allDeductions, toast]);
+
+  const handleDeleteHistory = useCallback(async () => {
+    if (!firestore || !selectedProject || !selectedContractId) return;
+
+    try {
+        const batch = writeBatch(firestore);
+
+        // Delete all payments for the contract
+        contractProgressHistory.forEach(payment => {
+            const paymentRef = doc(firestore, `projects/${selectedProject.id}/progressPayments`, payment.id);
+            batch.delete(paymentRef);
+        });
+
+        // Reset all deductions linked to this contract
+        (allDeductions || []).forEach(deduction => {
+            if (deduction.contractId === selectedContractId && deduction.appliedInPaymentNumber !== null) {
+                const deductionRef = doc(firestore, `projects/${selectedProject.id}/deductions`, deduction.id);
+                batch.update(deductionRef, { appliedInPaymentNumber: null });
+            }
+        });
+
+        await batch.commit();
+
+        toast({ title: "Hakediş geçmişi silindi." });
+        setEditingPaymentNumber(null);
+    } catch (error) {
+         console.error("Error deleting history:", error);
+        toast({ title: "Hata", description: "Geçmiş silinemedi.", variant: "destructive" });
+    }
+  }, [firestore, selectedProject, selectedContractId, contractProgressHistory, allDeductions, toast]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
@@ -298,6 +374,8 @@ export default function ProgressPaymentsPage() {
         </Card>
     );
   }
+  
+  const loading = contractsLoading || paymentsLoading || deductionsLoading;
 
   return (
     <div className="grid gap-6">
@@ -315,10 +393,10 @@ export default function ProgressPaymentsPage() {
                     <SelectValue placeholder="Hakediş yapılacak sözleşmeyi seçin" />
                 </SelectTrigger>
                 <SelectContent>
-                    {Object.keys(availableContracts).length > 0 ? Object.keys(availableContracts).map(contractId => (
-                        <SelectItem key={contractId} value={contractId}>{`${contractId}: ${availableContracts[contractId].name}`}</SelectItem>
+                    {(approvedContracts && approvedContracts.length > 0) ? approvedContracts.map(contract => (
+                        <SelectItem key={contract.id} value={contract.id}>{`${contract.id.substring(0,5)}...: ${contract.name}`}</SelectItem>
                     )) : (
-                        <div className="p-4 text-sm text-muted-foreground">Bu proje için onaylı sözleşme bulunmuyor.</div>
+                        <div className="p-4 text-sm text-muted-foreground">Onaylı sözleşme bulunmuyor.</div>
                     )}
                 </SelectContent>
                 </Select>
@@ -330,6 +408,7 @@ export default function ProgressPaymentsPage() {
                   <Select 
                       value={editingPaymentNumber === null ? "new" : String(editingPaymentNumber)}
                       onValueChange={handlePaymentSelectionChange}
+                      disabled={loading}
                   >
                       <SelectTrigger>
                           <SelectValue />
@@ -354,6 +433,7 @@ export default function ProgressPaymentsPage() {
                             "w-full justify-start text-left font-normal",
                             !progressDate && "text-muted-foreground"
                             )}
+                             disabled={loading}
                         >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {progressDate ? format(progressDate, "PPP") : <span>Tarih seçin</span>}
@@ -372,7 +452,7 @@ export default function ProgressPaymentsPage() {
               </>
             )}
           </div>
-           {selectedContractId && contractProgressHistory.length > 0 && (
+           {selectedContractId && contractProgressHistory.length > 0 && !loading &&(
                 <div className="flex justify-end pt-2">
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -385,7 +465,7 @@ export default function ProgressPaymentsPage() {
                             <AlertDialogHeader>
                                 <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                    `{selectedContractId}` numaralı sözleşmeye ait **tüm hakediş geçmişi** kalıcı olarak silinecektir. Bu işlem geri alınamaz.
+                                    `{selectedContract?.name}` sözleşmesine ait **tüm hakediş geçmişi** kalıcı olarak silinecektir. Bu işlem geri alınamaz.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -396,10 +476,11 @@ export default function ProgressPaymentsPage() {
                     </AlertDialog>
                 </div>
             )}
+            {loading && selectedContractId && <div className='text-center p-4 text-muted-foreground'>Veriler yükleniyor...</div>}
         </CardContent>
       </Card>
       
-      {selectedContractId && (
+      {selectedContractId && !loading && (
         <>
           {contractProgressHistory.length > 0 && (
             <Card>
@@ -599,7 +680,7 @@ export default function ProgressPaymentsPage() {
                                           />
                                       </TableCell>
                                       <TableCell className="font-medium">{deduction.description}</TableCell>
-                                       <TableCell>{deduction.contractId === "all" ? "Proje Geneli" : deduction.contractId}</TableCell>
+                                       <TableCell>{deduction.contractId === "all" ? "Proje Geneli" : deduction.contractId.substring(0,5)}</TableCell>
                                       <TableCell>
                                           <Badge variant={deduction.type === 'muhasebe' ? 'secondary' : 'outline'}>
                                               {deduction.type === 'muhasebe' ? 'Muhasebe' : 'Tutanaklı'}
@@ -651,5 +732,3 @@ export default function ProgressPaymentsPage() {
     </div>
   );
 }
-
-    

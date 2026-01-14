@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,6 +16,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Contract, ContractGroupKeys, ContractItem, contractGroups } from '@/context/types';
+import { useAuth, useCollection, useFirestore } from '@/firebase';
+import { addDoc, collection, deleteDoc, doc, query, updateDoc, where } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 
 const ItemDialog = ({ contractId, item, onSave, children, mode }: { contractId: string, item?: ContractItem, onSave: (contractId: string, item: ContractItem, originalPoz?: string) => void, children: React.ReactNode, mode: 'add' | 'edit' }) => {
@@ -110,7 +113,6 @@ const ContractRowActions = ({ contract, onRename, onDelete }: { contract: Contra
                 </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Rename Dialog */}
             <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
                 <DialogContent>
                     <DialogHeader>
@@ -127,7 +129,6 @@ const ContractRowActions = ({ contract, onRename, onDelete }: { contract: Contra
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Alert */}
             <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -149,7 +150,7 @@ const ContractRowActions = ({ contract, onRename, onDelete }: { contract: Contra
 const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, onDeleteItem, onRenameContract, onDeleteContract }: { contract: Contract, onApprove?: (contractId: string) => void, onRevert?: (contractId: string) => void, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void, onRenameContract?: (id: string, newName: string) => void, onDeleteContract?: (id: string) => void }) => {
     const budget = contract.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
     const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
-    const isApproved = contract.status === 'Onaylandı';
+    const isApproved = !contract.isDraft;
     const actionColSpan = 7;
 
     return (
@@ -161,7 +162,7 @@ const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, o
                             <CollapsibleTrigger asChild>
                                 <button className='flex items-center flex-1 text-left'>
                                     <ChevronDown className="h-4 w-4 mr-2 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                                    <span className="font-medium w-28">{contract.id}</span>
+                                    <span className="font-medium w-28">{contract.id.substring(0,10)}...</span>
                                     <span className='flex-1'>{contract.name}</span>
                                 </button>
                             </CollapsibleTrigger>
@@ -371,18 +372,128 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onRevert, onAddDr
 
 
 export default function ContractsPage() {
-    const { selectedProject, projectData, approveTender, addDraftTender, revertContractToDraft, addItemToContract, updateContractItem, deleteContractItem, updateDraftContractName, deleteDraftContract } = useProject();
+    const { selectedProject, updateDraftContractName, deleteDraftContract } = useProject();
+    const firestore = useFirestore();
+    const { toast } = useToast();
+
+    const contractsQuery = useMemo(() => {
+        if (!firestore || !selectedProject) return null;
+        return query(collection(firestore, 'projects', selectedProject.id, 'contracts'));
+    }, [firestore, selectedProject]);
+    
+    const { data: contracts, loading } = useCollection<Contract>(contractsQuery);
 
     const { draftContracts, approvedContracts } = useMemo(() => {
-        if (!selectedProject || !projectData) {
+        if (!contracts) {
             return { draftContracts: [], approvedContracts: [] };
         }
-        const currentProjectContracts = projectData.contracts[selectedProject.id] || { drafts: [], approved: [] };
-        return {
-            draftContracts: currentProjectContracts.drafts,
-            approvedContracts: currentProjectContracts.approved
-        };
-    }, [selectedProject, projectData]);
+        const drafts = contracts.filter(c => c.isDraft);
+        const approved = contracts.filter(c => !c.isDraft);
+        return { draftContracts: drafts, approvedContracts: approved };
+    }, [contracts]);
+
+    const addDraftTender = useCallback(async (group: ContractGroupKeys, name: string, subGroup: string) => {
+        if (!firestore || !selectedProject) return;
+
+        try {
+            await addDoc(collection(firestore, 'projects', selectedProject.id, 'contracts'), {
+                name,
+                group,
+                subGroup,
+                status: 'Hazırlık',
+                date: new Date().toISOString().split('T')[0],
+                items: [],
+                isDraft: true
+            });
+            toast({ title: "Taslak eklendi." });
+        } catch (error) {
+            console.error("Error adding draft tender:", error);
+            toast({ title: "Hata", description: "Taslak eklenemedi.", variant: "destructive" });
+        }
+    }, [firestore, selectedProject, toast]);
+
+    const addItemToContract = useCallback(async (contractId: string, item: ContractItem) => {
+        if (!firestore || !selectedProject || !contracts) return;
+        const contract = contracts.find(c => c.id === contractId);
+        if (!contract) return;
+        
+        try {
+            const contractRef = doc(firestore, 'projects', selectedProject.id, 'contracts', contractId);
+            const newItems = [...contract.items, item];
+            await updateDoc(contractRef, { items: newItems });
+            toast({ title: "Kalem eklendi." });
+        } catch (error) {
+            console.error("Error adding item:", error);
+            toast({ title: "Hata", description: "Kalem eklenemedi.", variant: "destructive" });
+        }
+    }, [firestore, selectedProject, contracts, toast]);
+    
+    const updateContractItem = useCallback(async (contractId: string, updatedItem: ContractItem, originalPoz: string) => {
+        if (!firestore || !selectedProject || !contracts) return;
+        const contract = contracts.find(c => c.id === contractId);
+        if (!contract) return;
+
+        try {
+            const contractRef = doc(firestore, 'projects', selectedProject.id, 'contracts', contractId);
+            const newItems = contract.items.map(item => item.poz === originalPoz ? updatedItem : item);
+            await updateDoc(contractRef, { items: newItems });
+            toast({ title: "Kalem güncellendi." });
+        } catch (error) {
+             console.error("Error updating item:", error);
+            toast({ title: "Hata", description: "Kalem güncellenemedi.", variant: "destructive" });
+        }
+    }, [firestore, selectedProject, contracts, toast]);
+
+    const deleteContractItem = useCallback(async (contractId: string, itemPoz: string) => {
+        if (!firestore || !selectedProject || !contracts) return;
+        const contract = contracts.find(c => c.id === contractId);
+        if (!contract) return;
+
+        try {
+            const contractRef = doc(firestore, 'projects', selectedProject.id, 'contracts', contractId);
+            const newItems = contract.items.filter(item => item.poz !== itemPoz);
+            await updateDoc(contractRef, { items: newItems });
+            toast({ title: "Kalem silindi." });
+        } catch (error) {
+             console.error("Error deleting item:", error);
+            toast({ title: "Hata", description: "Kalem silinemedi.", variant: "destructive" });
+        }
+    }, [firestore, selectedProject, contracts, toast]);
+    
+     const approveTender = useCallback(async (tenderId: string) => {
+        if (!firestore || !selectedProject) return;
+        try {
+            const contractRef = doc(firestore, 'projects', selectedProject.id, 'contracts', tenderId);
+            await updateDoc(contractRef, { 
+                isDraft: false,
+                status: 'Onaylandı',
+                date: new Date().toISOString().split('T')[0],
+            });
+            toast({ title: "Sözleşme onaylandı." });
+        } catch(e) {
+            console.error(e);
+            toast({ title: "Hata", description: "Sözleşme onaylanamadı.", variant: "destructive" });
+        }
+     }, [firestore, selectedProject, toast]);
+
+    const revertContractToDraft = useCallback(async (contractId: string) => {
+        if (!firestore || !selectedProject) return;
+
+        // TODO: Check for progress payments before reverting
+        
+        try {
+            const contractRef = doc(firestore, 'projects', selectedProject.id, 'contracts', contractId);
+            await updateDoc(contractRef, { 
+                isDraft: true,
+                status: 'Hazırlık',
+            });
+            toast({ title: "Sözleşme taslaklara geri alındı." });
+        } catch(e) {
+            console.error(e);
+            toast({ title: "Hata", description: "Sözleşme geri alınamadı.", variant: "destructive" });
+        }
+    }, [firestore, selectedProject, toast]);
+
 
     const groupContracts = (contracts: Contract[]): Record<ContractGroupKeys, Record<string, Contract[]>> => {
       const allGroups = (Object.keys(contractGroups) as ContractGroupKeys[]).reduce((acc, groupKey) => {
@@ -429,6 +540,22 @@ export default function ContractsPage() {
         </Card>
     );
   }
+  
+    if (loading) {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline">Sözleşme Yönetimi</CardTitle>
+                     <CardDescription>{selectedProject.name} | Taslak ve onaylı tüm proje sözleşmelerini yönetin.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center justify-center h-48 text-muted-foreground">
+                        Yükleniyor...
+                    </div>
+                </CardContent>
+            </Card>
+        )
+    }
 
   return (
     <Card>
@@ -484,8 +611,8 @@ export default function ContractsPage() {
                             contracts={contractsInGroup || {}}
                             onRevert={revertContractToDraft}
                             groupKey={groupKey}
-                            onUpdateItem={updateContractItem}
-                            onDeleteItem={deleteContractItem}
+                            onUpdateItem={() => {}}
+                            onDeleteItem={() => {}}
                         />
                     );
                 })}

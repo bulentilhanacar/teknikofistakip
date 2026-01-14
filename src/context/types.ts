@@ -13,6 +13,15 @@ export const contractGroups = {
 
 export type ContractGroupKeys = keyof typeof contractGroups;
 
+export interface FirestoreDocument {
+    id: string;
+}
+
+export interface Project extends FirestoreDocument {
+    name: string;
+    ownerId: string;
+}
+
 export interface ContractItem {
     poz: string;
     description: string;
@@ -21,14 +30,14 @@ export interface ContractItem {
     unitPrice: number;
 }
 
-export interface Contract {
-    id: string;
+export interface Contract extends FirestoreDocument {
     name: string;
     group: ContractGroupKeys;
     subGroup: string;
-    status: string;
+    status: string; // 'Hazırlık', 'Teklif Alındı', 'Onaylandı' etc.
     date: string;
     items: ContractItem[];
+    isDraft: boolean;
 }
 
 export interface ProgressItem {
@@ -50,7 +59,7 @@ export interface ExtraWorkItem {
     unitPrice: number;
 }
 
-export interface ProgressPayment {
+export interface ProgressPayment extends FirestoreDocument {
     progressPaymentNumber: number;
     date: string;
     totalAmount: number; // Cumulative total
@@ -62,8 +71,7 @@ export interface ProgressPayment {
     appliedDeductionIds: string[];
 }
 
-export interface Deduction {
-    id: string;
+export interface Deduction extends FirestoreDocument {
     contractId: string;
     type: 'muhasebe' | 'tutanakli';
     date: string; 
@@ -74,12 +82,10 @@ export interface Deduction {
 
 export type ProgressPaymentStatus = 'yok' | 'sahada' | 'imzada' | 'onayda' | 'pas_gec';
 
-
 export interface AllProjectData {
     contracts: Record<string, { drafts: Contract[], approved: Contract[] }>;
     progressPayments: Record<string, Record<string, ProgressPayment[]>>;
     deductions: Record<string, Deduction[]>;
-    // { [projectId]: { [monthKey]: { [contractId]: status } } }
     progressStatuses: Record<string, Record<string, Record<string, ProgressPaymentStatus>>>;
     dashboard: Record<string, any>;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,8 +15,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Deduction } from '@/context/types';
+import { Deduction, Contract } from '@/context/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useCollection, useFirestore } from '@/firebase';
+import { addDoc, collection, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 
 const newDeductionInitialState = {
@@ -28,20 +31,28 @@ const newDeductionInitialState = {
 };
 
 export default function DeductionsPage() {
-    const { selectedProject, projectData, addDeduction, deleteDeduction, getContractsByProject } = useProject();
+    const { selectedProject } = useProject();
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    
     const [newDeduction, setNewDeduction] = useState(newDeductionInitialState);
     const [date, setDate] = useState<Date | undefined>(new Date());
+
+    const contractsQuery = useMemo(() => {
+        if (!firestore || !selectedProject) return null;
+        return query(
+            collection(firestore, 'projects', selectedProject.id, 'contracts'),
+            where('isDraft', '==', false)
+        );
+    }, [firestore, selectedProject]);
+    const { data: approvedContracts, loading: contractsLoading } = useCollection<Contract>(contractsQuery);
+
+    const deductionsQuery = useMemo(() => {
+        if (!firestore || !selectedProject) return null;
+        return collection(firestore, 'projects', selectedProject.id, 'deductions');
+    }, [firestore, selectedProject]);
+    const { data: allDeductions, loading: deductionsLoading } = useCollection<Deduction>(deductionsQuery);
     
-    const availableContracts = useMemo(() => {
-        return getContractsByProject()
-            .filter(c => c.status === 'Onaylandı')
-            .reduce((acc, c) => {
-                acc[c.id] = { name: c.name };
-                return acc;
-            }, {} as Record<string, {name: string}>);
-    }, [selectedProject, projectData, getContractsByProject]);
-
-
     useEffect(() => {
         if (selectedProject) {
             setNewDeduction(prev => ({ ...prev, contractId: 'all' }));
@@ -51,44 +62,70 @@ export default function DeductionsPage() {
     }, [selectedProject]);
     
     const projectDeductions = useMemo(() => {
-        if (!selectedProject || !projectData) return [];
-        const allDeductions = (projectData.deductions[selectedProject.id] || []).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        if (!allDeductions) return [];
+        const sortedDeductions = [...allDeductions].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         if (newDeduction.contractId === 'all') {
-            return allDeductions;
+            return sortedDeductions;
         }
-        return allDeductions.filter(d => d.contractId === newDeduction.contractId);
+        return sortedDeductions.filter(d => d.contractId === newDeduction.contractId);
 
-    }, [selectedProject, projectData, newDeduction.contractId]);
+    }, [allDeductions, newDeduction.contractId]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | string, field: keyof typeof newDeduction) => {
         const value = typeof e === 'string' ? e : e.target.value;
         setNewDeduction(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleAddDeduction = () => {
-        if (!selectedProject || !newDeduction.contractId || newDeduction.contractId === 'all' || !newDeduction.amount || !newDeduction.description || !date) {
+    const handleAddDeduction = useCallback(async () => {
+        if (!firestore || !selectedProject || !newDeduction.contractId || newDeduction.contractId === 'all' || !newDeduction.amount || !newDeduction.description || !date) {
             alert("Lütfen bir sözleşme seçin ve tüm alanları doldurun.");
             return;
         }
 
-        const newEntry: Omit<Deduction, 'id' | 'appliedInPaymentNumber'> = {
-            contractId: newDeduction.contractId,
-            type: newDeduction.type,
-            date: format(date, 'yyyy-MM-dd'),
-            amount: parseFloat(newDeduction.amount),
-            description: newDeduction.description,
-        };
-        
-        addDeduction(newEntry);
+        try {
+            await addDoc(collection(firestore, 'projects', selectedProject.id, 'deductions'), {
+                contractId: newDeduction.contractId,
+                type: newDeduction.type,
+                date: format(date, 'yyyy-MM-dd'),
+                amount: parseFloat(newDeduction.amount),
+                description: newDeduction.description,
+                appliedInPaymentNumber: null,
+            });
+            
+            toast({ title: "Kesinti eklendi." });
+            setNewDeduction(prev => ({
+                ...newDeductionInitialState,
+                contractId: prev.contractId 
+            }));
+            setDate(new Date());
 
-        // Formu temizle, sadece kontrat seçimi kalsın
-        setNewDeduction(prev => ({
-            ...newDeductionInitialState,
-            contractId: prev.contractId 
-        }));
-        setDate(new Date());
-    };
+        } catch (error) {
+            console.error("Error adding deduction:", error);
+            toast({ title: "Hata", description: "Kesinti eklenemedi.", variant: "destructive" });
+        }
+    }, [firestore, selectedProject, newDeduction, date, toast]);
+
+    const deleteDeduction = useCallback(async (deduction: Deduction) => {
+        if (!firestore || !selectedProject) return;
+
+        if (deduction.appliedInPaymentNumber !== null) {
+            toast({
+                variant: "destructive",
+                title: "İşlem Başarısız",
+                description: "Bu kesinti bir hakedişe uygulandığı için silinemez.",
+            });
+            return;
+        }
+
+        try {
+            await deleteDoc(doc(firestore, 'projects', selectedProject.id, 'deductions', deduction.id));
+            toast({ title: "Kesinti Silindi" });
+        } catch (error) {
+             console.error("Error deleting deduction:", error);
+            toast({ title: "Hata", description: "Kesinti silinemedi.", variant: "destructive" });
+        }
+    }, [firestore, selectedProject, toast]);
     
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
@@ -107,6 +144,22 @@ export default function DeductionsPage() {
                 </CardContent>
             </Card>
         );
+    }
+    
+     if (contractsLoading || deductionsLoading) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline">Kesinti Yönetimi</CardTitle>
+                    <CardDescription>{selectedProject.name} | Bu proje kapsamındaki sözleşmelere yeni kesinti ekleyin.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center justify-center h-48 text-muted-foreground">
+                        Yükleniyor...
+                    </div>
+                </CardContent>
+            </Card>
+        )
     }
 
     return (
@@ -127,10 +180,10 @@ export default function DeductionsPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Tüm Sözleşmeler</SelectItem>
-                                        {Object.keys(availableContracts).length > 0 ? Object.keys(availableContracts).map(contractId => (
-                                            <SelectItem key={contractId} value={contractId}>{`${contractId}: ${availableContracts[contractId].name}`}</SelectItem>
+                                        {(approvedContracts && approvedContracts.length > 0) ? approvedContracts.map(contract => (
+                                            <SelectItem key={contract.id} value={contract.id}>{`${contract.id.substring(0,5)}...: ${contract.name}`}</SelectItem>
                                         )) : (
-                                            <div className="p-4 text-sm text-muted-foreground">Bu proje için sözleşme bulunmuyor.</div>
+                                            <div className="p-4 text-sm text-muted-foreground">Onaylı sözleşme bulunmuyor.</div>
                                         )}
                                     </SelectContent>
                                 </Select>
@@ -195,7 +248,7 @@ export default function DeductionsPage() {
                 <CardHeader>
                     <CardTitle className="font-headline">Mevcut Kesintiler</CardTitle>
                     <CardDescription>
-                        {newDeduction.contractId !== 'all' ? `${newDeduction.contractId} sözleşmesine ait kesintiler.` : `Projedeki tüm kesintiler.`}
+                        {newDeduction.contractId !== 'all' ? `Sözleşmeye ait kesintiler.` : `Projedeki tüm kesintiler.`}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -214,7 +267,7 @@ export default function DeductionsPage() {
                         <TableBody>
                             {projectDeductions.length > 0 ? projectDeductions.map(d => (
                                 <TableRow key={d.id}>
-                                    <TableCell className="font-mono text-xs">{d.contractId}</TableCell>
+                                    <TableCell className="font-mono text-xs">{d.contractId.substring(0,5)}...</TableCell>
                                     <TableCell>{d.date}</TableCell>
                                     <TableCell>
                                        <Badge variant={d.type === 'muhasebe' ? 'secondary' : 'outline'}>
@@ -247,7 +300,7 @@ export default function DeductionsPage() {
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
                                                         <AlertDialogCancel>İptal</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => deleteDeduction(d.id)}>Sil</AlertDialogAction>
+                                                        <AlertDialogAction onClick={() => deleteDeduction(d)}>Sil</AlertDialogAction>
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>

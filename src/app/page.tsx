@@ -22,11 +22,11 @@ import {
   ChartConfig,
 } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { FileClock, Gavel, FileSignature } from "lucide-react";
+import { FileClock, Gavel, FileSignature, LogIn } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useProject } from "@/context/project-context";
 import { useMemo } from "react";
-
+import { useUser } from "@/firebase";
 
 const chartConfig = {
   income: {
@@ -39,13 +39,63 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
 export default function Home() {
-  const { selectedProject, getDashboardData } = useProject();
+  const { user, loading } = useUser();
+  const { selectedProject } = useProject();
   
-  const data = useMemo(() => {
-    return getDashboardData();
-  }, [selectedProject, getDashboardData]);
+  // const data = useMemo(() => {
+  //   return getDashboardData();
+  // }, [selectedProject, getDashboardData]);
+  const data = emptyDashboardData; // Placeholder until dashboard data is also moved to Firestore
+
+  if (loading) {
+    return (
+      <Card>
+          <CardHeader>
+              <CardTitle className="font-headline">Finansal Özet</CardTitle>
+          </CardHeader>
+          <CardContent>
+              <div className="flex items-center justify-center h-48 text-muted-foreground">
+                  Yükleniyor...
+              </div>
+          </CardContent>
+      </Card>
+    )
+  }
+
+  if (!user) {
+     return (
+      <Card>
+          <CardHeader>
+              <CardTitle className="font-headline">Hoş Geldiniz!</CardTitle>
+          </CardHeader>
+          <CardContent>
+              <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground">
+                  <LogIn className="w-12 h-12 mb-4" />
+                  <p>Uygulamayı kullanmak için lütfen giriş yapın.</p>
+                  <p className="text-xs mt-2">Sol alttaki menüden Google hesabınızla giriş yapabilirsiniz.</p>
+              </div>
+          </CardContent>
+      </Card>
+    )
+  }
+  
+  if (!selectedProject) {
+     return (
+      <Card>
+          <CardHeader>
+              <CardTitle className="font-headline">Proje Seçin</CardTitle>
+          </CardHeader>
+          <CardContent>
+              <div className="flex items-center justify-center h-48 text-muted-foreground">
+                  <p>Devam etmek için lütfen sol menüden bir proje seçin veya yeni bir proje oluşturun.</p>
+              </div>
+          </CardContent>
+      </Card>
+    )
+  }
 
 
   return (

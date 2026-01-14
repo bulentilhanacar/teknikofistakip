@@ -5,6 +5,7 @@ import { MainLayout } from "@/components/main-layout";
 import { Inter as FontSans, Roboto_Mono as FontMono } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { ProjectProvider } from "@/context/project-context";
+import { FirebaseClientProvider } from "@/firebase/client-provider";
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -34,9 +35,11 @@ export default function RootLayout({
           fontSans.variable,
           fontMono.variable
         )}>
-        <ProjectProvider>
-            <MainLayout>{children}</MainLayout>
-        </ProjectProvider>
+        <FirebaseClientProvider>
+          <ProjectProvider>
+              <MainLayout>{children}</MainLayout>
+          </ProjectProvider>
+        </FirebaseClientProvider>
         <Toaster />
       </body>
     </html>

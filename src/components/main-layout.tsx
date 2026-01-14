@@ -15,7 +15,8 @@ import {
   MoreHorizontal,
   Edit,
   Trash,
-  ClipboardList
+  ClipboardList,
+  LogIn,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -46,6 +47,8 @@ import { Skeleton } from "./ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { useUser, useAuth } from "@/firebase";
+import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 
 const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
@@ -142,6 +145,10 @@ function ProjectSelector() {
     setProjectToRename(project);
     setIsRenameOpen(true);
   }
+  
+  if (!projects) {
+     return <Skeleton className="h-10 w-full" />
+  }
 
   return (
     <>
@@ -199,17 +206,87 @@ function ProjectSelector() {
   );
 }
 
+function AuthButton() {
+    const auth = useAuth();
+    const { user, loading } = useUser();
+
+    const handleSignIn = async () => {
+        if (!auth) return;
+        const provider = new GoogleAuthProvider();
+        try {
+            await signInWithPopup(auth, provider);
+        } catch (error) {
+            console.error("Error signing in with Google", error);
+        }
+    };
+
+    const handleSignOut = async () => {
+        if (!auth) return;
+        try {
+            await signOut(auth);
+        } catch (error) {
+            console.error("Error signing out", error);
+        }
+    };
+    
+    if (loading) {
+      return <Skeleton className="h-10 w-full" />
+    }
+
+    if (!user) {
+        return (
+            <Button onClick={handleSignIn} className="w-full justify-start">
+                <LogIn className="mr-2 h-4 w-4" />
+                Google ile Giriş Yap
+            </Button>
+        );
+    }
+    
+    const userAvatar = user.photoURL;
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2">
+                    <Avatar className="h-8 w-8">
+                        {userAvatar && (
+                            <AvatarImage
+                                src={userAvatar}
+                                alt={user.displayName || 'User Avatar'}
+                            />
+                        )}
+                        <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col truncate">
+                        <span className="font-semibold">{user.displayName || 'Kullanıcı'}</span>
+                        <span className="text-xs text-sidebar-foreground/70">
+                            {user.email}
+                        </span>
+                    </div>
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-56">
+                <DropdownMenuLabel>Hesabım</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>Profil</DropdownMenuItem>
+                <DropdownMenuItem>Ayarlar</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}>Çıkış Yap</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    )
+}
+
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
   const { selectedProject } = useProject();
+  const { user, loading } = useUser();
   const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setIsClient(true);
   }, []);
-
 
   return (
     <SidebarProvider>
@@ -224,9 +301,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          <div className="p-2">
-            {isClient ? <ProjectSelector /> : <Skeleton className="h-10 w-full" />}
-          </div>
+          {isClient && !loading && user && (
+            <div className="p-2">
+              <ProjectSelector />
+            </div>
+          )}
           {selectedProject && (
             <SidebarMenu>
               {projectMenuItems.map((item) => {
@@ -251,35 +330,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           )}
         </SidebarContent>
         <SidebarFooter>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2">
-                <Avatar className="h-8 w-8">
-                  {userAvatar && (
-                    <AvatarImage
-                      src={userAvatar.imageUrl}
-                      data-ai-hint={userAvatar.imageHint}
-                    />
-                  )}
-                  <AvatarFallback>TO</AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col truncate">
-                  <span className="font-semibold">Teknik Ofis</span>
-                  <span className="text-xs text-sidebar-foreground/70">
-                    info@insaat.com
-                  </span>
-                </div>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-56">
-              <DropdownMenuLabel>Hesabım</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Profil</DropdownMenuItem>
-              <DropdownMenuItem>Ayarlar</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Çıkış Yap</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            {isClient ? <AuthButton /> : <Skeleton className="h-12 w-full" />}
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
