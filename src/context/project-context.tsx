@@ -16,8 +16,6 @@ interface ProjectContextType {
     addProject: (projectName: string) => Promise<void>;
     updateProjectName: (projectId: string, newName: string) => void;
     deleteProject: (projectId: string) => Promise<void>;
-    updateDraftContractName: (contractId: string, newName: string) => void;
-    deleteDraftContract: (contractId: string) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -140,28 +138,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 errorEmitter.emit('permission-error', permissionError);
             });
     }, [firestore, toast, projects]);
-    
-    const updateDraftContractName = useCallback(async (contractId: string, newName: string) => {
-         if (!firestore || !selectedProject) return;
-         const contractRef = doc(firestore, `projects/${selectedProject.id}/contracts`, contractId);
-         updateDoc(contractRef, { name: newName })
-            .then(() => toast({ title: "Taslak adı güncellendi." }))
-            .catch(err => {
-                 const permissionError = new FirestorePermissionError({ path: contractRef.path, operation: 'update', requestResourceData: { name: newName } });
-                 errorEmitter.emit('permission-error', permissionError);
-            });
-    }, [firestore, selectedProject, toast]);
-    
-    const deleteDraftContract = useCallback(async (contractId: string) => {
-        if (!firestore || !selectedProject) return;
-        const contractRef = doc(firestore, `projects/${selectedProject.id}/contracts`, contractId);
-        deleteDoc(contractRef)
-            .then(() => toast({ title: "Taslak silindi." }))
-            .catch(err => {
-                const permissionError = new FirestorePermissionError({ path: contractRef.path, operation: 'delete' });
-                errorEmitter.emit('permission-error', permissionError);
-            });
-    }, [firestore, selectedProject, toast]);
 
 
     const value: ProjectContextType = {
@@ -171,8 +147,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         addProject,
         updateProjectName,
         deleteProject,
-        updateDraftContractName,
-        deleteDraftContract,
     };
 
     return (

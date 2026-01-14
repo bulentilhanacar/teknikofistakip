@@ -70,12 +70,22 @@ function ProjectSelector() {
   const handleSaveRename = () => {
     if (editingProject && editingName.trim()) {
       updateProjectName(editingProject.id, editingName.trim());
-      setEditingProject(null);
     }
+    setEditingProject(null);
   };
+  
+  const handleDeleteClick = (project: Project) => {
+    deleteProject(project.id);
+  }
 
   if (!projects) {
-     return <Skeleton className="h-10 w-full" />
+     return (
+        <div className="p-2 space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+        </div>
+     )
   }
 
   return (
@@ -101,6 +111,11 @@ function ProjectSelector() {
                         {project.name}
                     </DropdownMenuItem>
                 ))}
+                 {projects.length === 0 && (
+                    <DropdownMenuItem disabled>
+                        Henüz proje oluşturulmamış.
+                    </DropdownMenuItem>
+                )}
             </DropdownMenuContent>
         </DropdownMenu>
 
@@ -126,7 +141,7 @@ function ProjectSelector() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>İptal</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteProject(selectedProject.id)}>Evet, Sil</AlertDialogAction>
+                            <AlertDialogAction onClick={() => handleDeleteClick(selectedProject)}>Evet, Sil</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                  </AlertDialog>
@@ -183,12 +198,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               <ProjectSelector />
               <SidebarSeparator className="my-1"/>
               <div className="p-2 pt-0">
-                <AddProjectDialog>
-                  <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
-                    <PlusCircle className="mr-2" />
-                    <span className="group-data-[collapsible=icon]:hidden">Yeni Proje Ekle</span>
-                  </Button>
-                </AddProjectDialog>
+                <AddProjectDialog />
               </div>
             </>
           )}

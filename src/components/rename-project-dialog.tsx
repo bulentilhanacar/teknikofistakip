@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -18,33 +17,24 @@ import { Project } from '@/context/types';
 
 interface RenameProjectDialogProps {
   project: Project;
-  onSave: (projectId: string, newName: string) => void;
-  children: React.ReactNode;
+  name: string;
+  setName: (name: string) => void;
+  onSave: () => void;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
 
-export function RenameProjectDialog({ project, onSave, children, isOpen, onOpenChange }: RenameProjectDialogProps) {
-  const [name, setName] = React.useState(project.name);
-
-  useEffect(() => {
-    if (isOpen) {
-        setName(project.name);
-    }
-  }, [isOpen, project.name]);
+export function RenameProjectDialog({ project, name, setName, onSave, isOpen, onOpenChange }: RenameProjectDialogProps) {
   
   const handleSave = () => {
     if (name.trim() && name.trim() !== project.name) {
-      onSave(project.id, name.trim());
+      onSave();
     }
     onOpenChange(false);
   };
 
   return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogTrigger asChild>
-          {children}
-        </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Proje Adını Değiştir</DialogTitle>
