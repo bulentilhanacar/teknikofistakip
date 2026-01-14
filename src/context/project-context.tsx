@@ -422,19 +422,22 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
     
         setProjectData(prev => {
+            // Deep copy to prevent mutation issues.
+            const contractHistory = JSON.parse(JSON.stringify(prev.progressPayments[selectedProjectId]?.[contractId] || []));
             let updatedContractHistory: ProgressPayment[];
-            const contractHistory = prev.progressPayments[selectedProjectId]?.[contractId] || [];
-
+    
             if (editingPaymentNumber !== null) {
-                // Editing: replace the item at the correct index.
-                updatedContractHistory = contractHistory.map(p => 
-                    p.progressPaymentNumber === editingPaymentNumber 
-                        ? { ...paymentData, progressPaymentNumber: editingPaymentNumber } 
+                // Editing mode: Replace the item
+                updatedContractHistory = contractHistory.map((p: ProgressPayment) => 
+                    p.progressPaymentNumber === editingPaymentNumber
+                        ? { ...paymentData, progressPaymentNumber: editingPaymentNumber }
                         : p
                 );
             } else {
-                // Creating a new one: find the max number and add 1
-                const lastPaymentNumber = contractHistory.length > 0 ? Math.max(...contractHistory.map(p => p.progressPaymentNumber)) : 0;
+                // New entry mode: Add to the end with a new number
+                const lastPaymentNumber = contractHistory.length > 0 
+                    ? Math.max(...contractHistory.map((p: ProgressPayment) => p.progressPaymentNumber)) 
+                    : 0;
                 const newPaymentNumber = lastPaymentNumber + 1;
                 const newPayment: ProgressPayment = {
                     ...paymentData,
@@ -443,23 +446,20 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 updatedContractHistory = [...contractHistory, newPayment];
             }
     
-            const paymentNumberToSave = editingPaymentNumber ?? (updatedContractHistory.at(-1) as ProgressPayment)?.progressPaymentNumber;
+            const paymentNumberToSave = editingPaymentNumber ?? updatedContractHistory.at(-1)!.progressPaymentNumber;
     
-            const projectPayments = prev.progressPayments[selectedProjectId] || {};
-            const updatedProjectPayments = {
-                ...projectPayments,
-                [contractId]: updatedContractHistory,
-            };
-            
+            // Update deductions based on the saved payment
             const newProjectDeductions = (prev.deductions[selectedProjectId] || []).map(d => {
                 if (paymentData.appliedDeductionIds.includes(d.id)) {
                     return { ...d, appliedInPaymentNumber: paymentNumberToSave };
                 } else if (d.appliedInPaymentNumber === paymentNumberToSave) {
+                    // This case handles deselection of a deduction
                     return { ...d, appliedInPaymentNumber: null };
                 }
                 return d;
             });
             
+            // Update progress statuses
             const currentMonth = format(new Date(paymentData.date), 'yyyy-MM');
             const projectStatuses = prev.progressStatuses[selectedProjectId] || {};
             const monthStatuses = projectStatuses[currentMonth] || {};
@@ -471,14 +471,28 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 }
              };
     
+            // Return the full new state
             return {
                 ...prev,
-                progressPayments: { ...prev.progressPayments, [selectedProjectId]: updatedProjectPayments },
-                deductions: { ...prev.deductions, [selectedProjectId]: newProjectDeductions },
-                progressStatuses: { ...prev.progressStatuses, [selectedProjectId]: newProgressStatuses }
+                progressPayments: {
+                    ...prev.progressPayments,
+                    [selectedProjectId]: {
+                        ...prev.progressPayments[selectedProjectId],
+                        [contractId]: updatedContractHistory,
+                    }
+                },
+                deductions: {
+                    ...prev.deductions,
+                    [selectedProjectId]: newProjectDeductions
+                },
+                progressStatuses: {
+                    ...prev.progressStatuses,
+                    [selectedProjectId]: newProgressStatuses
+                }
             };
         });
     }, [selectedProjectId]);
+    
     
     const updateProgressPaymentStatus = useCallback((month: string, contractId: string, status: ProgressPaymentStatus) => {
         if (!selectedProjectId) return;
