@@ -13,6 +13,9 @@ service cloud.firestore {
       allow read, update, delete: if isProjectOwner(projectId);
       allow create: if request.resource.data.ownerId == request.auth.uid;
       
+      // Allow users to list only their own projects
+      allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
+      
       // Users can only access subcollections of projects they own
       match /{collection}/{docId} {
         allow read, write: if isProjectOwner(projectId);
