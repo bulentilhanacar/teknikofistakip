@@ -50,6 +50,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
     const { data: projects, loading: projectsLoading } = useCollection<Project>(projectsQuery);
 
+    const selectedProject = useMemo(() => {
+        return projects?.find(p => p.id === selectedProjectId) || null;
+    }, [selectedProjectId, projects]);
+    
     useEffect(() => {
         if (!projectsLoading && projects && projects.length > 0) {
             if (selectedProjectId && !projects.some(p => p.id === selectedProjectId)) {
@@ -72,10 +76,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         }
     }, [selectedProjectId]);
     
-    const selectedProject = useMemo(() => {
-        return projects?.find(p => p.id === selectedProjectId) || null;
-    }, [selectedProjectId, projects]);
-
     const selectProject = (projectId: string | null) => {
         setSelectedProjectId(projectId);
     };
@@ -149,6 +149,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 errorEmitter.emit('permission-error', permissionError);
             });
     }, [firestore, selectedProject, toast]);
+
 
     const value: ProjectContextType = {
         projects: projects ?? null,

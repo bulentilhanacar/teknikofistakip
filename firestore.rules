@@ -1,159 +1,24 @@
-/**
- * Core Philosophy: This ruleset enforces a strict user-ownership model for a
- * construction tracking application. All data, including tenders (ihales),
- * contracts (sozlesmes), progress payments (hakedisler), and deductions
- * (kesintiler), is segregated into user-specific data trees.
- *
- * Data Structure: The entire data model is hierarchical, starting with the
- * `/users/{userId}` path. Each subsequent piece of data (ihales, sozlesmes, etc.)
- * is stored in a subcollection under its parent. This structure ensures that
- * all data is inherently tied to a single user account.
- *
- * Key Security Decisions:
- * - Strict Ownership: A user can only access, modify, or delete data located
- *   within their own data tree (i.e., where the path's {userId} matches their
- *   authenticated UID). There is no concept of shared or public data.
- * - No User Listing: It is not possible to list documents in the root `/users`
- *   collection, preventing enumeration of application users.
- * - Authorization via Path: The primary mechanism for authorization is the
- *   `{userId}` wildcard in the document path. This is a highly performant and
- *   secure way to control access.
- * - Relational Integrity: On creation, key relationship fields (e.g., `createdBy`,
- *   `ihaleId`) are validated to ensure they match the document's path, preventing
- *   data from being misplaced. These fields are immutable on update.
- * - Prototyping Flexibility: In line with the prototyping model, these rules
- *   do not validate the specific data types or shapes of documents beyond what
- *   is essential for authorization and relational integrity.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // =====================================================================
-    // Helper Functions
-    // =====================================================================
-
-    /**
-     * Checks if the user is authenticated.
-     */
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the currently authenticated user's UID matches the given userId.
-     * This is the foundation of the user-ownership model.
-     * @param userId The user ID to check against the request's auth UID.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * Verifies that a document exists and that the user is the owner.
-     * CRITICAL: Used for all update and delete operations to prevent modifying
-     * or deleting non-existent data.
-     * @param userId The user ID to check for ownership.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
+    // Projects collection
+    match /projects/{projectId} {
+      allow read, write: if isOwner(resource.data.ownerId);
+      allow create: if isOwner(request.resource.data.ownerId);
 
-    /**
-     * On create, validates that the ihale's `createdBy` field matches the
-     * user creating it, linking the document data to the path owner.
-     * @param userId The user ID from the path.
-     */
-    function hasValidIhaleCreationData(userId) {
-      return request.resource.data.createdBy == userId;
-    }
-
-    /**
-     * On update, ensures the `createdBy` field cannot be changed, preserving
-     * the original ownership link.
-     */
-    function isIhaleDataImmutable() {
-      return request.resource.data.createdBy == resource.data.createdBy;
-    }
-
-    /**
-     * On create, validates that a sub-document's foreign key matches the
-     * parent document's ID from the path.
-     * @param key The name of the foreign key field (e.g., 'ihaleId').
-     * @param id The ID from the path to match against.
-     */
-    function hasValidParentLinkOnCreate(key, id) {
-      return request.resource.data[key] == id;
-    }
-
-    /**
-     * On update, ensures a sub-document's foreign key pointing to its parent
-     * is immutable.
-     * @param key The name of the foreign key field (e.g., 'ihaleId').
-     */
-    function isParentLinkImmutable(key) {
-      return request.resource.data[key] == resource.data[key];
-    }
-
-
-    // =====================================================================
-    // Collection Rules
-    // =====================================================================
-
-    /**
-     * @description Rules for user-specific ihale (tender) documents.
-     * @path /users/{userId}/ihales/{ihaleId}
-     * @allow A user (uid: 'user123') can (create) a new ihale document at `/users/user123/ihales/ihale_abc` if the document's `createdBy` field is also 'user123'.
-     * @deny A user (uid: 'user456') is denied (get) access to `/users/user123/ihales/ihale_abc`.
-     * @principle Restricts access to a user's own data tree and validates relational integrity.
-     */
-    match /users/{userId}/ihales/{ihaleId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && hasValidIhaleCreationData(userId);
-      allow update: if isExistingOwner(userId) && isIhaleDataImmutable();
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Rules for sozlesme (contract) documents, which are subcollections of an ihale.
-     * @path /users/{userId}/ihales/{ihaleId}/sozlesmes/{sozlesmeId}
-     * @allow A user (uid: 'user123') can (create) a new sozlesme at `.../ihales/ihale_abc/sozlesmes/sozlesme_xyz` if its `ihaleId` field is 'ihale_abc'.
-     * @deny A user is denied (update) if they try to change the `ihaleId` of an existing sozlesme.
-     * @principle Enforces hierarchical ownership; access is inherited from the parent user path.
-     */
-    match /users/{userId}/ihales/{ihaleId}/sozlesmes/{sozlesmeId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && hasValidParentLinkOnCreate('ihaleId', ihaleId);
-      allow update: if isExistingOwner(userId) && isParentLinkImmutable('ihaleId');
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Rules for hakedis (progress payment) documents, subcollections of a sozlesme.
-     * @path /users/{userId}/ihales/{ihaleId}/sozlesmes/{sozlesmeId}/hakedisler/{hakedisId}
-     * @allow A user (uid: 'user123') can (list) all hakedisler within a contract they own.
-     * @deny An anonymous user is denied (get) access to any hakedis document.
-     * @principle Enforces hierarchical ownership; access is inherited from the parent user path.
-     */
-    match /users/{userId}/ihales/{ihaleId}/sozlesmes/{sozlesmeId}/hakedisler/{hakedisId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && hasValidParentLinkOnCreate('sozlesmeId', sozlesmeId);
-      allow update: if isExistingOwner(userId) && isParentLinkImmutable('sozlesmeId');
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Rules for kesinti (deduction) documents, subcollections of a hakedis.
-     * @path /users/{userId}/ihales/{ihaleId}/sozlesmes/{sozlesmeId}/hakedisler/{hakedisId}/kesintiler/{kesintiId}
-     * @allow A user (uid: 'user123') can (delete) a kesinti document within their own data tree.
-     * @deny A user (uid: 'user456') is denied (create) access within another user's (`user123`) data tree.
-     * @principle Enforces hierarchical ownership; access is inherited from the parent user path.
-     */
-    match /users/{userId}/ihales/{ihaleId}/sozlesmes/{sozlesmeId}/hakedisler/{hakedisId}/kesintiler/{kesintiId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && hasValidParentLinkOnCreate('hakedisId', hakedisId);
-      allow update: if isExistingOwner(userId) && isParentLinkImmutable('hakedisId');
-      allow delete: if isExistingOwner(userId);
+      // Subcollections of projects
+      match /{collection}/{docId} {
+        allow read, write: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
+      }
     }
   }
 }
