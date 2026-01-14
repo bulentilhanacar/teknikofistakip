@@ -495,7 +495,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             let updatedContractHistory: ProgressPayment[];
 
             if (editingPaymentNumber !== null) {
-                updatedContractHistory = contractHistory.map((p: ProgressPayment) => 
+                 updatedContractHistory = contractHistory.map((p: ProgressPayment) => 
                     p.progressPaymentNumber === editingPaymentNumber
                         ? { ...paymentData, progressPaymentNumber: editingPaymentNumber }
                         : p
@@ -672,3 +672,5 @@ export const useProject = (): ProjectContextType => {
     }
     return context;
 };
+
+    
