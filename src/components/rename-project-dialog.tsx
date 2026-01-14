@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -27,7 +26,6 @@ export function RenameProjectDialog({ project, onSave, children }: RenameProject
   const [name, setName] = React.useState(project.name);
 
   // When the dialog opens, reset the name to the current project name.
-  // This is crucial if the user closes and reopens the dialog for different projects.
   React.useEffect(() => {
     if (isOpen) {
       setName(project.name);
@@ -40,10 +38,25 @@ export function RenameProjectDialog({ project, onSave, children }: RenameProject
       setIsOpen(false);
     }
   };
+  
+  const child = React.Children.only(children) as React.ReactElement;
+  const trigger = React.cloneElement(child, {
+    onClick: (e: React.MouseEvent<HTMLElement>) => {
+      e.preventDefault();
+      setIsOpen(true);
+      child.props.onClick?.(e);
+    },
+    onSelect: (e: Event) => {
+        e.preventDefault();
+        setIsOpen(true);
+        child.props.onSelect?.(e);
+    }
+  });
+
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      {trigger}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Proje Adını Değiştir</DialogTitle>
