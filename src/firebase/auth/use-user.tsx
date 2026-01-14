@@ -1,4 +1,3 @@
-// src/firebase/auth/use-user.tsx
 'use client';
 import { onAuthStateChanged, type Auth, type User } from 'firebase/auth';
 import { useEffect, useState } from 'react';
@@ -21,33 +20,35 @@ export function useAuth() {
  */
 export function useUser() {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [isUserLoading, setIsLoading] = useState(true);
+  const [userError, setUserError] = useState<Error | null>(null);
   const auth = useAuth();
 
   useEffect(() => {
     if (!auth) {
-        // If auth is null, it means the provider is not ready.
-        // We shouldn't treat this as an error, but as a loading state.
-        setLoading(true);
+        // If auth is null, it means the provider is not ready yet.
+        // We should remain in a loading state.
+        setIsLoading(true);
+        setUser(null);
         return;
     }
+    
     const unsubscribe = onAuthStateChanged(
       auth,
       (user) => {
         setUser(user);
-        setLoading(false);
-        setError(null);
+        setIsLoading(false);
+        setUserError(null);
       },
       (error) => {
         console.error("Firebase Auth Error:", error);
-        setError(error);
-        setLoading(false);
+        setUserError(error);
+        setIsLoading(false);
       }
     );
 
     return () => unsubscribe();
   }, [auth]);
 
-  return { user, loading, error };
+  return { user, isUserLoading, userError };
 }
