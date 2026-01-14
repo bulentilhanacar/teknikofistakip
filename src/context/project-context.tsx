@@ -27,6 +27,7 @@ interface ProjectContextType {
     updateContractItem: (contractId: string, updatedItem: ContractItem, originalPoz: string) => void;
     deleteContractItem: (contractId: string, itemPoz: string) => void;
     addDeduction: (deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => void;
+    deleteDeduction: (deductionId: string) => void;
     saveProgressPayment: (contractId: string, paymentData: Omit<ProgressPayment, 'progressPaymentNumber'>, editingPaymentNumber: number | null) => void;
     deleteProgressPaymentsForContract: (contractId: string) => void;
     updateProgressPaymentStatus: (month: string, contractId: string, status: ProgressPaymentStatus) => void;
@@ -471,6 +472,35 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         });
     }, [selectedProjectId]);
 
+    const deleteDeduction = useCallback((deductionId: string) => {
+        if (!selectedProjectId) return;
+        
+        setProjectData(prev => {
+            const newPrevData = JSON.parse(JSON.stringify(prev));
+            const projectDeductions = newPrevData.deductions[selectedProjectId] || [];
+            
+            const deductionToDelete = projectDeductions.find((d: Deduction) => d.id === deductionId);
+            if (deductionToDelete && deductionToDelete.appliedInPaymentNumber !== null) {
+                toast({
+                    variant: "destructive",
+                    title: "İşlem Başarısız",
+                    description: "Bu kesinti bir hakedişe uygulandığı için silinemez.",
+                });
+                return newPrevData;
+            }
+
+            const updatedDeductions = projectDeductions.filter((d: Deduction) => d.id !== deductionId);
+            newPrevData.deductions[selectedProjectId] = updatedDeductions;
+            
+            toast({
+                title: "Kesinti Silindi",
+                description: "Seçili kesinti başarıyla silindi.",
+            });
+
+            return newPrevData;
+        });
+    }, [selectedProjectId, toast]);
+
    const saveProgressPayment = useCallback((contractId: string, paymentData: Omit<ProgressPayment, 'progressPaymentNumber'>, editingPaymentNumber: number | null) => {
         if (!selectedProjectId) return;
 
@@ -495,7 +525,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                     ...paymentData,
                     progressPaymentNumber: newPaymentNumber,
                 };
-                contractHistory = [...contractHistory, newPayment];
+                contractHistory.push(newPayment);
             }
             
             const currentPaymentNumber = editingPaymentNumber ?? contractHistory.at(-1)!.progressPaymentNumber;
@@ -513,16 +543,14 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             const currentMonth = format(new Date(paymentData.date), 'yyyy-MM');
             const projectStatuses = clonedData.progressStatuses[selectedProjectId] || {};
             const monthStatuses = projectStatuses[currentMonth] || {};
-            if (monthStatuses[contractId] !== 'odendi') {
-                const newProgressStatuses = { 
-                    ...projectStatuses,
-                    [currentMonth]: {
-                        ...monthStatuses,
-                        [contractId]: 'onayda' as ProgressPaymentStatus
-                    }
-                };
-                clonedData.progressStatuses[selectedProjectId] = newProgressStatuses;
-            }
+            const newProgressStatuses = { 
+                ...projectStatuses,
+                [currentMonth]: {
+                    ...monthStatuses,
+                    [contractId]: 'onayda' as ProgressPaymentStatus
+                }
+            };
+            clonedData.progressStatuses[selectedProjectId] = newProgressStatuses;
 
 
             const projectPayments = clonedData.progressPayments[selectedProjectId] || {};
@@ -617,6 +645,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         updateContractItem,
         deleteContractItem,
         addDeduction,
+        deleteDeduction,
         saveProgressPayment,
         deleteProgressPaymentsForContract,
         updateProgressPaymentStatus,

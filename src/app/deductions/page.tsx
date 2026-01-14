@@ -9,14 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useProject } from '@/context/project-context';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Trash2, Calendar as CalendarIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Deduction } from '@/context/types';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
 const newDeductionInitialState = {
@@ -28,7 +28,7 @@ const newDeductionInitialState = {
 };
 
 export default function DeductionsPage() {
-    const { selectedProject, projectData, addDeduction, getContractsByProject } = useProject();
+    const { selectedProject, projectData, addDeduction, deleteDeduction, getContractsByProject } = useProject();
     const [newDeduction, setNewDeduction] = useState(newDeductionInitialState);
     const [date, setDate] = useState<Date | undefined>(new Date());
     
@@ -39,7 +39,7 @@ export default function DeductionsPage() {
                 acc[c.id] = { name: c.name };
                 return acc;
             }, {} as Record<string, {name: string}>);
-    }, [selectedProject, projectData]);
+    }, [selectedProject, projectData, getContractsByProject]);
 
 
     useEffect(() => {
@@ -208,6 +208,7 @@ export default function DeductionsPage() {
                                 <TableHead>Açıklama</TableHead>
                                 <TableHead>Durum</TableHead>
                                 <TableHead className="text-right">Tutar</TableHead>
+                                <TableHead className="w-[100px] text-center">İşlemler</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -229,10 +230,33 @@ export default function DeductionsPage() {
                                         )}
                                     </TableCell>
                                     <TableCell className="text-right font-semibold">{formatCurrency(d.amount)}</TableCell>
+                                    <TableCell className="text-center">
+                                        {!d.appliedInPaymentNumber && (
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Bu kesintiyi kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>İptal</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => deleteDeduction(d.id)}>Sil</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        )}
+                                    </TableCell>
                                 </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
+                                    <TableCell colSpan={7} className="h-24 text-center">
                                        {newDeduction.contractId !== 'all'
                                             ? "Seçili sözleşme için kesinti bulunmuyor."
                                             : "Bu proje için henüz kesinti eklenmemiş."}
