@@ -11,7 +11,9 @@ service cloud.firestore {
       allow read, update, delete: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
       allow create: if isOwner(request.resource.data.ownerId);
       
-      allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
+      // Allow a user to list only their own projects.
+      // The query from the client MUST include `where('ownerId', '==', request.auth.uid)`.
+      allow list: if request.auth != null && request.auth.uid == request.query.where.ownerId;
       
       match /{allChildren=**} {
         allow read, write: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
