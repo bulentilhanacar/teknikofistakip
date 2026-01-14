@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback } from 'react';
@@ -44,30 +45,22 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => getInitialState('selectedProjectId', null));
 
     const projectsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        // Reverted: Removed user-based filtering to fix permission errors
-        return collection(firestore, "projects");
-    }, [firestore]);
+        if (!firestore || !user) return null;
+        return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
+    }, [firestore, user]);
 
     const { data: projects, loading: projectsLoading } = useCollection<Project>(projectsQuery);
 
     const selectedProject = useMemo(() => {
         if (projectsLoading || !projects) return null;
-        if (selectedProjectId === null && projects.length > 0) {
+        // If there's no selected project ID, or the selected one is no longer in the list, select the first one.
+        const currentProjectExists = projects.some(p => p.id === selectedProjectId);
+        if (!currentProjectExists && projects.length > 0) {
             const firstProjectId = projects[0].id;
             setSelectedProjectId(firstProjectId);
             return projects[0];
         }
-        const project = projects.find(p => p.id === selectedProjectId);
-        if (project) {
-            return project;
-        }
-        if (projects.length > 0) {
-            const firstProjectId = projects[0].id;
-            setSelectedProjectId(firstProjectId);
-            return projects[0];
-        }
-        return null;
+        return projects.find(p => p.id === selectedProjectId) || null;
     }, [selectedProjectId, projects, projectsLoading]);
     
     useEffect(() => {
@@ -77,13 +70,23 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
              localStorage.removeItem('selectedProjectId');
         }
     }, [selectedProjectId]);
+
+    // Effect to clear selected project if user logs out
+    useEffect(() => {
+        if (!user) {
+            setSelectedProjectId(null);
+        }
+    }, [user]);
     
     const selectProject = (projectId: string | null) => {
         setSelectedProjectId(projectId);
     };
 
     const addProject = useCallback(async (projectName: string) => {
-        if (!firestore || !user) return;
+        if (!firestore || !user) {
+            toast({ title: "Hata", description: "Proje eklemek için giriş yapmalısınız.", variant: "destructive" });
+            return;
+        }
         try {
             const newProjectData = {
                 name: projectName,
@@ -110,7 +113,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const deleteProject = useCallback(async (projectId: string) => {
         if (!firestore) return;
 
-        // Check for contracts before deleting
         const contractsRef = collection(firestore, 'projects', projectId, 'contracts');
         const contractsSnapshot = await getDocs(contractsRef);
 
@@ -119,6 +121,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 variant: 'destructive',
                 title: 'Hata',
                 description: 'Bu projeye ait sözleşmeler bulunduğu için SİLİNEMEZ. Projeyi silebilmeniz için ÖNCE projedeki Ana ve Alt sözleşme gruplarındaki tüm sözleşmeleri silmeniz gerekmektedir.',
+                duration: 5000,
             });
             return;
         }

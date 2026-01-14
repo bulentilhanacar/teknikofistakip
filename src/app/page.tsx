@@ -27,9 +27,9 @@ import { FileClock, Gavel, FileSignature, LogIn } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useProject } from "@/context/project-context";
 import { useMemo } from "react";
-import { useAuth, useUser } from "@/firebase";
+import { useAuth, useUser, googleProvider } from "@/firebase";
 import { Button } from "@/components/ui/button";
-import { signInAnonymously } from 'firebase/auth';
+import { signInWithPopup } from 'firebase/auth';
 
 
 const chartConfig = {
@@ -50,12 +50,12 @@ export default function Home() {
   const { selectedProject } = useProject();
   const auth = useAuth();
 
-  const handleAnonymousSignIn = async () => {
+  const handleGoogleSignIn = async () => {
     if (auth) {
       try {
-        await signInAnonymously(auth);
+        await signInWithPopup(auth, googleProvider);
       } catch (error) {
-        console.error("Anonymous sign-in error", error);
+        console.error("Google sign-in error", error);
       }
     }
   };
@@ -85,15 +85,15 @@ export default function Home() {
       <Card>
           <CardHeader>
               <CardTitle className="font-headline">Hoş Geldiniz!</CardTitle>
-              <CardDescription>Projelerinizi yönetmeye başlamak için lütfen devam edin.</CardDescription>
+              <CardDescription>Projelerinizi her yerden yönetmeye başlamak için lütfen giriş yapın.</CardDescription>
           </CardHeader>
           <CardContent>
               <div className="flex flex-col items-center justify-center h-48 text-center">
                   <LogIn className="w-12 h-12 mb-4 text-muted-foreground" />
-                  <Button onClick={handleAnonymousSignIn}>
-                    Devam Et
+                  <Button onClick={handleGoogleSignIn}>
+                    Google ile Giriş Yap
                   </Button>
-                  <p className="text-xs text-muted-foreground mt-4">Verileriniz bu cihazda güvenli bir şekilde saklanır.</p>
+                  <p className="text-xs text-muted-foreground mt-4">Verileriniz Google hesabınızla güvende.</p>
               </div>
           </CardContent>
       </Card>
