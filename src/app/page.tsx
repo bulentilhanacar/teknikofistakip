@@ -42,10 +42,8 @@ const chartConfig = {
 const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
 export default function Home() {
-  // const { user, loading } = useUser();
+  const { user, loading } = useUser();
   const { selectedProject } = useProject();
-  const loading = false; // temp
-  const user = true; // temp
   
   // const data = useMemo(() => {
   //   return getDashboardData();
@@ -67,22 +65,22 @@ export default function Home() {
     )
   }
 
-  // if (!user) {
-  //    return (
-  //     <Card>
-  //         <CardHeader>
-  //             <CardTitle className="font-headline">Hoş Geldiniz!</CardTitle>
-  //         </CardHeader>
-  //         <CardContent>
-  //             <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground">
-  //                 <LogIn className="w-12 h-12 mb-4" />
-  //                 <p>Uygulamayı kullanmak için lütfen giriş yapın.</p>
-  //                 <p className="text-xs mt-2">Sol alttaki menüden Google hesabınızla giriş yapabilirsiniz.</p>
-  //             </div>
-  //         </CardContent>
-  //     </Card>
-  //   )
-  // }
+  if (!user) {
+     return (
+      <Card>
+          <CardHeader>
+              <CardTitle className="font-headline">Hoş Geldiniz!</CardTitle>
+          </CardHeader>
+          <CardContent>
+              <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground">
+                  <LogIn className="w-12 h-12 mb-4" />
+                  <p>Uygulamayı kullanmak için lütfen giriş yapın.</p>
+                  <p className="text-xs mt-2">Sol alttaki menüden Google hesabınızla giriş yapabilirsiniz.</p>
+              </div>
+          </CardContent>
+      </Card>
+    )
+  }
   
   if (!selectedProject) {
      return (

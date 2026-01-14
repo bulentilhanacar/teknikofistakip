@@ -281,7 +281,7 @@ function AuthButton() {
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { selectedProject } = useProject();
-  // const { user, loading } = useUser();
+  const { user, loading } = useUser();
   const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
@@ -301,7 +301,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          {isClient && ( // !loading && user && (
+          {isClient && !loading && user && (
             <div className="p-2">
               <ProjectSelector />
             </div>
@@ -330,7 +330,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           )}
         </SidebarContent>
         <SidebarFooter>
-            {/* {isClient ? <AuthButton /> : <Skeleton className="h-12 w-full" />} */}
+            {isClient ? <AuthButton /> : <Skeleton className="h-12 w-full" />}
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>

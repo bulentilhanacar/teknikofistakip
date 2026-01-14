@@ -4,7 +4,7 @@ import React, { createContext, useState, useContext, useMemo, useEffect, useCall
 import { Contract, ContractGroupKeys, ContractItem, Deduction, ProgressPayment, ExtraWorkItem, ProgressPaymentStatus, Project } from './types';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useCollection, useDoc, useFirestore } from '@/firebase';
+import { useUser, useCollection, useDoc, useFirestore } from '@/firebase';
 import { addDoc, collection, deleteDoc, doc, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore';
 
 interface ProjectContextType {
@@ -49,17 +49,15 @@ const getInitialState = <T,>(key: string, defaultValue: T): T => {
 
 export const ProjectProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
-    // const { user } = useAuth();
+    const { user } = useUser();
     const firestore = useFirestore();
 
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => getInitialState('selectedProjectId', null));
 
     const projectsQuery = useMemo(() => {
-        if (!firestore) return null;
-        // Temporarily remove user dependency
-        // return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
-        return query(collection(firestore, "projects"));
-    }, [firestore]);
+        if (!firestore || !user) return null;
+        return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
+    }, [firestore, user]);
 
     const { data: projects, loading: projectsLoading } = useCollection<Project>(projectsQuery);
 
@@ -91,11 +89,11 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     };
 
     const addProject = useCallback(async (projectName: string) => {
-        if (!firestore) return; //  || !user
+        if (!firestore  || !user) return;
         try {
             const newProjectRef = await addDoc(collection(firestore, "projects"), {
                 name: projectName,
-                ownerId: "temp_owner", // user.uid,
+                ownerId: user.uid,
             });
             setSelectedProjectId(newProjectRef.id);
             toast({ title: "Proje oluşturuldu!" });
@@ -103,7 +101,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             console.error("Error adding project:", error);
             toast({ title: "Hata", description: "Proje oluşturulamadı.", variant: "destructive" });
         }
-    }, [firestore, toast]); // user,
+    }, [firestore, user, toast]);
     
     const updateProjectName = useCallback(async (projectId: string, newName: string) => {
         if (!firestore) return;

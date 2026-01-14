@@ -2,18 +2,36 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    
     // Helper functions
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
     // Rules for collections
-    match /{path=**} {
-      allow read, write: if true;
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /projects/{projectId} {
+      allow read, write: if isAuthenticated() && isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
+
+      match /contracts/{contractId} {
+        allow read, write: if isAuthenticated() && isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
+      }
+      match /deductions/{deductionId} {
+        allow read, write: if isAuthenticated() && isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
+      }
+      match /progressPayments/{paymentId} {
+        allow read, write: if isAuthenticated() && isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
+      }
+      match /progressStatuses/{statusId} {
+        allow read, write: if isAuthenticated() && isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
+      }
     }
   }
 }
