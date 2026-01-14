@@ -308,22 +308,20 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onRevert, onAddDr
                     {Object.entries(contracts).map(([subGroup, contractList]) => {
                         return (
                             <AccordionItem value={subGroup} key={subGroup}>
-                                <AccordionTrigger className="text-sm font-semibold hover:no-underline">
-                                    <div className='flex justify-between items-center w-full pr-4'>
-                                        <div className="flex items-center">
-                                            <span>{subGroup} ({contractList.length})</span>
-                                            {onRenameSubgroup && onDeleteSubgroup && (
-                                                <SubgroupActions 
-                                                    groupKey={groupKey} 
-                                                    subgroupName={subGroup} 
-                                                    contractList={contractList}
-                                                    onRename={onRenameSubgroup}
-                                                    onDelete={onDeleteSubgroup}
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                </AccordionTrigger>
+                                <div className="flex items-center justify-between pr-4 hover:bg-muted/50 rounded-md">
+                                    <AccordionTrigger className="text-sm font-semibold hover:no-underline flex-1 py-3 px-4">
+                                        <span>{subGroup} ({contractList.length})</span>
+                                    </AccordionTrigger>
+                                    {onRenameSubgroup && onDeleteSubgroup && (
+                                        <SubgroupActions 
+                                            groupKey={groupKey} 
+                                            subgroupName={subGroup} 
+                                            contractList={contractList}
+                                            onRename={onRenameSubgroup}
+                                            onDelete={onDeleteSubgroup}
+                                        />
+                                    )}
+                                </div>
                                 <AccordionContent>
                                      {contractList.length > 0 ? (
                                         <Table>
