@@ -97,9 +97,8 @@ export default function ProgressPaymentsPage() {
 
 
   const loadStateForPayment = (contract: Contract, payment: ProgressPayment | null, prevPayment: ProgressPayment | null) => {
-    // If no payment is provided (new payment mode), load initial state
-    // If a payment is provided (edit mode), load its data
-
+    // If no payment is provided (new payment mode), load initial state from prevPayment.
+    // If a payment is provided (edit mode), load its data.
     setExtraWorkItems(payment?.extraWorkItems || []);
     setProgressDate(payment ? new Date(payment.date) : new Date());
     setSelectedDeductionIds(payment?.appliedDeductionIds || []);
@@ -109,9 +108,10 @@ export default function ProgressPaymentsPage() {
       const previousCumulativeQuantity = prevItemState?.cumulativeQuantity || 0;
       
       const currentItemState = payment?.items.find(pi => pi.id === item.poz);
-      const currentCumulativeQuantity = currentItemState?.cumulativeQuantity || previousCumulativeQuantity;
+      // In new mode, start with the previous quantity. In edit mode, use the payment's quantity.
+      const currentCumulativeQuantity = currentItemState?.cumulativeQuantity ?? previousCumulativeQuantity;
       
-      const percentage = item.quantity > 0 ? (currentCumulativeQuantity / item.quantity * 100).toFixed(2) : "0.00";
+      const percentage = item.contractQuantity > 0 ? (currentCumulativeQuantity / item.contractQuantity * 100).toFixed(2) : "0.00";
       
       return { 
          id: item.poz,
@@ -633,5 +633,3 @@ export default function ProgressPaymentsPage() {
     </div>
   );
 }
-
-    
