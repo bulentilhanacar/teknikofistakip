@@ -50,7 +50,7 @@ import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 import { Project } from "@/context/types";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { collection, getDocs, query, where, Query } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 
@@ -171,7 +171,7 @@ const projectMenuItems = [
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
-  const { selectedProject, loading: isProjectDataLoading, setProjects } = useProject();
+  const { selectedProject, setProjects } = useProject();
   const firestore = useFirestore();
   const [isMounted, setIsMounted] = React.useState(false);
 
@@ -180,34 +180,32 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   React.useEffect(() => {
-    // Only fetch projects if a user is logged in and not in a loading state.
     if (user && !isUserLoading && firestore) {
-      const fetchProjects = async () => {
-        try {
-          const q = query(
-            collection(firestore, 'projects'),
-            where('ownerId', '==', user.uid)
-          );
+      const fetchProjects = () => {
+        const q = query(
+          collection(firestore, 'projects'),
+          where('ownerId', '==', user.uid)
+        );
 
-          const querySnapshot = await getDocs(q);
-          const userProjects = querySnapshot.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() } as Project)
-          );
-          setProjects(userProjects);
-        } catch (error) {
-            const q = query(
-                collection(firestore, 'projects'),
-                where('ownerId', '==', user.uid)
+        getDocs(q)
+          .then(querySnapshot => {
+            const userProjects = querySnapshot.docs.map(
+              (doc) => ({ id: doc.id, ...doc.data() } as Project)
             );
+            setProjects(userProjects);
+          })
+          .catch(error => {
             const permissionError = new FirestorePermissionError({
-                path: 'projects',
-                operation: 'list',
+              path: 'projects',
+              operation: 'list',
             });
             errorEmitter.emit('permission-error', permissionError);
-        }
+          });
       };
 
       fetchProjects();
+    } else if (!user && !isUserLoading) {
+        setProjects([]);
     }
   }, [user, isUserLoading, firestore, setProjects]);
 
