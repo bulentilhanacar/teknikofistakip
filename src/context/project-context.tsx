@@ -422,16 +422,17 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
     
         setProjectData(prev => {
-            const contractHistory = [...(prev.progressPayments[selectedProjectId]?.[contractId] || [])];
+            // Use a deep copy to prevent mutation issues with React state
+            const contractHistory = JSON.parse(JSON.stringify(prev.progressPayments[selectedProjectId]?.[contractId] || []));
     
-            // Editing an existing payment
             if (editingPaymentNumber !== null) {
-                const paymentIndex = contractHistory.findIndex(p => p.progressPaymentNumber === editingPaymentNumber);
+                // Editing an existing payment
+                const paymentIndex = contractHistory.findIndex((p: ProgressPayment) => p.progressPaymentNumber === editingPaymentNumber);
                 if (paymentIndex > -1) {
-                    contractHistory.splice(paymentIndex, 1, { ...paymentData, progressPaymentNumber: editingPaymentNumber });
+                    contractHistory[paymentIndex] = { ...paymentData, progressPaymentNumber: editingPaymentNumber };
                 }
             } else { // Creating a new payment
-                const lastPaymentNumber = contractHistory.length > 0 ? contractHistory[contractHistory.length - 1].progressPaymentNumber : 0;
+                const lastPaymentNumber = contractHistory.length > 0 ? Math.max(...contractHistory.map((p: ProgressPayment) => p.progressPaymentNumber)) : 0;
                 const newPaymentNumber = lastPaymentNumber + 1;
                 const newPayment: ProgressPayment = {
                     ...paymentData,
@@ -439,8 +440,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 };
                 contractHistory.push(newPayment);
             }
-
-            const paymentNumberToSave = editingPaymentNumber !== null ? editingPaymentNumber : contractHistory.at(-1)!.progressPaymentNumber;
+    
+            const paymentNumberToSave = editingPaymentNumber !== null ? editingPaymentNumber : (contractHistory.at(-1) as ProgressPayment)?.progressPaymentNumber;
     
             const projectPayments = prev.progressPayments[selectedProjectId] || {};
             const updatedProjectPayments = {
