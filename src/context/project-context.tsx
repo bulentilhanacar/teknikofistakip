@@ -2,23 +2,22 @@
 "use client";
 
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback } from 'react';
-import { Contract, ContractGroupKeys, ContractItem, Deduction, ProgressPayment, ExtraWorkItem, ProgressPaymentStatus, Project } from './types';
-import { format } from 'date-fns';
+import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useCollection, useDoc, useFirestore, useAuth, errorEmitter, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, errorEmitter } from '@/firebase';
 import { addDoc, collection, deleteDoc, doc, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 
 interface ProjectContextType {
     projects: Project[] | null;
+    setProjects: React.Dispatch<React.SetStateAction<Project[] | null>>;
     selectedProject: Project | null;
     selectProject: (projectId: string | null) => void;
     addProject: (projectName: string) => Promise<void>;
-    updateDraftContractName: (projectId: string, newName: string) => void;
-    deleteDraftContract: (projectId: string) => Promise<void>;
     updateProjectName: (projectId: string, newName: string) => void;
     deleteProject: (projectId: string) => Promise<void>;
+    loading: boolean;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -42,26 +41,28 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const { user } = useUser();
     const firestore = useFirestore();
 
+    const [projects, setProjects] = useState<Project[] | null>(null);
+    const [loading, setLoading] = useState(true);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => getInitialState('selectedProjectId', null));
 
-    const projectsQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
-    }, [firestore, user]);
-
-    const { data: projects, loading: projectsLoading } = useCollection<Project>(projectsQuery);
-
+    useEffect(() => {
+      setLoading(projects === null);
+    }, [projects]);
+    
     const selectedProject = useMemo(() => {
-        if (projectsLoading || !projects) return null;
-        // If there's no selected project ID, or the selected one is no longer in the list, select the first one.
+        if (!projects) return null;
         const currentProjectExists = projects.some(p => p.id === selectedProjectId);
-        if (!currentProjectExists && projects.length > 0) {
+        
+        if (selectedProjectId && currentProjectExists) {
+            return projects.find(p => p.id === selectedProjectId) || null;
+        } else if (projects.length > 0) {
             const firstProjectId = projects[0].id;
             setSelectedProjectId(firstProjectId);
             return projects[0];
         }
-        return projects.find(p => p.id === selectedProjectId) || null;
-    }, [selectedProjectId, projects, projectsLoading]);
+        
+        return null;
+    }, [selectedProjectId, projects]);
     
     useEffect(() => {
         if (selectedProjectId) {
@@ -71,10 +72,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         }
     }, [selectedProjectId]);
 
-    // Effect to clear selected project if user logs out
     useEffect(() => {
         if (!user) {
             setSelectedProjectId(null);
+            setProjects(null);
         }
     }, [user]);
     
@@ -93,6 +94,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 ownerId: user.uid,
             };
             const newProjectRef = await addDoc(collection(firestore, "projects"), newProjectData);
+            setProjects(prev => (prev ? [...prev, { id: newProjectRef.id, ...newProjectData }] : [{ id: newProjectRef.id, ...newProjectData }]));
+            selectProject(newProjectRef.id);
             toast({ title: "Proje oluşturuldu!" });
         } catch (err) {
             const permissionError = new FirestorePermissionError({ path: '/projects', operation: 'create', requestResourceData: { name: projectName, ownerId: user.uid } });
@@ -101,11 +104,14 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     }, [firestore, user, toast]);
     
     const updateProjectName = (projectId: string, newName: string) => {
-         if (!firestore || !selectedProject) return;
-         const contractRef = doc(firestore, 'projects', projectId);
-         updateDoc(contractRef, { name: newName })
+         if (!firestore) return;
+         const projectRef = doc(firestore, 'projects', projectId);
+         updateDoc(projectRef, { name: newName })
+            .then(() => {
+                setProjects(prev => prev ? prev.map(p => p.id === projectId ? { ...p, name: newName } : p) : null);
+            })
             .catch(err => {
-                 const permissionError = new FirestorePermissionError({ path: contractRef.path, operation: 'update', requestResourceData: { name: newName } });
+                 const permissionError = new FirestorePermissionError({ path: projectRef.path, operation: 'update', requestResourceData: { name: newName } });
                  errorEmitter.emit('permission-error', permissionError);
             });
     };
@@ -130,38 +136,28 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         deleteDoc(projectRef)
             .then(() => {
                 toast({ title: "Proje silindi." });
-                 const nextSelectedId = projects && projects.length > 1 
-                    ? (projects.find(p => p.id !== projectId)?.id ?? null) 
-                    : null;
-                selectProject(nextSelectedId);
+                const updatedProjects = projects ? projects.filter(p => p.id !== projectId) : [];
+                setProjects(updatedProjects);
+                if (selectedProjectId === projectId) {
+                    selectProject(updatedProjects.length > 0 ? updatedProjects[0].id : null);
+                }
             })
             .catch(err => {
                 const permissionError = new FirestorePermissionError({ path: projectRef.path, operation: 'delete' });
                 errorEmitter.emit('permission-error', permissionError);
             });
-    }, [firestore, toast, projects]);
-
-    const updateDraftContractName = (contractId: string, newName: string) => {
-         if (!firestore || !selectedProject) return;
-         const contractRef = doc(firestore, 'projects', selectedProject.id, 'contracts', contractId);
-         updateDoc(contractRef, { name: newName });
-    };
-
-    const deleteDraftContract = async (contractId: string) => {
-        if (!firestore || !selectedProject) return;
-        const contractRef = doc(firestore, 'projects', selectedProject.id, 'contracts', contractId);
-        await deleteDoc(contractRef);
-    };
+    }, [firestore, toast, projects, selectedProjectId]);
+    
 
     const value: ProjectContextType = {
-        projects: projects ?? null,
+        projects,
+        setProjects,
         selectedProject,
         selectProject,
         addProject,
         updateProjectName,
         deleteProject,
-        updateDraftContractName,
-        deleteDraftContract,
+        loading,
     };
 
     return (

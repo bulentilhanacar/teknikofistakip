@@ -45,11 +45,12 @@ import { SiteHeader } from "./site-header";
 import { Button } from "./ui/button";
 import { useProject } from "@/context/project-context";
 import { Skeleton } from "./ui/skeleton";
-import { useUser } from "@/firebase";
+import { useFirestore, useUser } from "@/firebase";
 import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 import { Project } from "@/context/types";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
@@ -60,7 +61,7 @@ const projectMenuItems = [
 ];
 
 function ProjectSelector() {
-  const { projects, selectedProject, selectProject, deleteProject, updateProjectName } = useProject();
+  const { projects, selectedProject, selectProject, deleteProject, updateProjectName, loading } = useProject();
   const [editingProject, setEditingProject] = React.useState<Project | null>(null);
   const [editingName, setEditingName] = React.useState('');
 
@@ -80,7 +81,7 @@ function ProjectSelector() {
     deleteProject(project.id);
   }
 
-  if (!projects) {
+  if (loading) {
      return (
         <div className="p-2 space-y-2">
             <Skeleton className="h-10 w-full" />
@@ -108,12 +109,12 @@ function ProjectSelector() {
             <DropdownMenuContent className="w-[var(--sidebar-width)] -translate-x-2">
                 <DropdownMenuLabel>Projeler</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {projects.map((project) => (
+                {projects && projects.map((project) => (
                     <DropdownMenuItem key={project.id} onSelect={() => selectProject(project.id)}>
                         {project.name}
                     </DropdownMenuItem>
                 ))}
-                 {projects.length === 0 && (
+                 {(!projects || projects.length === 0) && (
                     <DropdownMenuItem disabled>
                         Henüz proje oluşturulmamış.
                     </DropdownMenuItem>
@@ -167,13 +168,29 @@ function ProjectSelector() {
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { selectedProject } = useProject();
-  const { user, loading: isUserLoading } = useUser();
-  const [isClient, setIsClient] = React.useState(false);
+  const { selectedProject, setProjects } = useProject();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
 
   React.useEffect(() => {
-    setIsClient(true);
-  }, []);
+    const fetchProjects = async () => {
+        if (firestore && user) {
+            try {
+                const q = query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
+                const querySnapshot = await getDocs(q);
+                const userProjects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
+                setProjects(userProjects);
+            } catch (error) {
+                console.error("Error fetching projects:", error);
+                setProjects([]); // Set to empty array on error to stop loading
+            }
+        } else if (!isUserLoading) {
+            setProjects(null); // Clear projects if user logs out
+        }
+    };
+
+    fetchProjects();
+  }, [user, firestore, setProjects, isUserLoading]);
 
   return (
     <SidebarProvider>
@@ -188,7 +205,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          {isClient && !isUserLoading && (
+          {!isUserLoading && user && (
             <>
               <ProjectSelector />
               <SidebarSeparator className="my-1"/>
@@ -197,7 +214,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               </div>
             </>
           )}
-           {isClient && isUserLoading && (
+           {isUserLoading && (
              <div className="p-2 space-y-2">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />

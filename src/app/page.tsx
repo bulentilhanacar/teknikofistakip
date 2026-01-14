@@ -46,8 +46,8 @@ const chartConfig = {
 const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
 export default function Home() {
-  const { user, loading: isUserLoading } = useUser();
-  const { selectedProject } = useProject();
+  const { user, isUserLoading } = useUser();
+  const { selectedProject, loading: isProjectLoading } = useProject();
   const auth = useAuth();
 
   const handleGoogleSignIn = async () => {
@@ -66,7 +66,7 @@ export default function Home() {
   // }, [selectedProject, getDashboardData]);
   const data = emptyDashboardData; // Placeholder until dashboard data is also moved to Firestore
 
-  if (isUserLoading) {
+  if (isUserLoading || (user && isProjectLoading)) {
     return (
       <Card>
           <CardHeader>
@@ -74,7 +74,7 @@ export default function Home() {
           </CardHeader>
           <CardContent>
               <div className="flex items-center justify-center h-48 text-muted-foreground">
-                  Kullanıcı bilgileri doğrulanıyor...
+                  Kullanıcı ve proje verileri doğrulanıyor...
               </div>
           </CardContent>
       </Card>
