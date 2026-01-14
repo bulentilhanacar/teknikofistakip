@@ -80,7 +80,73 @@ const ItemDialog = ({ contractId, item, onSave, children, mode }: { contractId: 
 };
 
 
-const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, onDeleteItem }: { contract: Contract, onApprove?: (contractId: string) => void, onRevert?: (contractId: string) => void, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void }) => {
+const ContractRowActions = ({ contract, onRename, onDelete }: { contract: Contract, onRename: (id: string, newName: string) => void, onDelete: (id: string) => void }) => {
+    const [isRenameOpen, setIsRenameOpen] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [newName, setNewName] = useState(contract.name);
+
+    const handleRename = () => {
+        onRename(contract.id, newName);
+        setIsRenameOpen(false);
+    };
+
+    return (
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 ml-2">
+                        <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => setIsRenameOpen(true)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Yeniden Adlandır
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setIsDeleteOpen(true)} className="text-destructive">
+                         <Trash2 className="mr-2 h-4 w-4" />
+                        Sil
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Rename Dialog */}
+            <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Taslağı Yeniden Adlandır</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label htmlFor="contract-name">Yeni Ad</Label>
+                        <Input id="contract-name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="secondary">İptal</Button></DialogClose>
+                        <Button onClick={handleRename}>Kaydet</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Alert */}
+            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            "{contract.name}" taslağını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>İptal</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDelete(contract.id)}>Evet, Sil</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
+    )
+}
+
+const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, onDeleteItem, onRenameContract, onDeleteContract }: { contract: Contract, onApprove?: (contractId: string) => void, onRevert?: (contractId: string) => void, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void, onRenameContract?: (id: string, newName: string) => void, onDeleteContract?: (id: string) => void }) => {
     const budget = contract.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
     const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
     const isApproved = contract.status === 'Onaylandı';
@@ -102,7 +168,7 @@ const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, o
                             <Badge variant={isApproved ? "default" : "secondary"} className="w-28 justify-center">{contract.status}</Badge>
                             <span className="w-28 text-center">{contract.date}</span>
                             <span className="w-32 text-right">{formatCurrency(budget)}</span>
-                            <div className="w-28 flex justify-end">
+                            <div className="w-28 flex justify-end items-center">
                                 {onApprove && !isApproved && (
                                     <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove(contract.id); }}>
                                         <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
@@ -114,6 +180,9 @@ const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, o
                                         <Undo2 className="mr-2 h-4 w-4 text-muted-foreground"/>
                                         Geri Al
                                     </Button>
+                                )}
+                                {!isApproved && onRenameContract && onDeleteContract && (
+                                    <ContractRowActions contract={contract} onRename={onRenameContract} onDelete={onDeleteContract} />
                                 )}
                             </div>
                         </div>
@@ -208,77 +277,7 @@ const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, o
     )
 }
 
-const SubgroupActions = ({ groupKey, subgroupName, contractList, onRename, onDelete }: { groupKey: ContractGroupKeys, subgroupName: string, contractList: Contract[], onRename: (group: ContractGroupKeys, oldName: string, newName: string) => void, onDelete: (group: ContractGroupKeys, name: string) => void }) => {
-    const [isRenameOpen, setIsRenameOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [newName, setNewName] = useState(subgroupName);
-
-    const handleRename = () => {
-        onRename(groupKey, subgroupName, newName);
-        setIsRenameOpen(false);
-    };
-    
-    const isSubgroupEmpty = contractList.length === 0;
-
-    return (
-        <>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-2">
-                        <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                    <DropdownMenuItem onSelect={() => setIsRenameOpen(true)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Yeniden Adlandır
-                    </DropdownMenuItem>
-                    {isSubgroupEmpty && (
-                        <DropdownMenuItem onSelect={() => setIsDeleteOpen(true)} className="text-destructive">
-                             <Trash2 className="mr-2 h-4 w-4" />
-                            Sil
-                        </DropdownMenuItem>
-                    )}
-                </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Rename Dialog */}
-            <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Alt Grubu Yeniden Adlandır</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <Label htmlFor="subgroup-name">Yeni Alt Grup Adı</Label>
-                        <Input id="subgroup-name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-                    </div>
-                    <DialogFooter>
-                        <DialogClose asChild><Button variant="secondary">İptal</Button></DialogClose>
-                        <Button onClick={handleRename}>Kaydet</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Delete Alert */}
-            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            "{subgroupName}" alt grubunu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>İptal</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDelete(groupKey, subgroupName)}>Evet, Sil</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </>
-    )
-}
-
-const ContractGroupAccordion = ({ title, contracts, onApprove, onRevert, onAddDraft, groupKey, onAddItem, onUpdateItem, onDeleteItem, onRenameSubgroup, onDeleteSubgroup }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void, onRevert?: (contractId: string) => void, onAddDraft?: (group: ContractGroupKeys, name: string, subGroup: string) => void, groupKey: ContractGroupKeys, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void, onRenameSubgroup?: (group: ContractGroupKeys, oldName: string, newName: string) => void, onDeleteSubgroup?: (group: ContractGroupKeys, name: string) => void }) => {
+const ContractGroupAccordion = ({ title, contracts, onApprove, onRevert, onAddDraft, groupKey, onAddItem, onUpdateItem, onDeleteItem, onRenameContract, onDeleteContract }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void, onRevert?: (contractId: string) => void, onAddDraft?: (group: ContractGroupKeys, name: string, subGroup: string) => void, groupKey: ContractGroupKeys, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void, onRenameContract?: (id: string, newName: string) => void, onDeleteContract?: (id: string) => void }) => {
     const totalContractsInGroup = Object.values(contracts).reduce((sum, list) => sum + list.length, 0);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [draftName, setDraftName] = useState('');
@@ -308,25 +307,16 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onRevert, onAddDr
                     {Object.entries(contracts).map(([subGroup, contractList]) => {
                         return (
                             <AccordionItem value={subGroup} key={subGroup}>
-                                <div className="flex items-center justify-between pr-4 hover:bg-muted/50 rounded-md">
+                                <div className="flex items-center justify-between hover:bg-muted/50 rounded-md">
                                     <AccordionTrigger className="text-sm font-semibold hover:no-underline flex-1 py-3 px-4">
                                         <span>{subGroup} ({contractList.length})</span>
                                     </AccordionTrigger>
-                                    {onRenameSubgroup && onDeleteSubgroup && (
-                                        <SubgroupActions 
-                                            groupKey={groupKey} 
-                                            subgroupName={subGroup} 
-                                            contractList={contractList}
-                                            onRename={onRenameSubgroup}
-                                            onDelete={onDeleteSubgroup}
-                                        />
-                                    )}
                                 </div>
                                 <AccordionContent>
                                      {contractList.length > 0 ? (
                                         <Table>
                                             {contractList.map((contract) => (
-                                                <ContractRow key={contract.id} contract={contract} onApprove={onApprove} onRevert={onRevert} onAddItem={onAddItem} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} />
+                                                <ContractRow key={contract.id} contract={contract} onApprove={onApprove} onRevert={onRevert} onAddItem={onAddItem} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} onRenameContract={onRenameContract} onDeleteContract={onDeleteContract} />
                                             ))}
                                         </Table>
                                      ) : (
@@ -381,7 +371,7 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onRevert, onAddDr
 
 
 export default function ContractsPage() {
-    const { selectedProject, projectData, approveTender, addDraftTender, revertContractToDraft, addItemToContract, updateContractItem, deleteContractItem, updateDraftSubgroupName, deleteDraftSubgroup } = useProject();
+    const { selectedProject, projectData, approveTender, addDraftTender, revertContractToDraft, addItemToContract, updateContractItem, deleteContractItem, updateDraftContractName, deleteDraftContract } = useProject();
 
     const { draftContracts, approvedContracts } = useMemo(() => {
         if (!selectedProject || !projectData) {
@@ -471,8 +461,8 @@ export default function ContractsPage() {
                             onAddItem={addItemToContract}
                             onUpdateItem={updateContractItem}
                             onDeleteItem={deleteContractItem}
-                            onRenameSubgroup={updateDraftSubgroupName}
-                            onDeleteSubgroup={deleteDraftSubgroup}
+                            onRenameContract={updateDraftContractName}
+                            onDeleteContract={deleteDraftContract}
                             groupKey={groupKey}
                         />
                     );

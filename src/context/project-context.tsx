@@ -26,8 +26,8 @@ interface ProjectContextType {
     addItemToContract: (contractId: string, item: ContractItem) => void;
     updateContractItem: (contractId: string, updatedItem: ContractItem, originalPoz: string) => void;
     deleteContractItem: (contractId: string, itemPoz: string) => void;
-    updateDraftSubgroupName: (groupKey: ContractGroupKeys, oldSubgroupName: string, newSubgroupName: string) => void;
-    deleteDraftSubgroup: (groupKey: ContractGroupKeys, subgroupName: string) => void;
+    updateDraftContractName: (contractId: string, newName: string) => void;
+    deleteDraftContract: (contractId: string) => void;
     addDeduction: (deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => void;
     deleteDeduction: (deductionId: string) => void;
     saveProgressPayment: (contractId: string, paymentData: Omit<ProgressPayment, 'progressPaymentNumber'>, editingPaymentNumber: number | null) => void;
@@ -453,9 +453,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             return newPrevData;
         });
     }, [selectedProjectId]);
-
-    const updateDraftSubgroupName = useCallback((groupKey: ContractGroupKeys, oldSubgroupName: string, newSubgroupName: string) => {
-        if (!selectedProjectId || !newSubgroupName.trim()) return;
+    
+    const updateDraftContractName = useCallback((contractId: string, newName: string) => {
+        if (!selectedProjectId || !newName.trim()) return;
 
         setProjectData(prev => {
             const newPrevData = JSON.parse(JSON.stringify(prev));
@@ -463,8 +463,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             if (!projectContracts) return newPrevData;
             
             const updatedDrafts = projectContracts.drafts.map(draft => {
-                if (draft.group === groupKey && draft.subGroup === oldSubgroupName) {
-                    return { ...draft, subGroup: newSubgroupName.trim() };
+                if (draft.id === contractId) {
+                    return { ...draft, name: newName.trim() };
                 }
                 return draft;
             });
@@ -474,30 +474,20 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         });
     }, [selectedProjectId]);
 
-    const deleteDraftSubgroup = useCallback((groupKey: ContractGroupKeys, subgroupName: string) => {
+    const deleteDraftContract = useCallback((contractId: string) => {
         if (!selectedProjectId) return;
 
-        const contractsInSubgroup = projectData.contracts[selectedProjectId]?.drafts.filter(
-            d => d.group === groupKey && d.subGroup === subgroupName
-        ) || [];
+        setProjectData(prev => {
+            const newPrevData = JSON.parse(JSON.stringify(prev));
+            const projectContracts = newPrevData.contracts[selectedProjectId];
+            if (!projectContracts) return newPrevData;
 
-        if (contractsInSubgroup.length > 0) {
-            toast({
-                variant: "destructive",
-                title: "İşlem Başarısız",
-                description: "İçinde sözleşme bulunan bir alt başlık silinemez.",
-            });
-            return;
-        }
+            const updatedDrafts = projectContracts.drafts.filter(d => d.id !== contractId);
 
-        // As subgroups are dynamically created, we just need to ensure no contracts use it.
-        // The check above handles this. If we were storing subgroups separately, we would delete here.
-        toast({
-            title: "Alt Başlık Silindi",
-            description: `"${subgroupName}" alt başlığı başarıyla silindi.`,
+            newPrevData.contracts[selectedProjectId].drafts = updatedDrafts;
+            return newPrevData;
         });
-        
-    }, [selectedProjectId, projectData.contracts, toast]);
+    }, [selectedProjectId]);
 
 
     const addDeduction = useCallback((deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => {
@@ -691,8 +681,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         addItemToContract,
         updateContractItem,
         deleteContractItem,
-        updateDraftSubgroupName,
-        deleteDraftSubgroup,
+        updateDraftContractName,
+        deleteDraftContract,
         addDeduction,
         deleteDeduction,
         saveProgressPayment,
