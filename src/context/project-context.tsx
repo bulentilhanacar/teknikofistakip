@@ -107,17 +107,6 @@ const initialProgressHistory: Record<string, Record<string, ProgressPayment[]>> 
                 extraWorkItems: [],
                 appliedDeductionIds: ['DED-002']
             },
-             {
-                progressPaymentNumber: 2,
-                date: "2024-08-20",
-                totalAmount: 9400000,
-                items: [
-                    { id: '15.150.1005', cumulativeQuantity: 8000 },
-                    { id: 'C30', cumulativeQuantity: 2500 },
-                ],
-                extraWorkItems: [],
-                appliedDeductionIds: ['DED-001']
-            }
         ]
     }
 };
@@ -328,6 +317,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             return;
         }
 
+        let revertedTenderId = '';
         setProjectData(prevData => {
             const currentProjectContracts = prevData.contracts[selectedProjectId!] || { drafts: [], approved: [] };
             const contractToRevert = currentProjectContracts.approved.find(c => c.id === contractId);
@@ -336,6 +326,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             
             const allDraftsCount = Object.values(prevData.contracts).flatMap(p => p.drafts).length;
             const newTenderId = `IHALE-${String(allDraftsCount + 10).padStart(3, '0')}`;
+            revertedTenderId = newTenderId;
 
             const newDraft: Contract = {
                 ...contractToRevert,
@@ -345,11 +336,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
             const updatedApproved = currentProjectContracts.approved.filter(c => c.id !== contractId);
             const updatedDrafts = [...currentProjectContracts.drafts, newDraft].sort((a, b) => a.id.localeCompare(b.id));
-            
-            toast({
-                title: "İşlem Başarılı",
-                description: `${contractId} numaralı sözleşme taslaklara taşındı. Yeni ID: ${newTenderId}`,
-            });
 
             return {
                 ...prevData,
@@ -362,7 +348,13 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 }
             };
         });
-    }, [selectedProjectId, projectData.progressPayments, toast]);
+
+        toast({
+            title: "İşlem Başarılı",
+            description: `${contractId} numaralı sözleşme taslaklara taşındı. Yeni ID: ${revertedTenderId}`,
+        });
+
+    }, [selectedProjectId, projectData, toast]);
 
     const addDraftTender = useCallback((group: ContractGroupKeys, name: string, subGroup: string) => {
         if (!selectedProjectId) return;
@@ -508,11 +500,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
             if (editingPaymentNumber !== null) {
                 // Editing existing payment
-                contractHistory = contractHistory.map(p => 
-                    p.progressPaymentNumber === editingPaymentNumber 
-                    ? { ...paymentData, progressPaymentNumber: editingPaymentNumber } 
-                    : p
-                );
+                const paymentIndex = contractHistory.findIndex(p => p.progressPaymentNumber === editingPaymentNumber);
+                if (paymentIndex !== -1) {
+                    contractHistory[paymentIndex] = { ...paymentData, progressPaymentNumber: editingPaymentNumber };
+                }
             } else {
                 // Creating new payment
                 const lastPaymentNumber = contractHistory.length > 0 
@@ -523,7 +514,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                     ...paymentData,
                     progressPaymentNumber: newPaymentNumber,
                 };
-                contractHistory = [...contractHistory, newPayment];
+                contractHistory.push(newPayment);
             }
             
             const currentPaymentNumber = editingPaymentNumber ?? contractHistory.at(-1)!.progressPaymentNumber;
@@ -565,12 +556,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         setProjectData(prev => {
             const clonedData = JSON.parse(JSON.stringify(prev));
             
-            // Delete progress payments for the contract
             if (clonedData.progressPayments[selectedProjectId]) {
                 delete clonedData.progressPayments[selectedProjectId][contractId];
             }
 
-            // Reset appliedInPaymentNumber for related deductions
             const projectDeductions = (clonedData.deductions[selectedProjectId] || []).map((deduction: Deduction) => {
                 if (deduction.contractId === contractId && deduction.appliedInPaymentNumber !== null) {
                     return { ...deduction, appliedInPaymentNumber: null };
@@ -578,13 +567,13 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 return deduction;
             });
             clonedData.deductions[selectedProjectId] = projectDeductions;
-            
-             toast({
-                title: "Hakediş Geçmişi Silindi",
-                description: `${contractId} sözleşmesine ait tüm hakedişler ve ilgili kesinti bağlantıları kaldırıldı.`,
-            });
 
             return clonedData;
+        });
+        
+         toast({
+            title: "Hakediş Geçmişi Silindi",
+            description: `${contractId} sözleşmesine ait tüm hakedişler ve ilgili kesinti bağlantıları kaldırıldı.`,
         });
 
     }, [selectedProjectId, toast]);
@@ -671,5 +660,7 @@ export const useProject = (): ProjectContextType => {
     }
     return context;
 };
+
+    
 
     
