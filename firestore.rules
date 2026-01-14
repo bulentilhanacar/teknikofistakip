@@ -8,10 +8,8 @@ service cloud.firestore {
     }
 
     match /projects/{projectId} {
-      // A user can list only their own projects and must not be an anonymous user.
-      allow list: if request.auth != null 
-                    && request.auth.uid == request.query.where.ownerId
-                    && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      // A user can list only their own projects.
+      allow list: if request.auth != null && request.auth.uid == request.query.where.ownerId && request.auth.token.firebase.sign_in_provider != 'anonymous';
       
       // A user can create a project if they are logged in and the ownerId is their own uid.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
