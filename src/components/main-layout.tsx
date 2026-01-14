@@ -65,9 +65,9 @@ function ProjectSelector() {
     setEditingName(project.name);
   };
   
-  const handleSaveRename = () => {
+  const handleSaveRename = async () => {
     if (editingProject && editingName.trim()) {
-      updateProjectName(editingProject.id, editingName.trim());
+      await updateProjectName(editingProject.id, editingName.trim());
       setEditingProject(null);
     }
   };

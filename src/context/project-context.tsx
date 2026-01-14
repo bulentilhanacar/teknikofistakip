@@ -14,7 +14,7 @@ interface ProjectContextType {
     selectedProject: Project | null;
     selectProject: (projectId: string | null) => void;
     addProject: (projectName: string) => Promise<void>;
-    updateProjectName: (projectId: string, newName: string) => void;
+    updateProjectName: (projectId: string, newName: string) => Promise<void>;
     deleteProject: (projectId: string) => void;
     updateDraftContractName: (contractId: string, newName: string) => void;
     deleteDraftContract: (contractId: string) => void;
@@ -94,12 +94,13 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const updateProjectName = useCallback(async (projectId: string, newName: string) => {
         if (!firestore) return;
         const projectRef = doc(firestore, "projects", projectId);
-        updateDoc(projectRef, { name: newName })
-            .then(() => toast({ title: "Proje güncellendi." }))
-            .catch(err => {
-                const permissionError = new FirestorePermissionError({ path: `/projects/${projectId}`, operation: 'update', requestResourceData: { name: newName } });
-                errorEmitter.emit('permission-error', permissionError);
-            });
+        try {
+            await updateDoc(projectRef, { name: newName });
+            toast({ title: "Proje güncellendi." });
+        } catch (err) {
+            const permissionError = new FirestorePermissionError({ path: `/projects/${projectId}`, operation: 'update', requestResourceData: { name: newName } });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     }, [firestore, toast]);
 
     const deleteProject = useCallback(async (projectId: string) => {
