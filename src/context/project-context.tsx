@@ -71,6 +71,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
              localStorage.removeItem('selectedProjectId');
         }
     }, [selectedProjectId]);
+    
+    const selectedProject = useMemo(() => {
+        return projects?.find(p => p.id === selectedProjectId) || null;
+    }, [selectedProjectId, projects]);
 
     const selectProject = (projectId: string | null) => {
         setSelectedProjectId(projectId);
@@ -145,11 +149,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 errorEmitter.emit('permission-error', permissionError);
             });
     }, [firestore, selectedProject, toast]);
-
-
-    const selectedProject = useMemo(() => {
-        return projects?.find(p => p.id === selectedProjectId) || null;
-    }, [selectedProjectId, projects]);
 
     const value: ProjectContextType = {
         projects: projects ?? null,
