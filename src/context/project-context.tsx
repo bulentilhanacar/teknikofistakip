@@ -15,7 +15,7 @@ interface ProjectContextType {
     selectProject: (projectId: string | null) => void;
     addProject: (projectName: string) => Promise<void>;
     updateProjectName: (projectId: string, newName: string) => void;
-    deleteProject: (projectId: string) => void;
+    deleteProject: (projectId: string) => Promise<void>;
     updateDraftContractName: (contractId: string, newName: string) => void;
     deleteDraftContract: (contractId: string) => void;
 }
@@ -89,8 +89,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 ownerId: user.uid,
             };
             const newProjectRef = await addDoc(collection(firestore, "projects"), newProjectData);
-            // Don't select project immediately, let useCollection update the list
-            // setSelectedProjectId(newProjectRef.id);
             toast({ title: "Proje oluşturuldu!" });
         } catch (err) {
             const permissionError = new FirestorePermissionError({ path: '/projects', operation: 'create', requestResourceData: { name: projectName } });
@@ -98,21 +96,31 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         }
     }, [firestore, user, toast]);
     
-    const updateProjectName = (projectId: string, newName: string) => {
-        if (!firestore) return;
-        const projectRef = doc(firestore, "projects", projectId);
-        updateDoc(projectRef, { name: newName })
-            .then(() => {
-                toast({ title: "Proje güncellendi." });
-            })
+    const updateProjectName = useCallback((projectId: string, newName: string) => {
+         if (!firestore || !selectedProject) return;
+         const contractRef = doc(firestore, 'projects', projectId);
+         updateDoc(contractRef, { name: newName })
             .catch(err => {
-                const permissionError = new FirestorePermissionError({ path: `/projects/${projectId}`, operation: 'update', requestResourceData: { name: newName } });
-                errorEmitter.emit('permission-error', permissionError);
+                 const permissionError = new FirestorePermissionError({ path: contractRef.path, operation: 'update', requestResourceData: { name: newName } });
+                 errorEmitter.emit('permission-error', permissionError);
             });
-    };
+    }, [firestore, selectedProject, toast]);
 
     const deleteProject = useCallback(async (projectId: string) => {
         if (!firestore) return;
+
+        // Check for contracts before deleting
+        const contractsRef = collection(firestore, 'projects', projectId, 'contracts');
+        const contractsSnapshot = await getDocs(contractsRef);
+
+        if (!contractsSnapshot.empty) {
+            toast({
+                variant: 'destructive',
+                title: 'Proje Silinemedi',
+                description: 'Bu projeye ait sözleşmeler (taslak veya onaylı) bulunduğu için silinemez.',
+            });
+            return;
+        }
         
         const nextSelectedId = projects && projects.length > 1 
             ? (projects.find(p => p.id !== projectId)?.[0]?.id ?? null) 

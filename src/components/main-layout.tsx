@@ -49,18 +49,9 @@ import { Project } from "@/context/types";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
-const projectMenuItems = [
-  { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
-  { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
-  { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
-  { href: "/progress-tracking", label: "Hakediş Takip", icon: ClipboardList },
-  { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
-];
-
-
 function ProjectSelector() {
   const { projects, selectedProject, selectProject, deleteProject, updateProjectName } = useProject();
-  const [isRenameOpen, setIsRenameOpen] = React.useState(false);
+  const [editingProject, setEditingProject] = React.useState<Project | null>(null);
 
   if (!projects) {
      return <Skeleton className="h-10 w-full" />
@@ -93,23 +84,15 @@ function ProjectSelector() {
         </DropdownMenu>
 
         {selectedProject && (
-            <div className="mt-2 space-y-1 group-data-[collapsible=icon]:hidden">
-                 <RenameProjectDialog 
-                    project={selectedProject}
-                    onSave={updateProjectName}
-                    isOpen={isRenameOpen}
-                    onOpenChange={setIsRenameOpen}
-                 >
-                    <Button variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground/80 hover:text-sidebar-foreground">
-                        <Edit className="mr-2" />
-                        <span>Yeniden Adlandır</span>
-                    </Button>
-                 </RenameProjectDialog>
-
-                 <AlertDialog>
+            <div className="mt-2 space-y-1 p-2 pt-0 group-data-[collapsible=icon]:hidden">
+                <Button variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground/80 hover:text-sidebar-foreground" onClick={() => setEditingProject(selectedProject)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    <span>Yeniden Adlandır</span>
+                </Button>
+                <AlertDialog>
                     <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="sm" className="w-full justify-start text-destructive/80 hover:text-destructive">
-                            <Trash className="mr-2"/>
+                            <Trash className="mr-2 h-4 w-4"/>
                             <span>Proje Sil</span>
                         </Button>
                     </AlertDialogTrigger>
@@ -122,11 +105,20 @@ function ProjectSelector() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>İptal</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteProject(selectedProject.id)}>Evet, Sil</AlertDialogAction>
+                            <AlertDialogAction onClick={async () => await deleteProject(selectedProject.id)}>Evet, Sil</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                  </AlertDialog>
             </div>
+        )}
+        
+        {editingProject && (
+            <RenameProjectDialog 
+                project={editingProject}
+                onSave={updateProjectName}
+                isOpen={!!editingProject}
+                onOpenChange={(isOpen) => !isOpen && setEditingProject(null)}
+            />
         )}
     </>
   );
@@ -163,11 +155,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           {isClient && !isUserLoading && user && (
-            <div className="p-2 space-y-1">
+            <>
               <ProjectSelector />
-              <SidebarSeparator className="my-2"/>
-              <AddProjectDialog />
-            </div>
+              <SidebarSeparator className="my-1"/>
+              <div className="p-2 pt-0">
+                <AddProjectDialog />
+              </div>
+            </>
           )}
            {isClient && isUserLoading && (
              <div className="p-2 space-y-2">
