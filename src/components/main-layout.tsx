@@ -84,25 +84,7 @@ function ProjectSelector() {
                     <button className="flex-1 text-left" onClick={() => selectProject(project.id)}>
                     {project.name}
                     </button>
-                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-6 w-6 p-0 opacity-0 group-hover/item:opacity-100 data-[state=open]:opacity-100">
-                                <MoreHorizontal className="h-4 w-4"/>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent side="right" align="start">
-                            <RenameProjectDialog project={project} onSave={updateProjectName}>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                    <Edit className="mr-2 h-4 w-4"/>
-                                    <span>Yeniden Adlandır</span>
-                                </DropdownMenuItem>
-                            </RenameProjectDialog>
-                            <DropdownMenuItem onSelect={() => deleteProject(project.id)} className="text-destructive">
-                                <Trash className="mr-2 h-4 w-4"/>
-                                <span>Sil</span>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                     <RenameProjectDialog project={project} onSave={updateProjectName} onDelete={() => deleteProject(project.id)} />
                 </DropdownMenuItem>
                 ))}
             </DropdownMenuContent>
