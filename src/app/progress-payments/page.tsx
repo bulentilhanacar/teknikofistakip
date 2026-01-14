@@ -97,34 +97,35 @@ export default function ProgressPaymentsPage() {
 
 
   const loadStateForPayment = (contract: Contract, payment: ProgressPayment | null, prevPayment: ProgressPayment | null) => {
-    // If no payment is provided (new payment mode), load initial state from prevPayment.
-    // If a payment is provided (edit mode), load its data.
     setExtraWorkItems(payment?.extraWorkItems || []);
     setProgressDate(payment ? new Date(payment.date) : new Date());
     setSelectedDeductionIds(payment?.appliedDeductionIds || []);
 
     setProgressItems(contract.items.map((item: any) => {
-      const prevItemState = prevPayment?.items.find(pi => pi.id === item.poz);
-      const previousCumulativeQuantity = prevItemState?.cumulativeQuantity || 0;
-      
-      const currentItemState = payment?.items.find(pi => pi.id === item.poz);
-      // In new mode, start with the previous quantity. In edit mode, use the payment's quantity.
-      const currentCumulativeQuantity = currentItemState?.cumulativeQuantity ?? previousCumulativeQuantity;
-      
-      const percentage = item.contractQuantity > 0 ? (currentCumulativeQuantity / item.contractQuantity * 100).toFixed(2) : "0.00";
-      
-      return { 
-         id: item.poz,
-         description: item.description,
-         unit: item.unit,
-         unitPrice: item.unitPrice,
-         contractQuantity: item.quantity,
-         previousCumulativeQuantity: previousCumulativeQuantity,
-         currentCumulativeQuantity: currentCumulativeQuantity,
-         currentCumulativePercentage: isNaN(parseFloat(percentage)) ? "0.00" : percentage,
-      };
+        const prevItemState = prevPayment?.items.find(pi => pi.id === item.poz);
+        const previousCumulativeQuantity = prevItemState?.cumulativeQuantity || 0;
+        
+        const currentItemState = payment?.items.find(pi => pi.id === item.poz);
+        
+        // In new mode, start with the previous quantity. In edit mode, use the payment's quantity.
+        const currentCumulativeQuantity = currentItemState?.cumulativeQuantity ?? previousCumulativeQuantity;
+        
+        // Calculate the percentage based on the determined quantity
+        const percentage = item.quantity > 0 ? (currentCumulativeQuantity / item.quantity * 100) : 0;
+        const percentageString = isNaN(percentage) ? "0.00" : percentage.toFixed(2);
+
+        return { 
+            id: item.poz,
+            description: item.description,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
+            contractQuantity: item.quantity,
+            previousCumulativeQuantity: previousCumulativeQuantity,
+            currentCumulativeQuantity: currentCumulativeQuantity,
+            currentCumulativePercentage: percentageString,
+        };
     }));
-  }
+};
 
   const handleContractChange = (contractId: string) => {
     setSelectedContractId(contractId);
@@ -633,3 +634,5 @@ export default function ProgressPaymentsPage() {
     </div>
   );
 }
+
+    
