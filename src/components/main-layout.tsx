@@ -57,12 +57,12 @@ const projectMenuItems = [
 ];
 
 
-function AddProjectDialog({ isOpen, onOpenChange, onSave }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onSave: (name: string) => void }) {
+function AddProjectDialog({ isOpen, onOpenChange, onSave }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onSave: (name: string) => Promise<void> }) {
     const [name, setName] = React.useState("");
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (name.trim()) {
-            onSave(name.trim());
+            await onSave(name.trim());
             onOpenChange(false);
         }
     };

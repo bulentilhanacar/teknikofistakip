@@ -13,7 +13,7 @@ interface ProjectContextType {
     projects: Project[] | null;
     selectedProject: Project | null;
     selectProject: (projectId: string | null) => void;
-    addProject: (projectName: string) => void;
+    addProject: (projectName: string) => Promise<void>;
     updateProjectName: (projectId: string, newName: string) => void;
     deleteProject: (projectId: string) => void;
     updateDraftContractName: (contractId: string, newName: string) => void;
@@ -51,23 +51,18 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const { data: projects, loading: projectsLoading } = useCollection<Project>(projectsQuery);
 
     const selectedProject = useMemo(() => {
-        return projects?.find(p => p.id === selectedProjectId) || null;
-    }, [selectedProjectId, projects]);
+        if (projectsLoading || !projects) return null;
+        const project = projects.find(p => p.id === selectedProjectId);
+        if (project) {
+            return project;
+        }
+        if (projects.length > 0) {
+            setSelectedProjectId(projects[0].id);
+            return projects[0];
+        }
+        return null;
+    }, [selectedProjectId, projects, projectsLoading]);
     
-    useEffect(() => {
-        if (!projectsLoading && projects && projects.length > 0) {
-            if (selectedProjectId && !projects.some(p => p.id === selectedProjectId)) {
-                setSelectedProjectId(projects[0].id);
-            } else if (!selectedProjectId) {
-                setSelectedProjectId(projects[0].id);
-            }
-        }
-         if (!projectsLoading && projects && projects.length === 0) {
-            setSelectedProjectId(null);
-        }
-    }, [projects, projectsLoading, selectedProjectId]);
-
-
     useEffect(() => {
         if (selectedProjectId) {
             localStorage.setItem('selectedProjectId', JSON.stringify(selectedProjectId));
@@ -81,21 +76,19 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     };
 
     const addProject = useCallback(async (projectName: string) => {
-        if (!firestore  || !user) return;
-        const newProjectData = {
-            name: projectName,
-            ownerId: user.uid,
-        };
-        addDoc(collection(firestore, "projects"), newProjectData)
-        .then((newProjectRef) => {
+        if (!firestore || !user) return;
+        try {
+            const newProjectData = {
+                name: projectName,
+                ownerId: user.uid,
+            };
+            const newProjectRef = await addDoc(collection(firestore, "projects"), newProjectData);
             setSelectedProjectId(newProjectRef.id);
             toast({ title: "Proje oluşturuldu!" });
-        })
-        .catch(err => {
-            const permissionError = new FirestorePermissionError({ path: '/projects', operation: 'create', requestResourceData: newProjectData });
+        } catch (err) {
+            const permissionError = new FirestorePermissionError({ path: '/projects', operation: 'create', requestResourceData: { name: projectName } });
             errorEmitter.emit('permission-error', permissionError);
-        });
-
+        }
     }, [firestore, user, toast]);
     
     const updateProjectName = useCallback(async (projectId: string, newName: string) => {
@@ -111,8 +104,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
     const deleteProject = useCallback(async (projectId: string) => {
         if (!firestore) return;
-        // This is a simplified delete. In a real app, you'd want to delete all subcollections too.
-        // This would require a Cloud Function for full cleanup.
         const projectRef = doc(firestore, "projects", projectId);
         deleteDoc(projectRef)
             .then(() => {
