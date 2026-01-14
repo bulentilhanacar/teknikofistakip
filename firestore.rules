@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
+    // Helper functions to check for authentication
     function isSignedIn() {
       return request.auth != null;
     }
@@ -10,17 +10,19 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Projects collection
+    // Rules for the 'projects' collection
     match /projects/{projectId} {
-      allow read, write: if isOwner(resource.data.ownerId);
+      // Any signed-in user can create a project, but they must be the owner.
       allow create: if isOwner(request.resource.data.ownerId);
 
-      // Subcollections of projects
-      match /{collection}/{docId=**} {
+      // Only the owner of a project can read, update, or delete it.
+      allow read, update, delete: if isOwner(resource.data.ownerId);
+
+      // Rules for all subcollections within a project (e.g., contracts, deductions)
+      match /{subcollection}/{docId=**} {
+        // Only the project owner can read, write, update, or delete documents in subcollections.
         allow read, write: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
       }
     }
   }
 }
-
-    

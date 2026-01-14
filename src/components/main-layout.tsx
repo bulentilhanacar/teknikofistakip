@@ -17,6 +17,8 @@ import {
   Trash,
   ClipboardList,
   User,
+  LogOut,
+  LogIn
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -48,7 +50,8 @@ import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useUser, useAuth } from "@/firebase";
-import { signInAnonymously } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+
 
 const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
@@ -208,44 +211,67 @@ function ProjectSelector() {
 
 function AuthStatus() {
     const auth = useAuth();
-    const { user, loading } = useUser();
+    const { user, isUserLoading } = useUser();
 
-    React.useEffect(() => {
-        if (auth && !user && !loading) {
-            signInAnonymously(auth).catch((error) => {
-                console.error("Error signing in anonymously", error);
-            });
-        }
-    }, [auth, user, loading]);
+    const handleSignIn = () => {
+        if (!auth) return;
+        const provider = new GoogleAuthProvider();
+        signInWithPopup(auth, provider).catch((error) => {
+            console.error("Error signing in with Google", error);
+        });
+    };
+
+    const handleSignOut = () => {
+        if (!auth) return;
+        signOut(auth).catch((error) => {
+            console.error("Error signing out", error);
+        });
+    };
     
-    if (loading) {
-      return <Skeleton className="h-10 w-full" />
+    if (isUserLoading) {
+      return (
+        <div className="p-2">
+            <Skeleton className="h-10 w-full" />
+        </div>
+      )
     }
 
     if (!user) {
         return (
-             <div className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm">
-                <Skeleton className="h-8 w-8 rounded-full" />
-                 <div className="flex flex-col gap-1">
-                    <Skeleton className="h-4 w-20" />
-                    <Skeleton className="h-3 w-28" />
-                </div>
+             <div className="p-2">
+                <Button variant="outline" className="w-full" onClick={handleSignIn}>
+                    <LogIn className="mr-2 h-4 w-4"/>
+                    Google ile Giriş Yap
+                </Button>
             </div>
         );
     }
 
     return (
-        <div className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm">
-            <Avatar className="h-8 w-8">
-                <AvatarFallback><User/></AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col truncate">
-                <span className="font-semibold">Anonim Kullanıcı</span>
-                <span className="text-xs text-sidebar-foreground/70" title={user.uid}>
-                    {user.uid.substring(0, 15)}...
-                </span>
-            </div>
-        </div>
+         <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <div className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm cursor-pointer hover:bg-sidebar-accent">
+                    <Avatar className="h-8 w-8">
+                        {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || 'User'}/>}
+                        <AvatarFallback><User/></AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col truncate">
+                        <span className="font-semibold">{user.displayName || 'Kullanıcı'}</span>
+                        <span className="text-xs text-sidebar-foreground/70" title={user.email || user.uid}>
+                            {user.email || user.uid}
+                        </span>
+                    </div>
+                </div>
+            </DropdownMenuTrigger>
+             <DropdownMenuContent align="end" className="w-[var(--sidebar-width)] -translate-x-2 mb-2">
+                <DropdownMenuLabel>Hesabım</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={handleSignOut} className="text-destructive">
+                    <LogOut className="mr-2 h-4 w-4"/>
+                    <span>Çıkış Yap</span>
+                </DropdownMenuItem>
+             </DropdownMenuContent>
+        </DropdownMenu>
     )
 }
 
@@ -253,7 +279,7 @@ function AuthStatus() {
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { selectedProject } = useProject();
-  const { user, loading } = useUser();
+  const { user, isUserLoading } = useUser();
   const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
@@ -273,7 +299,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          {isClient && !loading && user && (
+          {isClient && !isUserLoading && user && (
             <div className="p-2">
               <ProjectSelector />
             </div>
@@ -312,5 +338,3 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    
