@@ -26,6 +26,8 @@ interface ProjectContextType {
     addItemToContract: (contractId: string, item: ContractItem) => void;
     updateContractItem: (contractId: string, updatedItem: ContractItem, originalPoz: string) => void;
     deleteContractItem: (contractId: string, itemPoz: string) => void;
+    updateDraftSubgroupName: (groupKey: ContractGroupKeys, oldSubgroupName: string, newSubgroupName: string) => void;
+    deleteDraftSubgroup: (groupKey: ContractGroupKeys, subgroupName: string) => void;
     addDeduction: (deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => void;
     deleteDeduction: (deductionId: string) => void;
     saveProgressPayment: (contractId: string, paymentData: Omit<ProgressPayment, 'progressPaymentNumber'>, editingPaymentNumber: number | null) => void;
@@ -317,8 +319,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         }
 
         let revertedTenderId = '';
-        setProjectData(prevData => {
-            const newPrevData = JSON.parse(JSON.stringify(prevData));
+        setProjectData(prev => {
+            const newPrevData = JSON.parse(JSON.stringify(prev));
             const currentProjectContracts = newPrevData.contracts[selectedProjectId!] || { drafts: [], approved: [] };
             const contractToRevert = currentProjectContracts.approved.find(c => c.id === contractId);
 
@@ -355,8 +357,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const addDraftTender = useCallback((group: ContractGroupKeys, name: string, subGroup: string) => {
         if (!selectedProjectId) return;
 
-        setProjectData(prevData => {
-            const newPrevData = JSON.parse(JSON.stringify(prevData));
+        setProjectData(prev => {
+            const newPrevData = JSON.parse(JSON.stringify(prev));
             const allDraftsCount = Object.values(newPrevData.contracts).flatMap(p => p.drafts).length;
             const newIdNumber = allDraftsCount + 10;
             const newTenderId = `IHALE-${String(newIdNumber).padStart(3, '0')}`;
@@ -381,8 +383,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const addItemToContract = useCallback((contractId: string, item: ContractItem) => {
          if (!selectedProjectId) return;
 
-        setProjectData(prevData => {
-            const newPrevData = JSON.parse(JSON.stringify(prevData));
+        setProjectData(prev => {
+            const newPrevData = JSON.parse(JSON.stringify(prev));
             const projectContracts = newPrevData.contracts[selectedProjectId];
             if (!projectContracts) return newPrevData;
             
@@ -404,8 +406,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const updateContractItem = useCallback((contractId: string, updatedItem: ContractItem, originalPoz: string) => {
         if (!selectedProjectId) return;
 
-        setProjectData(prevData => {
-            const newPrevData = JSON.parse(JSON.stringify(prevData));
+        setProjectData(prev => {
+            const newPrevData = JSON.parse(JSON.stringify(prev));
             const projectContracts = newPrevData.contracts[selectedProjectId];
             if (!projectContracts) return newPrevData;
 
@@ -430,8 +432,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const deleteContractItem = useCallback((contractId: string, itemPoz: string) => {
         if (!selectedProjectId) return;
 
-        setProjectData(prevData => {
-            const newPrevData = JSON.parse(JSON.stringify(prevData));
+        setProjectData(prev => {
+            const newPrevData = JSON.parse(JSON.stringify(prev));
             const projectContracts = newPrevData.contracts[selectedProjectId];
             if (!projectContracts) return newPrevData;
 
@@ -451,6 +453,51 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             return newPrevData;
         });
     }, [selectedProjectId]);
+
+    const updateDraftSubgroupName = useCallback((groupKey: ContractGroupKeys, oldSubgroupName: string, newSubgroupName: string) => {
+        if (!selectedProjectId || !newSubgroupName.trim()) return;
+
+        setProjectData(prev => {
+            const newPrevData = JSON.parse(JSON.stringify(prev));
+            const projectContracts = newPrevData.contracts[selectedProjectId];
+            if (!projectContracts) return newPrevData;
+            
+            const updatedDrafts = projectContracts.drafts.map(draft => {
+                if (draft.group === groupKey && draft.subGroup === oldSubgroupName) {
+                    return { ...draft, subGroup: newSubgroupName.trim() };
+                }
+                return draft;
+            });
+
+            newPrevData.contracts[selectedProjectId].drafts = updatedDrafts;
+            return newPrevData;
+        });
+    }, [selectedProjectId]);
+
+    const deleteDraftSubgroup = useCallback((groupKey: ContractGroupKeys, subgroupName: string) => {
+        if (!selectedProjectId) return;
+
+        const contractsInSubgroup = projectData.contracts[selectedProjectId]?.drafts.filter(
+            d => d.group === groupKey && d.subGroup === subgroupName
+        ) || [];
+
+        if (contractsInSubgroup.length > 0) {
+            toast({
+                variant: "destructive",
+                title: "İşlem Başarısız",
+                description: "İçinde sözleşme bulunan bir alt başlık silinemez.",
+            });
+            return;
+        }
+
+        // As subgroups are dynamically created, we just need to ensure no contracts use it.
+        // The check above handles this. If we were storing subgroups separately, we would delete here.
+        toast({
+            title: "Alt Başlık Silindi",
+            description: `"${subgroupName}" alt başlığı başarıyla silindi.`,
+        });
+        
+    }, [selectedProjectId, projectData.contracts, toast]);
 
 
     const addDeduction = useCallback((deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => {
@@ -499,7 +546,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             description: "Seçili kesinti başarıyla silindi.",
         });
 
-    }, [selectedProjectId, projectData, toast]);
+    }, [selectedProjectId, projectData.deductions, toast]);
 
    const saveProgressPayment = useCallback((contractId: string, paymentData: Omit<ProgressPayment, 'progressPaymentNumber'>, editingPaymentNumber: number | null) => {
         if (!selectedProjectId) return;
@@ -644,6 +691,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         addItemToContract,
         updateContractItem,
         deleteContractItem,
+        updateDraftSubgroupName,
+        deleteDraftSubgroup,
         addDeduction,
         deleteDeduction,
         saveProgressPayment,
