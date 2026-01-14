@@ -102,7 +102,7 @@ const initialProgressHistory: Record<string, Record<string, ProgressPayment[]>> 
                     { id: 'C30', cumulativeQuantity: 0 },
                 ],
                 extraWorkItems: [],
-                appliedDeductionIds: []
+                appliedDeductionIds: ['DED-002']
             }
         ]
     }
@@ -426,14 +426,16 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             let paymentNumberToSave: number;
     
             if (editingPaymentNumber !== null) {
+                // Editing an existing payment
                 paymentNumberToSave = editingPaymentNumber;
                 const paymentIndex = contractHistory.findIndex(p => p.progressPaymentNumber === editingPaymentNumber);
                 if (paymentIndex !== -1) {
                     contractHistory[paymentIndex] = { ...paymentData, progressPaymentNumber: editingPaymentNumber };
                 }
             } else {
-                const lastPayment = contractHistory.length > 0 ? contractHistory[contractHistory.length - 1] : null;
-                paymentNumberToSave = (lastPayment?.progressPaymentNumber || 0) + 1;
+                // Creating a new payment
+                const lastPaymentNumber = contractHistory.length > 0 ? contractHistory[contractHistory.length - 1].progressPaymentNumber : 0;
+                paymentNumberToSave = lastPaymentNumber + 1;
                 const newPayment: ProgressPayment = {
                     ...paymentData,
                     progressPaymentNumber: paymentNumberToSave,
@@ -451,6 +453,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 if (paymentData.appliedDeductionIds.includes(d.id)) {
                     return { ...d, appliedInPaymentNumber: paymentNumberToSave };
                 } else if (d.appliedInPaymentNumber === paymentNumberToSave) {
+                    // This deduction was previously linked to this payment, but is now unselected
                     return { ...d, appliedInPaymentNumber: null };
                 }
                 return d;
@@ -561,4 +564,5 @@ export const useProject = (): ProjectContextType => {
     
 
     
+
 
