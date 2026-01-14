@@ -422,31 +422,33 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
     
         setProjectData(prev => {
-            // Use a deep copy to prevent mutation issues with React state
-            const contractHistory = JSON.parse(JSON.stringify(prev.progressPayments[selectedProjectId]?.[contractId] || []));
-    
+            let updatedContractHistory: ProgressPayment[];
+            const contractHistory = prev.progressPayments[selectedProjectId]?.[contractId] || [];
+
             if (editingPaymentNumber !== null) {
-                // Editing an existing payment
-                const paymentIndex = contractHistory.findIndex((p: ProgressPayment) => p.progressPaymentNumber === editingPaymentNumber);
-                if (paymentIndex > -1) {
-                    contractHistory[paymentIndex] = { ...paymentData, progressPaymentNumber: editingPaymentNumber };
-                }
-            } else { // Creating a new payment
-                const lastPaymentNumber = contractHistory.length > 0 ? Math.max(...contractHistory.map((p: ProgressPayment) => p.progressPaymentNumber)) : 0;
+                // Editing: replace the item at the correct index.
+                updatedContractHistory = contractHistory.map(p => 
+                    p.progressPaymentNumber === editingPaymentNumber 
+                        ? { ...paymentData, progressPaymentNumber: editingPaymentNumber } 
+                        : p
+                );
+            } else {
+                // Creating a new one: find the max number and add 1
+                const lastPaymentNumber = contractHistory.length > 0 ? Math.max(...contractHistory.map(p => p.progressPaymentNumber)) : 0;
                 const newPaymentNumber = lastPaymentNumber + 1;
                 const newPayment: ProgressPayment = {
                     ...paymentData,
                     progressPaymentNumber: newPaymentNumber,
                 };
-                contractHistory.push(newPayment);
+                updatedContractHistory = [...contractHistory, newPayment];
             }
     
-            const paymentNumberToSave = editingPaymentNumber !== null ? editingPaymentNumber : (contractHistory.at(-1) as ProgressPayment)?.progressPaymentNumber;
+            const paymentNumberToSave = editingPaymentNumber ?? (updatedContractHistory.at(-1) as ProgressPayment)?.progressPaymentNumber;
     
             const projectPayments = prev.progressPayments[selectedProjectId] || {};
             const updatedProjectPayments = {
                 ...projectPayments,
-                [contractId]: contractHistory,
+                [contractId]: updatedContractHistory,
             };
             
             const newProjectDeductions = (prev.deductions[selectedProjectId] || []).map(d => {
@@ -570,3 +572,4 @@ export const useProject = (): ProjectContextType => {
     
 
     
+
