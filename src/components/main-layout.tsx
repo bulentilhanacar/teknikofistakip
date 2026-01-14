@@ -8,7 +8,6 @@ import {
   Calculator,
   FileSignature,
   LayoutDashboard,
-  PlusCircle,
   FolderKanban,
   ChevronsUpDown,
   Gavel,
@@ -36,17 +35,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { SiteHeader } from "./site-header";
 import { Button } from "./ui/button";
 import { useProject } from "@/context/project-context";
 import { Skeleton } from "./ui/skeleton";
-import { cn } from "@/lib/utils";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
 import { useUser, useAuth } from "@/firebase";
 import { signInAnonymously } from "firebase/auth";
 import { AddProjectDialog } from "./add-project-dialog";
+import { RenameProjectDialog } from "./rename-project-dialog";
 
 
 const projectMenuItems = [
@@ -58,54 +54,8 @@ const projectMenuItems = [
 ];
 
 
-function RenameProjectDialog({ project, isOpen, onOpenChange, onSave }: { project: {id: string, name: string} | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onSave: (id: string, newName: string) => void }) {
-    const [name, setName] = React.useState("");
-
-    React.useEffect(() => {
-        if (project && isOpen) {
-            setName(project.name);
-        }
-    }, [project, isOpen]);
-
-    const handleSave = () => {
-        if (name.trim() && project) {
-            onSave(project.id, name.trim());
-            onOpenChange(false);
-        }
-    };
-    
-    if (!project) return null;
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Proje Adını Değiştir</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">Yeni Proje Adı</Label>
-                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild><Button type="button" variant="secondary">İptal</Button></DialogClose>
-                    <Button type="submit" onClick={handleSave}>Kaydet</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
-}
-
 function ProjectSelector() {
   const { projects, selectedProject, selectProject, deleteProject, updateProjectName } = useProject();
-  const [isRenameOpen, setIsRenameOpen] = React.useState(false);
-  const [projectToRename, setProjectToRename] = React.useState<{id: string, name: string} | null>(null);
-
-  const handleRenameClick = (project: {id: string, name: string}) => {
-    setProjectToRename(project);
-    setIsRenameOpen(true);
-  }
   
   if (!projects) {
      return <Skeleton className="h-10 w-full" />
@@ -141,10 +91,12 @@ function ProjectSelector() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent side="right" align="start">
-                            <DropdownMenuItem onSelect={() => handleRenameClick(project)}>
-                                <Edit className="mr-2 h-4 w-4"/>
-                                <span>Yeniden Adlandır</span>
-                            </DropdownMenuItem>
+                            <RenameProjectDialog project={project} onSave={updateProjectName}>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                    <Edit className="mr-2 h-4 w-4"/>
+                                    <span>Yeniden Adlandır</span>
+                                </DropdownMenuItem>
+                            </RenameProjectDialog>
                             <DropdownMenuItem onSelect={() => deleteProject(project.id)} className="text-destructive">
                                 <Trash className="mr-2 h-4 w-4"/>
                                 <span>Sil</span>
@@ -155,8 +107,6 @@ function ProjectSelector() {
                 ))}
             </DropdownMenuContent>
         </DropdownMenu>
-        
-        <RenameProjectDialog project={projectToRename} isOpen={isRenameOpen} onOpenChange={setIsRenameOpen} onSave={updateProjectName} />
     </>
   );
 }
