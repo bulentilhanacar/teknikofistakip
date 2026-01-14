@@ -52,6 +52,19 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 function ProjectSelector() {
   const { projects, selectedProject, selectProject, deleteProject, updateProjectName } = useProject();
   const [editingProject, setEditingProject] = React.useState<Project | null>(null);
+  const [editingName, setEditingName] = React.useState('');
+
+  const handleRenameClick = (project: Project) => {
+    setEditingProject(project);
+    setEditingName(project.name);
+  };
+
+  const handleSaveRename = async () => {
+    if (editingProject && editingName.trim()) {
+      await updateProjectName(editingProject.id, editingName.trim());
+      setEditingProject(null);
+    }
+  };
 
   if (!projects) {
      return <Skeleton className="h-10 w-full" />
@@ -85,7 +98,7 @@ function ProjectSelector() {
 
         {selectedProject && (
             <div className="mt-2 space-y-1 p-2 pt-0 group-data-[collapsible=icon]:hidden">
-                <Button variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground/80 hover:text-sidebar-foreground" onClick={() => setEditingProject(selectedProject)}>
+                <Button variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground/80 hover:text-sidebar-foreground" onClick={() => handleRenameClick(selectedProject)}>
                     <Edit className="mr-2 h-4 w-4" />
                     <span>Yeniden Adlandır</span>
                 </Button>
@@ -115,7 +128,9 @@ function ProjectSelector() {
         {editingProject && (
             <RenameProjectDialog 
                 project={editingProject}
-                onSave={updateProjectName}
+                name={editingName}
+                setName={setEditingName}
+                onSave={handleSaveRename}
                 isOpen={!!editingProject}
                 onOpenChange={(isOpen) => !isOpen && setEditingProject(null)}
             />
@@ -124,6 +139,13 @@ function ProjectSelector() {
   );
 }
 
+const projectMenuItems = [
+  { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
+  { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
+  { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
+  { href: "/progress-tracking", label: "Hakediş Takip", icon: ClipboardList },
+  { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
+];
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
