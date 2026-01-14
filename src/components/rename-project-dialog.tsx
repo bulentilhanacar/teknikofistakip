@@ -11,62 +11,27 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Project } from '@/context/types';
-import { MoreHorizontal, Edit, Trash } from 'lucide-react';
 
 interface RenameProjectDialogProps {
-  project: Project;
-  onSave: (projectId: string, newName: string) => void;
-  onDelete: () => void;
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+  name: string;
+  setName: (name: string) => void;
+  onSave: () => void;
 }
 
-export function RenameProjectDialog({ project, onSave, onDelete }: RenameProjectDialogProps) {
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [name, setName] = React.useState(project.name);
-
-  // Ensure the name in the dialog is reset when it's opened for a different project
-  React.useEffect(() => {
-    if (isDialogOpen) {
-      setName(project.name);
-    }
-  }, [isDialogOpen, project.name]);
-
-  const handleSave = async () => {
-    if (name.trim() && project) {
-      await onSave(project.id, name.trim());
-      setIsDialogOpen(false);
+export function RenameProjectDialog({ isOpen, onOpenChange, name, setName, onSave }: RenameProjectDialogProps) {
+  
+  const handleSave = () => {
+    if (name.trim()) {
+      onSave();
     }
   };
 
   return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-6 w-6 p-0 opacity-0 group-hover/item:opacity-100 data-[state=open]:opacity-100">
-            <MoreHorizontal className="h-4 w-4"/>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="right" align="start">
-          <DropdownMenuItem onSelect={() => setIsDialogOpen(true)}>
-            <Edit className="mr-2 h-4 w-4"/>
-            <span>Yeniden Adlandır</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onDelete} className="text-destructive">
-            <Trash className="mr-2 h-4 w-4"/>
-            <span>Sil</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Proje Adını Değiştir</DialogTitle>
@@ -96,6 +61,5 @@ export function RenameProjectDialog({ project, onSave, onDelete }: RenameProject
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
   );
 }

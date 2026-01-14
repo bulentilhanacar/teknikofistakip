@@ -43,6 +43,7 @@ import { useUser, useAuth } from "@/firebase";
 import { signInAnonymously } from "firebase/auth";
 import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
+import { Project } from "@/context/types";
 
 
 const projectMenuItems = [
@@ -56,7 +57,21 @@ const projectMenuItems = [
 
 function ProjectSelector() {
   const { projects, selectedProject, selectProject, deleteProject, updateProjectName } = useProject();
+  const [editingProject, setEditingProject] = React.useState<Project | null>(null);
+  const [editingName, setEditingName] = React.useState("");
+
+  const handleRenameClick = (project: Project) => {
+    setEditingProject(project);
+    setEditingName(project.name);
+  };
   
+  const handleSaveRename = () => {
+    if (editingProject && editingName.trim()) {
+      updateProjectName(editingProject.id, editingName.trim());
+      setEditingProject(null);
+    }
+  };
+
   if (!projects) {
      return <Skeleton className="h-10 w-full" />
   }
@@ -80,15 +95,38 @@ function ProjectSelector() {
                 <DropdownMenuLabel>Projeler</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {projects.map((project) => (
-                <DropdownMenuItem key={project.id} onSelect={(e) => e.preventDefault()} className="group/item flex justify-between items-center pr-1">
-                    <button className="flex-1 text-left" onClick={() => selectProject(project.id)}>
-                    {project.name}
-                    </button>
-                     <RenameProjectDialog project={project} onSave={updateProjectName} onDelete={() => deleteProject(project.id)} />
-                </DropdownMenuItem>
+                    <DropdownMenuItem key={project.id} onSelect={(e) => e.preventDefault()} className="group/item flex justify-between items-center pr-1">
+                        <button className="flex-1 text-left" onClick={() => selectProject(project.id)}>
+                        {project.name}
+                        </button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-6 w-6 p-0 opacity-0 group-hover/item:opacity-100 data-[state=open]:opacity-100">
+                                    <MoreHorizontal className="h-4 w-4"/>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent side="right" align="start">
+                                <DropdownMenuItem onSelect={() => handleRenameClick(project)}>
+                                    <Edit className="mr-2 h-4 w-4"/>
+                                    <span>Yeniden Adlandır</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => deleteProject(project.id)} className="text-destructive">
+                                    <Trash className="mr-2 h-4 w-4"/>
+                                    <span>Sil</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </DropdownMenuItem>
                 ))}
             </DropdownMenuContent>
         </DropdownMenu>
+        <RenameProjectDialog
+            isOpen={!!editingProject}
+            onOpenChange={(isOpen) => !isOpen && setEditingProject(null)}
+            name={editingName}
+            setName={setEditingName}
+            onSave={handleSaveRename}
+        />
     </>
   );
 }
