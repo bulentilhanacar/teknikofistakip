@@ -426,23 +426,24 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             let paymentNumberToSave: number;
     
             if (editingPaymentNumber !== null) {
-                // Düzenleme modu: Mevcut hakedişi güncelle
                 paymentNumberToSave = editingPaymentNumber;
                 const paymentIndex = contractHistory.findIndex(p => p.progressPaymentNumber === editingPaymentNumber);
                 if (paymentIndex !== -1) {
                     contractHistory[paymentIndex] = { ...paymentData, progressPaymentNumber: editingPaymentNumber };
-                } else {
-                    return prev;
                 }
             } else {
-                // Yeni hakediş modu: Yeni hakediş ekle
                 const lastPayment = contractHistory.length > 0 ? contractHistory[contractHistory.length - 1] : null;
                 paymentNumberToSave = (lastPayment?.progressPaymentNumber || 0) + 1;
                 const newPayment: ProgressPayment = {
                     ...paymentData,
                     progressPaymentNumber: paymentNumberToSave,
                 };
-                contractHistory.push(newPayment);
+                 const paymentIndex = contractHistory.findIndex(p => p.progressPaymentNumber === paymentNumberToSave);
+                if (paymentIndex !== -1) {
+                    contractHistory[paymentIndex] = newPayment;
+                } else {
+                    contractHistory.push(newPayment);
+                }
             }
     
             const projectPayments = prev.progressPayments[selectedProjectId] || {};
