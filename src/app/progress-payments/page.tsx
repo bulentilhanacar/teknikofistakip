@@ -59,26 +59,26 @@ export default function ProgressPaymentsPage() {
 
   const previousCumulativeState = useMemo(() => {
     if (!selectedContract) return { totalAmount: 0, itemQuantities: {} };
+    
+    // Determine the history to consider for the "previous" state
+    const historyToConsider = contractProgressHistory.filter(p => 
+        editingPaymentNumber === null || p.progressPaymentNumber < editingPaymentNumber
+    );
 
-    // Determine which payments to consider for the "previous" state
-    const historyToConsider = editingPaymentNumber === null 
-        ? contractProgressHistory // New payment: consider all history
-        : contractProgressHistory.filter(p => p.progressPaymentNumber < editingPaymentNumber); // Editing: consider payments before the one being edited
+    // The state we need is that of the last payment in the considered history
+    const lastRelevantPayment = historyToConsider.length > 0 ? historyToConsider[historyToConsider.length - 1] : null;
 
-    const itemQuantities: Record<string, number> = {};
-    let totalAmount = 0;
-
-    if (historyToConsider.length > 0) {
-        // The "previous" state is simply the state of the last payment in the considered history
-        const lastRelevantPayment = historyToConsider[historyToConsider.length - 1];
-        totalAmount = lastRelevantPayment.totalAmount;
-        lastRelevantPayment.items.forEach(item => {
-            itemQuantities[item.id] = item.cumulativeQuantity;
-        });
+    if (!lastRelevantPayment) {
+        return { totalAmount: 0, itemQuantities: {} };
     }
 
-    return { totalAmount, itemQuantities };
-  }, [editingPaymentNumber, contractProgressHistory, selectedContract]);
+    const itemQuantities: Record<string, number> = {};
+    lastRelevantPayment.items.forEach(item => {
+        itemQuantities[item.id] = item.cumulativeQuantity;
+    });
+
+    return { totalAmount: lastRelevantPayment.totalAmount, itemQuantities };
+}, [editingPaymentNumber, contractProgressHistory, selectedContract]);
 
 
   const availableDeductions = useMemo(() => {
@@ -111,9 +111,12 @@ export default function ProgressPaymentsPage() {
 
     setProgressItems(contract.items.map((item: any) => {
         const previousCumulativeQuantity = prevItemQtys[item.poz] || 0;
+        
+        // If editing an existing payment, use its quantities. Otherwise, use previous quantities.
         const currentItemState = payment?.items.find(pi => pi.id === item.poz);
         const currentCumulativeQuantity = currentItemState?.cumulativeQuantity ?? previousCumulativeQuantity;
-        const percentage = item.quantity > 0 ? (currentCumulativeQuantity / item.quantity * 100) : 0;
+        
+        const percentage = item.contractQuantity > 0 ? (currentCumulativeQuantity / item.contractQuantity * 100) : 0;
         
         return { 
             id: item.poz,
@@ -134,7 +137,8 @@ export default function ProgressPaymentsPage() {
     const contract = getContractsByProject().find(c => c.id === contractId);
     if (contract) {
         const history = (selectedProject && projectData.progressPayments[selectedProject.id]?.[contractId]) || [];
-        const prevQtys = history.length > 0 ? history.at(-1)!.items.reduce((acc, item) => { acc[item.id] = item.cumulativeQuantity; return acc; }, {} as Record<string, number>) : {};
+        const lastPayment = history.length > 0 ? history.at(-1) : null;
+        const prevQtys = lastPayment ? lastPayment.items.reduce((acc, item) => { acc[item.id] = item.cumulativeQuantity; return acc; }, {} as Record<string, number>) : {};
         loadStateForPayment(contract, null, prevQtys);
     } else {
         setProgressItems([]);
