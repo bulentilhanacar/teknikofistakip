@@ -10,9 +10,8 @@ import { useFirebase } from '../provider';
  */
 export function useAuth() {
   const { auth } = useFirebase();
-  if (!auth) {
-    throw new Error('useAuth must be used within a FirebaseProvider.');
-  }
+   // The 'auth/configuration-not-found' error is thrown here if not configured.
+   // We will not throw an error here, but let the onAuthStateChanged handle it.
   return auth;
 }
 
@@ -27,13 +26,21 @@ export function useUser() {
   const auth = useAuth();
 
   useEffect(() => {
+    if (!auth) {
+        // If auth is null, it means the provider is not ready.
+        // We shouldn't treat this as an error, but as a loading state.
+        setLoading(true);
+        return;
+    }
     const unsubscribe = onAuthStateChanged(
       auth,
       (user) => {
         setUser(user);
         setLoading(false);
+        setError(null);
       },
       (error) => {
+        console.error("Firebase Auth Error:", error);
         setError(error);
         setLoading(false);
       }

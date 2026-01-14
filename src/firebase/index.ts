@@ -12,6 +12,7 @@ import {
   useFirestore,
 } from './provider';
 import { FirebaseClientProvider } from './client-provider';
+import { errorEmitter } from './error-emitter';
 
 export function initializeFirebase(): {
   firebaseApp: FirebaseApp;
@@ -33,4 +34,5 @@ export {
   useFirestore,
   FirebaseProvider,
   FirebaseClientProvider,
+  errorEmitter,
 };

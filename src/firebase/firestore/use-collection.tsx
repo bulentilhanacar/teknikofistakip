@@ -1,14 +1,13 @@
 // src/firebase/firestore/use-collection.tsx
 'use client';
 import {
-  collection,
   onSnapshot,
-  query,
-  where,
   type CollectionReference,
   type Query,
 } from 'firebase/firestore';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { errorEmitter } from '@/firebase';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
  * A hook for subscribing to a Firestore collection.
@@ -19,13 +18,16 @@ export function useCollection<T>(query: Query | CollectionReference | null) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const queryRef = useRef(query);
 
   useEffect(() => {
     if (!query) {
+      setData([]);
       setLoading(false);
       return;
     }
+
+    setLoading(true);
+
     const unsubscribe = onSnapshot(
       query,
       (snapshot) => {
@@ -38,10 +40,21 @@ export function useCollection<T>(query: Query | CollectionReference | null) {
         });
         setData(data);
         setLoading(false);
+        setError(null);
       },
       (err) => {
-        console.error(err);
-        setError(err);
+        // Intercept permission errors to throw a more specific, actionable error.
+        if (err.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+              path: 'path' in query ? query.path : 'unknown',
+              operation: 'list',
+            });
+            setError(permissionError);
+            errorEmitter.emit('permission-error', permissionError);
+        } else {
+            console.error('An unexpected error occurred in useCollection:', err);
+            setError(err);
+        }
         setLoading(false);
       }
     );
