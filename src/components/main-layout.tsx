@@ -16,7 +16,7 @@ import {
   Trash,
   ClipboardList,
   PlusCircle,
-  LogOut,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -37,17 +37,19 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent
 } from "@/components/ui/dropdown-menu";
 import { SiteHeader } from "./site-header";
 import { Button } from "./ui/button";
 import { useProject } from "@/context/project-context";
 import { Skeleton } from "./ui/skeleton";
-import { useUser, useAuth } from "@/firebase";
+import { useUser } from "@/firebase";
 import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 import { Project } from "@/context/types";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
@@ -166,19 +168,12 @@ function ProjectSelector() {
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { selectedProject } = useProject();
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
+  const { user, loading: isUserLoading } = useUser();
   const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setIsClient(true);
   }, []);
-
-  const handleSignOut = () => {
-    if (auth) {
-      auth.signOut();
-    }
-  };
 
   return (
     <SidebarProvider>
@@ -193,7 +188,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          {isClient && !isUserLoading && user && (
+          {isClient && !isUserLoading && (
             <>
               <ProjectSelector />
               <SidebarSeparator className="my-1"/>
@@ -232,29 +227,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           )}
         </SidebarContent>
         <SidebarFooter>
-          {user && (
-            <div className="p-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
-                      <Avatar className="h-8 w-8 mr-2 group-data-[collapsible=icon]:mr-0">
-                          <AvatarImage src={user.photoURL || ''} alt={user.displayName || 'Kullanıcı'} />
-                          <AvatarFallback>{user.displayName?.charAt(0) || 'K'}</AvatarFallback>
-                      </Avatar>
-                      <span className="truncate group-data-[collapsible=icon]:hidden">{user.displayName || 'Kullanıcı'}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-[var(--sidebar-width)] mb-2 -translate-x-2">
-                    <DropdownMenuLabel>Hesabım</DropdownMenuLabel>
-                    <DropdownMenuSeparator/>
-                    <DropdownMenuItem onClick={handleSignOut}>
-                        <LogOut className="mr-2 h-4 w-4"/>
-                        <span>Çıkış Yap</span>
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+          {/* Footer content can go here */}
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>

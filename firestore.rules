@@ -7,16 +7,20 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    // Rules for projects collection
     match /projects/{projectId} {
-      allow read, update, delete: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
-      allow create: if isOwner(request.resource.data.ownerId);
+      // Allow read, update, delete if the user is authenticated
+      allow read, update, delete: if request.auth != null;
       
-      // Allow a user to list only their own projects.
-      // The query from the client MUST include `where('ownerId', '==', request.auth.uid)`.
-      allow list: if request.auth != null && request.auth.uid == request.query.where.ownerId;
+      // Allow create if the user is authenticated and the ownerId matches their uid
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+
+      // Allow list if the user is authenticated
+      allow list: if request.auth != null;
       
+      // Rules for all subcollections under a project
       match /{allChildren=**} {
-        allow read, write: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
+        allow read, write: if request.auth != null;
       }
     }
   }

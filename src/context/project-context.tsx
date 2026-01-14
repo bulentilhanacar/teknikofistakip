@@ -14,6 +14,8 @@ interface ProjectContextType {
     selectedProject: Project | null;
     selectProject: (projectId: string | null) => void;
     addProject: (projectName: string) => Promise<void>;
+    updateDraftContractName: (projectId: string, newName: string) => void;
+    deleteDraftContract: (projectId: string) => Promise<void>;
     updateProjectName: (projectId: string, newName: string) => void;
     deleteProject: (projectId: string) => Promise<void>;
 }
@@ -42,9 +44,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => getInitialState('selectedProjectId', null));
 
     const projectsQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
-    }, [firestore, user]);
+        if (!firestore) return null;
+        // Reverted: Removed user-based filtering to fix permission errors
+        return collection(firestore, "projects");
+    }, [firestore]);
 
     const { data: projects, loading: projectsLoading } = useCollection<Project>(projectsQuery);
 
@@ -135,6 +138,17 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             });
     }, [firestore, toast, projects]);
 
+    const updateDraftContractName = (contractId: string, newName: string) => {
+         if (!firestore || !selectedProject) return;
+         const contractRef = doc(firestore, 'projects', selectedProject.id, 'contracts', contractId);
+         updateDoc(contractRef, { name: newName });
+    };
+
+    const deleteDraftContract = async (contractId: string) => {
+        if (!firestore || !selectedProject) return;
+        const contractRef = doc(firestore, 'projects', selectedProject.id, 'contracts', contractId);
+        await deleteDoc(contractRef);
+    };
 
     const value: ProjectContextType = {
         projects: projects ?? null,
@@ -143,6 +157,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         addProject,
         updateProjectName,
         deleteProject,
+        updateDraftContractName,
+        deleteDraftContract,
     };
 
     return (

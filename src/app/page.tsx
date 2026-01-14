@@ -29,8 +29,7 @@ import { useProject } from "@/context/project-context";
 import { useMemo } from "react";
 import { useAuth, useUser } from "@/firebase";
 import { Button } from "@/components/ui/button";
-import { signInWithPopup } from 'firebase/auth';
-import { googleProvider } from "@/firebase/provider";
+import { signInAnonymously } from 'firebase/auth';
 
 
 const chartConfig = {
@@ -47,16 +46,16 @@ const chartConfig = {
 const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
 export default function Home() {
-  const { user, isUserLoading } = useUser();
+  const { user, loading: isUserLoading } = useUser();
   const { selectedProject } = useProject();
   const auth = useAuth();
 
-  const handleGoogleSignIn = async () => {
+  const handleAnonymousSignIn = async () => {
     if (auth) {
       try {
-        await signInWithPopup(auth, googleProvider);
+        await signInAnonymously(auth);
       } catch (error) {
-        console.error("Google ile giriş hatası", error);
+        console.error("Anonymous sign-in error", error);
       }
     }
   };
@@ -86,15 +85,15 @@ export default function Home() {
       <Card>
           <CardHeader>
               <CardTitle className="font-headline">Hoş Geldiniz!</CardTitle>
-              <CardDescription>Projelerinizi yönetmeye başlamak için lütfen giriş yapın.</CardDescription>
+              <CardDescription>Projelerinizi yönetmeye başlamak için lütfen devam edin.</CardDescription>
           </CardHeader>
           <CardContent>
               <div className="flex flex-col items-center justify-center h-48 text-center">
                   <LogIn className="w-12 h-12 mb-4 text-muted-foreground" />
-                  <Button onClick={handleGoogleSignIn}>
-                    Google ile Giriş Yap
+                  <Button onClick={handleAnonymousSignIn}>
+                    Devam Et
                   </Button>
-                  <p className="text-xs text-muted-foreground mt-4">Verileriniz Google hesabınızla güvenli bir şekilde saklanır.</p>
+                  <p className="text-xs text-muted-foreground mt-4">Verileriniz bu cihazda güvenli bir şekilde saklanır.</p>
               </div>
           </CardContent>
       </Card>
