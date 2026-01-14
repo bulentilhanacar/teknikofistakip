@@ -49,15 +49,17 @@ const getInitialState = <T,>(key: string, defaultValue: T): T => {
 
 export const ProjectProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
-    const { user } = useAuth();
+    // const { user } = useAuth();
     const firestore = useFirestore();
 
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => getInitialState('selectedProjectId', null));
 
     const projectsQuery = useMemo(() => {
-        if (!firestore || !user) return null;
-        return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
-    }, [firestore, user]);
+        if (!firestore) return null;
+        // Temporarily remove user dependency
+        // return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
+        return query(collection(firestore, "projects"));
+    }, [firestore]);
 
     const { data: projects, loading: projectsLoading } = useCollection<Project>(projectsQuery);
 
@@ -79,6 +81,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     useEffect(() => {
         if (selectedProjectId) {
             localStorage.setItem('selectedProjectId', JSON.stringify(selectedProjectId));
+        } else {
+             localStorage.removeItem('selectedProjectId');
         }
     }, [selectedProjectId]);
 
@@ -87,11 +91,11 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     };
 
     const addProject = useCallback(async (projectName: string) => {
-        if (!firestore || !user) return;
+        if (!firestore) return; //  || !user
         try {
             const newProjectRef = await addDoc(collection(firestore, "projects"), {
                 name: projectName,
-                ownerId: user.uid,
+                ownerId: "temp_owner", // user.uid,
             });
             setSelectedProjectId(newProjectRef.id);
             toast({ title: "Proje oluşturuldu!" });
@@ -99,7 +103,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             console.error("Error adding project:", error);
             toast({ title: "Hata", description: "Proje oluşturulamadı.", variant: "destructive" });
         }
-    }, [firestore, user, toast]);
+    }, [firestore, toast]); // user,
     
     const updateProjectName = useCallback(async (projectId: string, newName: string) => {
         if (!firestore) return;
@@ -120,14 +124,15 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             // This would require a Cloud Function for full cleanup.
             await deleteDoc(doc(firestore, "projects", projectId));
              if (selectedProjectId === projectId) {
-                setSelectedProjectId(null);
+                const remainingProjects = projects?.filter(p => p.id !== projectId);
+                setSelectedProjectId(remainingProjects && remainingProjects.length > 0 ? remainingProjects[0].id : null);
             }
             toast({ title: "Proje silindi." });
         } catch (error) {
              console.error("Error deleting project:", error);
             toast({ title: "Hata", description: "Proje silinemedi.", variant: "destructive" });
         }
-    }, [firestore, toast, selectedProjectId]);
+    }, [firestore, toast, selectedProjectId, projects]);
     
     // Stubs for functions to be implemented
     const updateDraftContractName = (contractId: string, newName: string) => console.log('updateDraftContractName not implemented');
