@@ -59,7 +59,7 @@ export default function ProgressPaymentsPage() {
 
   const previousCumulativeState = useMemo(() => {
     const historyToConsider = contractProgressHistory.filter(p => 
-        editingPaymentNumber === null || p.progressPaymentNumber < editingPaymentNumber
+        editingPaymentNumber === null ? true : p.progressPaymentNumber < editingPaymentNumber
     );
 
     const lastRelevantPayment = historyToConsider.length > 0 ? historyToConsider[historyToConsider.length - 1] : null;
@@ -625,3 +625,5 @@ export default function ProgressPaymentsPage() {
     </div>
   );
 }
+
+    
