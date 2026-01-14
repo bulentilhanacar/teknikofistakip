@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, CheckCircle, ChevronDown, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, CheckCircle, ChevronDown, MoreHorizontal, Edit, Trash2, Undo2 } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -79,16 +79,17 @@ const ItemDialog = ({ contractId, item, onSave, children, mode }: { contractId: 
 };
 
 
-const ContractRow = ({ contract, onApprove, onAddItem, onUpdateItem, onDeleteItem }: { contract: Contract, onApprove?: (contractId: string) => void, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void }) => {
+const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, onDeleteItem }: { contract: Contract, onApprove?: (contractId: string) => void, onRevert?: (contractId: string) => void, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void }) => {
     const budget = contract.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
     const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
     const isApproved = contract.status === 'Onaylandı';
+    const actionColSpan = onApprove || onRevert ? 7 : 6;
 
     return (
         <Collapsible asChild>
             <tbody className='bg-background'>
                 <TableRow>
-                    <td colSpan={onApprove ? 7 : 6} className="p-0">
+                    <td colSpan={actionColSpan} className="p-0">
                         <div className="flex items-center p-4 w-full group">
                             <CollapsibleTrigger asChild>
                                 <button className='flex items-center flex-1 text-left'>
@@ -100,11 +101,19 @@ const ContractRow = ({ contract, onApprove, onAddItem, onUpdateItem, onDeleteIte
                             <Badge variant={isApproved ? "default" : "secondary"} className="w-28 justify-center">{contract.status}</Badge>
                             <span className="w-28 text-center">{contract.date}</span>
                             <span className="w-32 text-right">{formatCurrency(budget)}</span>
-                            {onApprove && (
+                            {onApprove && !isApproved && (
                                 <div className="text-right w-28 pl-4">
-                                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove && onApprove(contract.id); }}>
+                                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove(contract.id); }}>
                                         <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
                                         Onayla
+                                    </Button>
+                                </div>
+                            )}
+                             {onRevert && isApproved && (
+                                <div className="text-right w-28 pl-4">
+                                     <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onRevert(contract.id); }}>
+                                        <Undo2 className="mr-2 h-4 w-4 text-muted-foreground"/>
+                                        Geri Al
                                     </Button>
                                 </div>
                             )}
@@ -113,11 +122,11 @@ const ContractRow = ({ contract, onApprove, onAddItem, onUpdateItem, onDeleteIte
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={onApprove ? 7 : 6} className="p-0">
+                        <TableCell colSpan={actionColSpan} className="p-0">
                             <div className="p-4 bg-muted/50">
                                 <div className="flex justify-between items-center mb-2">
                                     <h4 className='text-base font-semibold pl-2'>Sözleşme Detayları</h4>
-                                    {onAddItem && (
+                                    {!isApproved && onAddItem && (
                                        <ItemDialog contractId={contract.id} onSave={(id, item) => onAddItem(id, item)} mode="add">
                                             <Button variant="outline" size="sm">
                                                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -200,7 +209,7 @@ const ContractRow = ({ contract, onApprove, onAddItem, onUpdateItem, onDeleteIte
     )
 }
 
-const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, groupKey, onAddItem, onUpdateItem, onDeleteItem }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void, onAddDraft?: (group: ContractGroupKeys, name: string, subGroup: string) => void, groupKey: ContractGroupKeys, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void }) => {
+const ContractGroupAccordion = ({ title, contracts, onApprove, onRevert, onAddDraft, groupKey, onAddItem, onUpdateItem, onDeleteItem }: { title: string, contracts: Record<string, Contract[]>, onApprove?: (contractId: string) => void, onRevert?: (contractId: string) => void, onAddDraft?: (group: ContractGroupKeys, name: string, subGroup: string) => void, groupKey: ContractGroupKeys, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void }) => {
     const totalContractsInGroup = Object.values(contracts).reduce((sum, list) => sum + list.length, 0);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [draftName, setDraftName] = useState('');
@@ -228,8 +237,11 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, group
                 {hasAnyContracts ? (
                     <Accordion type="multiple" className="w-full pl-4 border-l">
                     {Object.entries(contracts).map(([subGroup, contractList]) => {
-                        if (contractList.length === 0) return (
-                           <AccordionItem value={subGroup} key={subGroup} disabled={!onApprove}>
+                        const subGroupIsEmpty = contractList.length === 0;
+                        if (subGroupIsEmpty && !onAddDraft) return null; // Don't show empty subgroups in approved tab
+
+                        if (subGroupIsEmpty) return (
+                           <AccordionItem value={subGroup} key={subGroup} disabled>
                                 <AccordionTrigger className="text-sm font-semibold hover:no-underline py-2 text-muted-foreground">
                                     <span>{subGroup} (0)</span>
                                 </AccordionTrigger>
@@ -248,7 +260,7 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, group
                                 <AccordionContent>
                                      <Table>
                                         {contractList.map((contract) => (
-                                            <ContractRow key={contract.id} contract={contract} onApprove={onApprove} onAddItem={onAddItem} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} />
+                                            <ContractRow key={contract.id} contract={contract} onApprove={onApprove} onRevert={onRevert} onAddItem={onAddItem} onUpdateItem={onUpdateItem} onDeleteItem={onDeleteItem} />
                                         ))}
                                     </Table>
                                 </AccordionContent>
@@ -259,7 +271,7 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, group
                 ) : (
                      <div className="pl-4 text-muted-foreground py-4">Bu grupta alt başlık veya sözleşme bulunmuyor.</div>
                 )}
-                 {onApprove && (
+                 {onAddDraft && (
                     <div className="pt-2 pl-6 mt-2 border-t">
                         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                             <DialogTrigger asChild>
@@ -300,7 +312,7 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onAddDraft, group
 
 
 export default function ContractsPage() {
-    const { selectedProject, projectData, approveTender, addDraftTender, addItemToContract, updateContractItem, deleteContractItem } = useProject();
+    const { selectedProject, projectData, approveTender, addDraftTender, revertContractToDraft, addItemToContract, updateContractItem, deleteContractItem } = useProject();
 
     const { draftContracts, approvedContracts } = useMemo(() => {
         if (!selectedProject || !projectData) {
@@ -406,6 +418,7 @@ export default function ContractsPage() {
                             key={groupKey} 
                             title={contractGroups[groupKey]} 
                             contracts={contractsInGroup || {}}
+                            onRevert={revertContractToDraft}
                             groupKey={groupKey}
                             onUpdateItem={updateContractItem}
                             onDeleteItem={deleteContractItem}

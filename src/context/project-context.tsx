@@ -20,6 +20,7 @@ interface ProjectContextType {
     updateProjectName: (projectId: string, newName: string) => void;
     deleteProject: (projectId: string) => void;
     approveTender: (tenderId: string) => void;
+    revertContractToDraft: (contractId: string) => void;
     addDraftTender: (group: ContractGroupKeys, name: string, subGroup: string) => void;
     addItemToContract: (contractId: string, item: ContractItem) => void;
     updateContractItem: (contractId: string, updatedItem: ContractItem, originalPoz: string) => void;
@@ -103,6 +104,17 @@ const initialProgressHistory: Record<string, Record<string, ProgressPayment[]>> 
                 ],
                 extraWorkItems: [],
                 appliedDeductionIds: ['DED-002']
+            },
+            {
+                progressPaymentNumber: 2,
+                date: "2024-08-22",
+                totalAmount: 9400000,
+                items: [
+                    { id: '15.150.1005', cumulativeQuantity: 8000 },
+                    { id: 'C30', cumulativeQuantity: 2500 },
+                ],
+                extraWorkItems: [],
+                appliedDeductionIds: []
             }
         ]
     }
@@ -154,12 +166,13 @@ const projectDashboardData: Record<string, any> = {
 const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
 const cleanDuplicateProgressPayments = (data: AllProjectData): AllProjectData => {
-    const cleanedData = JSON.parse(JSON.stringify(data));
+    const cleanedData = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutation
     for (const projectId in cleanedData.progressPayments) {
         for (const contractId in cleanedData.progressPayments[projectId]) {
             const history = cleanedData.progressPayments[projectId][contractId] as ProgressPayment[];
             if (Array.isArray(history)) {
-                 const uniquePayments = history.reduce((acc, current) => {
+                const uniquePayments = history.reduce((acc, current) => {
+                    // Keep the last entry if duplicates are found
                     acc[current.progressPaymentNumber] = current;
                     return acc;
                 }, {} as Record<number, ProgressPayment>);
@@ -289,6 +302,36 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
             const updatedDrafts = currentProjectContracts.drafts.filter(t => t.id !== tenderId);
             const updatedApproved = [...currentProjectContracts.approved, newContract].sort((a, b) => a.id.localeCompare(b.id));
+
+            return {
+                ...prevData,
+                contracts: {
+                    ...prevData.contracts,
+                    [selectedProjectId]: {
+                        drafts: updatedDrafts,
+                        approved: updatedApproved
+                    }
+                }
+            };
+        });
+    }, [selectedProjectId]);
+
+    const revertContractToDraft = useCallback((contractId: string) => {
+        if (!selectedProjectId) return;
+
+        setProjectData(prevData => {
+            const currentProjectContracts = prevData.contracts[selectedProjectId] || { drafts: [], approved: [] };
+            const contractToRevert = currentProjectContracts.approved.find(c => c.id === contractId);
+
+            if (!contractToRevert) return prevData;
+
+            const newDraft: Contract = {
+                ...contractToRevert,
+                status: 'Hazırlık', // Or another appropriate draft status
+            };
+
+            const updatedApproved = currentProjectContracts.approved.filter(c => c.id !== contractId);
+            const updatedDrafts = [...currentProjectContracts.drafts, newDraft].sort((a, b) => a.id.localeCompare(b.id));
 
             return {
                 ...prevData,
@@ -440,27 +483,27 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
 
         setProjectData(prev => {
-            const contractHistory = JSON.parse(JSON.stringify(prev.progressPayments[selectedProjectId]?.[contractId] || []));
+            const deepClonedHistory = JSON.parse(JSON.stringify(prev.progressPayments[selectedProjectId]?.[contractId] || []));
             let updatedContractHistory: ProgressPayment[];
 
             if (editingPaymentNumber !== null) {
-                // Editing mode: Replace the item in the array
-                updatedContractHistory = contractHistory.map((p: ProgressPayment) => 
+                // Editing mode: Map to a new array
+                updatedContractHistory = deepClonedHistory.map((p: ProgressPayment) => 
                     p.progressPaymentNumber === editingPaymentNumber
                         ? { ...paymentData, progressPaymentNumber: editingPaymentNumber }
                         : p
                 );
             } else {
-                // New entry mode: Add to the end with a new number
-                const lastPaymentNumber = contractHistory.length > 0 
-                    ? Math.max(...contractHistory.map((p: ProgressPayment) => p.progressPaymentNumber)) 
+                // New entry mode: Create a new array with the new payment
+                const lastPaymentNumber = deepClonedHistory.length > 0 
+                    ? Math.max(...deepClonedHistory.map((p: ProgressPayment) => p.progressPaymentNumber)) 
                     : 0;
                 const newPaymentNumber = lastPaymentNumber + 1;
                 const newPayment: ProgressPayment = {
                     ...paymentData,
                     progressPaymentNumber: newPaymentNumber,
                 };
-                updatedContractHistory = [...contractHistory, newPayment];
+                updatedContractHistory = [...deepClonedHistory, newPayment];
             }
 
             const paymentNumberToSave = editingPaymentNumber ?? updatedContractHistory.at(-1)!.progressPaymentNumber;
@@ -567,6 +610,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         updateProjectName,
         deleteProject,
         approveTender,
+        revertContractToDraft,
         addDraftTender,
         addItemToContract,
         updateContractItem,
@@ -603,5 +647,6 @@ export const useProject = (): ProjectContextType => {
     
 
     
+
 
 
