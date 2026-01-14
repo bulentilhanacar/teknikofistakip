@@ -46,6 +46,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useUser, useAuth } from "@/firebase";
 import { signInAnonymously } from "firebase/auth";
+import { AddProjectDialog } from "./add-project-dialog";
 
 
 const projectMenuItems = [
@@ -56,43 +57,6 @@ const projectMenuItems = [
   { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
 ];
 
-
-function AddProjectDialog({ isOpen, onOpenChange, onSave }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onSave: (name: string) => Promise<void> }) {
-    const [name, setName] = React.useState("");
-
-    const handleSave = async () => {
-        if (name.trim()) {
-            await onSave(name.trim());
-            onOpenChange(false);
-        }
-    };
-    
-    React.useEffect(() => {
-        if (!isOpen) {
-            setName("");
-        }
-    }, [isOpen]);
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-             <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Yeni Proje Ekle</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">Proje Adı</Label>
-                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild><Button type="button" variant="secondary">İptal</Button></DialogClose>
-                    <Button type="submit" onClick={handleSave}>Kaydet</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
-}
 
 function RenameProjectDialog({ project, isOpen, onOpenChange, onSave }: { project: {id: string, name: string} | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onSave: (id: string, newName: string) => void }) {
     const [name, setName] = React.useState("");
@@ -134,8 +98,7 @@ function RenameProjectDialog({ project, isOpen, onOpenChange, onSave }: { projec
 }
 
 function ProjectSelector() {
-  const { projects, selectedProject, selectProject, deleteProject, addProject, updateProjectName } = useProject();
-  const [isAddOpen, setIsAddOpen] = React.useState(false);
+  const { projects, selectedProject, selectProject, deleteProject, updateProjectName } = useProject();
   const [isRenameOpen, setIsRenameOpen] = React.useState(false);
   const [projectToRename, setProjectToRename] = React.useState<{id: string, name: string} | null>(null);
 
@@ -191,14 +154,15 @@ function ProjectSelector() {
                 </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setIsAddOpen(true)}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    <span>Yeni Proje Ekle</span>
-                </DropdownMenuItem>
+                <AddProjectDialog>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      <span>Yeni Proje Ekle</span>
+                  </DropdownMenuItem>
+                </AddProjectDialog>
             </DropdownMenuContent>
         </DropdownMenu>
         
-        <AddProjectDialog isOpen={isAddOpen} onOpenChange={setIsAddOpen} onSave={addProject} />
         <RenameProjectDialog project={projectToRename} isOpen={isRenameOpen} onOpenChange={setIsRenameOpen} onSave={updateProjectName} />
     </>
   );
