@@ -58,14 +58,10 @@ export default function ProgressPaymentsPage() {
   }, [editingPaymentNumber, contractProgressHistory]);
 
   const previousCumulativeState = useMemo(() => {
-    if (!selectedContract) return { totalAmount: 0, itemQuantities: {} };
-    
-    // Determine the history to consider for the "previous" state
     const historyToConsider = contractProgressHistory.filter(p => 
         editingPaymentNumber === null || p.progressPaymentNumber < editingPaymentNumber
     );
 
-    // The state we need is that of the last payment in the considered history
     const lastRelevantPayment = historyToConsider.length > 0 ? historyToConsider[historyToConsider.length - 1] : null;
 
     if (!lastRelevantPayment) {
@@ -78,7 +74,7 @@ export default function ProgressPaymentsPage() {
     });
 
     return { totalAmount: lastRelevantPayment.totalAmount, itemQuantities };
-}, [editingPaymentNumber, contractProgressHistory, selectedContract]);
+}, [editingPaymentNumber, contractProgressHistory]);
 
 
   const availableDeductions = useMemo(() => {
@@ -93,30 +89,26 @@ export default function ProgressPaymentsPage() {
   }, [selectedProject, selectedContractId, projectData, editingPaymentNumber]);
 
 
-  useEffect(() => {
-    // Reset everything when the project changes
-    setSelectedContractId(null);
-    setEditingPaymentNumber(null);
-    setProgressItems([]);
-    setExtraWorkItems([]);
-    setSelectedDeductionIds([]);
-    setProgressDate(new Date());
-  }, [selectedProject]);
-
-
-  const loadStateForPayment = (contract: Contract, payment: ProgressPayment | null, prevItemQtys: Record<string, number>) => {
+  const loadStateForPayment = useCallback((contract: Contract | null, payment: ProgressPayment | null, prevQtys: Record<string, number>) => {
+    if (!contract) {
+        setProgressItems([]);
+        setExtraWorkItems([]);
+        setSelectedDeductionIds([]);
+        return;
+    };
+    
     setExtraWorkItems(payment?.extraWorkItems || []);
     setProgressDate(payment ? new Date(payment.date) : new Date());
     setSelectedDeductionIds(payment?.appliedDeductionIds || []);
 
-    setProgressItems(contract.items.map((item: any) => {
-        const previousCumulativeQuantity = prevItemQtys[item.poz] || 0;
+    const loadedItems = contract.items.map((item: any) => {
+        const previousCumulativeQuantity = prevQtys[item.poz] || 0;
         
-        // If editing an existing payment, use its quantities. Otherwise, use previous quantities.
+        // If editing an existing payment, use its quantities. Otherwise (for a new payment), start with the previous quantities.
         const currentItemState = payment?.items.find(pi => pi.id === item.poz);
         const currentCumulativeQuantity = currentItemState?.cumulativeQuantity ?? previousCumulativeQuantity;
         
-        const percentage = item.contractQuantity > 0 ? (currentCumulativeQuantity / item.contractQuantity * 100) : 0;
+        const percentage = item.quantity > 0 ? (currentCumulativeQuantity / item.quantity * 100) : 0;
         
         return { 
             id: item.poz,
@@ -128,51 +120,49 @@ export default function ProgressPaymentsPage() {
             currentCumulativeQuantity: currentCumulativeQuantity,
             currentCumulativePercentage: isNaN(percentage) ? "0.00" : percentage.toFixed(2),
         };
-    }));
-};
+    });
+    setProgressItems(loadedItems);
+  }, []);
+
+  useEffect(() => {
+    // Reset everything when the project changes
+    setSelectedContractId(null);
+    setEditingPaymentNumber(null);
+  }, [selectedProject]);
+
+  useEffect(() => {
+    // This effect runs when contract or editing number changes
+    // It finds the correct previous state and loads the form accordingly.
+     if (!selectedContract) {
+         loadStateForPayment(null, null, {});
+         return;
+     }
+     loadStateForPayment(selectedContract, paymentToEdit, previousCumulativeState.itemQuantities);
+  }, [selectedContract, paymentToEdit, previousCumulativeState, loadStateForPayment]);
+
 
   const handleContractChange = (contractId: string) => {
     setSelectedContractId(contractId);
-    setEditingPaymentNumber(null); // Switch to new payment mode when contract changes
-    const contract = getContractsByProject().find(c => c.id === contractId);
-    if (contract) {
-        const history = (selectedProject && projectData.progressPayments[selectedProject.id]?.[contractId]) || [];
-        const lastPayment = history.length > 0 ? history.at(-1) : null;
-        const prevQtys = lastPayment ? lastPayment.items.reduce((acc, item) => { acc[item.id] = item.cumulativeQuantity; return acc; }, {} as Record<string, number>) : {};
-        loadStateForPayment(contract, null, prevQtys);
-    } else {
-        setProgressItems([]);
-    }
+    setEditingPaymentNumber(null); // Always default to new payment mode when contract changes
   };
   
   const handlePaymentSelectionChange = (paymentNumberStr: string) => {
-    if (!selectedContract) return;
-    const paymentNumber = paymentNumberStr === "new" ? null : parseInt(paymentNumberStr, 10);
-    setEditingPaymentNumber(paymentNumber);
-
-    if (paymentNumber === null) { // New payment
-        const lastPayment = contractProgressHistory.length > 0 ? contractProgressHistory.at(-1) : null;
-        const prevQtys = lastPayment ? lastPayment.items.reduce((acc, item) => { acc[item.id] = item.cumulativeQuantity; return acc; }, {} as Record<string, number>) : {};
-        loadStateForPayment(selectedContract, null, prevQtys);
-    } else { // Editing existing payment
-        const paymentToLoad = contractProgressHistory.find(p => p.progressPaymentNumber === paymentNumber);
-        const prevPayment = contractProgressHistory.find(p => p.progressPaymentNumber === paymentNumber - 1) || null;
-        const prevQtys = prevPayment ? prevPayment.items.reduce((acc, item) => { acc[item.id] = item.cumulativeQuantity; return acc; }, {} as Record<string, number>) : {};
-        if (paymentToLoad) {
-            loadStateForPayment(selectedContract, paymentToLoad, prevQtys);
-        }
-    }
+    setEditingPaymentNumber(paymentNumberStr === "new" ? null : parseInt(paymentNumberStr, 10));
   }
 
 
   const handlePercentageChange = (itemId: string, percentageStr: string) => {
     const percentage = parseFloat(percentageStr);
+    if (isNaN(percentage)) { // Handle empty input
+       setProgressItems(items => items.map(item => item.id === itemId ? { ...item, currentCumulativePercentage: '', currentCumulativeQuantity: item.previousCumulativeQuantity } : item));
+       return;
+    }
     if (percentage > 100) return;
 
     setProgressItems(items =>
       items.map(item => {
         if (item.id === itemId) {
-          const newCumulativeQuantity = isNaN(percentage) ? item.previousCumulativeQuantity : (item.contractQuantity * percentage) / 100;
+          const newCumulativeQuantity = (item.contractQuantity * percentage) / 100;
           return { ...item, currentCumulativePercentage: percentageStr, currentCumulativeQuantity: newCumulativeQuantity };
         }
         return item;
@@ -182,11 +172,15 @@ export default function ProgressPaymentsPage() {
   
     const handleQuantityChange = (itemId: string, quantityStr: string) => {
       const quantity = parseFloat(quantityStr);
+       if (isNaN(quantity)) { // Handle empty input
+            setProgressItems(items => items.map(item => item.id === itemId ? { ...item, currentCumulativePercentage: (item.previousCumulativeQuantity / item.contractQuantity * 100).toFixed(2), currentCumulativeQuantity: item.previousCumulativeQuantity } : item));
+            return;
+        }
       
       setProgressItems(items =>
         items.map(item => {
           if (item.id === itemId) {
-            const newCumulativeQuantity = isNaN(quantity) ? item.previousCumulativeQuantity : quantity;
+            const newCumulativeQuantity = quantity;
             if (newCumulativeQuantity > item.contractQuantity) return item; // Don't allow more than contract quantity
             if (newCumulativeQuantity < item.previousCumulativeQuantity) return item; // Don't allow less than previous
 
@@ -235,7 +229,7 @@ export default function ProgressPaymentsPage() {
     const totalPreviousAmount = previousCumulativeState.totalAmount;
 
     const cumulativeSubTotal = progressItems.reduce((acc, item) => acc + (item.currentCumulativeQuantity * item.unitPrice), 0);
-    const currentSubTotal = progressItems.reduce((acc, item) => acc + ((item.currentCumulativeQuantity - item.previousCumulativeQuantity) * item.unitPrice), 0);
+    const currentSubTotal = cumulativeSubTotal - totalPreviousAmount;
     
     const extraWorkTotal = extraWorkItems.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
 
@@ -267,11 +261,11 @@ export default function ProgressPaymentsPage() {
   }, [progressItems, extraWorkItems, previousCumulativeState, selectedDeductionIds, availableDeductions]);
 
   const handleSaveProgressPayment = () => {
-    if (!selectedProject || !selectedContractId || !progressDate) return;
+    if (!selectedProject || !selectedContractId || !progressDate || !selectedContract) return;
     
     const paymentData: Omit<ProgressPayment, 'progressPaymentNumber'> = {
         date: format(progressDate, 'yyyy-MM-dd'),
-        totalAmount: summary.cumulativeSubTotal + summary.extraWorkTotal,
+        totalAmount: summary.cumulativeSubTotal,
         items: progressItems.map(item => ({
             id: item.id,
             cumulativeQuantity: item.currentCumulativeQuantity,
@@ -281,20 +275,7 @@ export default function ProgressPaymentsPage() {
     };
     
     saveProgressPayment(selectedContractId, paymentData, editingPaymentNumber);
-
-    // Formu sıfırla ve yeni hakediş moduna geç
-    if (selectedContract) {
-       // After saving, the context will re-render and provide the updated history
-       // Switch to new payment mode
-       setEditingPaymentNumber(null);
-       const updatedHistory = [...contractProgressHistory];
-       if (editingPaymentNumber === null) {
-           updatedHistory.push({ ...paymentData, progressPaymentNumber: (contractProgressHistory.at(-1)?.progressPaymentNumber || 0) + 1 });
-       }
-       const newLastPayment = updatedHistory.length > 0 ? updatedHistory.at(-1) : null;
-       const prevQtys = newLastPayment ? newLastPayment.items.reduce((acc, item) => { acc[item.id] = item.cumulativeQuantity; return acc; }, {} as Record<string, number>) : {};
-       loadStateForPayment(selectedContract, null, prevQtys);
-    }
+    setEditingPaymentNumber(null);
   };
 
   const formatCurrency = (amount: number) => {
@@ -447,7 +428,7 @@ export default function ProgressPaymentsPage() {
                         <TableCell className="font-medium">{item.id}</TableCell>
                         <TableCell>{item.description}</TableCell>
                         <TableCell>{item.contractQuantity.toLocaleString('tr-TR')} {item.unit}</TableCell>
-                        <TableCell>{item.previousCumulativeQuantity.toLocaleString('tr-TR')}</TableCell>
+                        <TableCell>{item.previousCumulativeQuantity.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}</TableCell>
                         <TableCell>
                             <div className="flex items-center">
                                 <Input 
@@ -644,5 +625,7 @@ export default function ProgressPaymentsPage() {
     </div>
   );
 }
+
+    
 
     

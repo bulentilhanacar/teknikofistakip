@@ -96,10 +96,10 @@ const initialProgressHistory: Record<string, Record<string, ProgressPayment[]>> 
             {
                 progressPaymentNumber: 1,
                 date: "2024-07-20",
-                totalAmount: 227500,
+                totalAmount: 1400000,
                 items: [
-                    { id: '15.150.1005', cumulativeQuantity: 500 },
-                    { id: 'C30', cumulativeQuantity: 200 },
+                    { id: '15.150.1005', cumulativeQuantity: 8000 },
+                    { id: 'C30', cumulativeQuantity: 0 },
                 ],
                 extraWorkItems: [],
                 appliedDeductionIds: []
@@ -432,7 +432,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 if (paymentIndex !== -1) {
                     contractHistory[paymentIndex] = { ...paymentData, progressPaymentNumber: editingPaymentNumber };
                 } else {
-                    // Bu senaryo normalde olmamalı ama bir güvenlik önlemi
                     return prev;
                 }
             } else {
@@ -448,19 +447,15 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     
             const newProjectHistory = { ...(prev.progressPayments[selectedProjectId] || {}), [contractId]: contractHistory };
             
-            // İlgili kesintileri bu hakedişe bağla/bağlantısını kopar
             const newProjectDeductions = (prev.deductions[selectedProjectId] || []).map(d => {
                 if (paymentData.appliedDeductionIds.includes(d.id)) {
-                    // Bu hakedişte seçildiyse, numarayı ata
                     return { ...d, appliedInPaymentNumber: paymentNumberToSave };
                 } else if (d.appliedInPaymentNumber === paymentNumberToSave) {
-                    // Bu hakedişte seçimi kaldırıldıysa, bağlantıyı kopar
                     return { ...d, appliedInPaymentNumber: null };
                 }
                 return d;
             });
             
-            // Hakediş takvimini güncelle
             const currentMonth = format(new Date(paymentData.date), 'yyyy-MM');
             const projectStatuses = prev.progressStatuses[selectedProjectId] || {};
             const monthStatuses = projectStatuses[currentMonth] || {};
@@ -562,5 +557,7 @@ export const useProject = (): ProjectContextType => {
     }
     return context;
 };
+
+    
 
     
