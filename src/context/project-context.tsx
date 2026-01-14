@@ -3,6 +3,7 @@
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback } from 'react';
 import { Contract, ContractGroupKeys, ContractItem, Deduction, ProgressPayment, ProgressItem as ContextProgressItem, AllProjectData, ProgressPaymentStatus, ExtraWorkItem } from './types';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 
 // Proje ve veri tiplerini tanımlıyoruz
@@ -27,6 +28,7 @@ interface ProjectContextType {
     deleteContractItem: (contractId: string, itemPoz: string) => void;
     addDeduction: (deduction: Omit<Deduction, 'id' | 'appliedInPaymentNumber'>) => void;
     saveProgressPayment: (contractId: string, paymentData: Omit<ProgressPayment, 'progressPaymentNumber'>, editingPaymentNumber: number | null) => void;
+    deleteProgressPaymentsForContract: (contractId: string) => void;
     updateProgressPaymentStatus: (month: string, contractId: string, status: ProgressPaymentStatus) => void;
     getDashboardData: () => any;
     getContractsByProject: () => Contract[];
@@ -104,17 +106,6 @@ const initialProgressHistory: Record<string, Record<string, ProgressPayment[]>> 
                 ],
                 extraWorkItems: [],
                 appliedDeductionIds: ['DED-002']
-            },
-            {
-                progressPaymentNumber: 2,
-                date: "2024-08-22",
-                totalAmount: 9400000,
-                items: [
-                    { id: '15.150.1005', cumulativeQuantity: 8000 },
-                    { id: 'C30', cumulativeQuantity: 2500 },
-                ],
-                extraWorkItems: [],
-                appliedDeductionIds: []
             }
         ]
     }
@@ -166,17 +157,16 @@ const projectDashboardData: Record<string, any> = {
 const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
 const cleanDuplicateProgressPayments = (data: AllProjectData): AllProjectData => {
-    const cleanedData = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutation
+    const cleanedData = JSON.parse(JSON.stringify(data)); 
     for (const projectId in cleanedData.progressPayments) {
         for (const contractId in cleanedData.progressPayments[projectId]) {
             const history = cleanedData.progressPayments[projectId][contractId] as ProgressPayment[];
             if (Array.isArray(history)) {
-                const uniquePayments = history.reduce((acc, current) => {
-                    // Keep the last entry if duplicates are found
-                    acc[current.progressPaymentNumber] = current;
-                    return acc;
-                }, {} as Record<number, ProgressPayment>);
-                cleanedData.progressPayments[projectId][contractId] = Object.values(uniquePayments);
+                const uniquePayments: Record<number, ProgressPayment> = {};
+                for (const payment of history) {
+                    uniquePayments[payment.progressPaymentNumber] = payment;
+                }
+                cleanedData.progressPayments[projectId][contractId] = Object.values(uniquePayments).sort((a,b) => a.progressPaymentNumber - b.progressPaymentNumber);
             }
         }
     }
@@ -185,6 +175,7 @@ const cleanDuplicateProgressPayments = (data: AllProjectData): AllProjectData =>
 
 
 export const ProjectProvider = ({ children }: { children: React.ReactNode }) => {
+    const { toast } = useToast();
     const [projects, setProjects] = useState<Project[]>(() => getInitialState('projects', defaultProjects));
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => getInitialState('selectedProjectId', null));
     
@@ -197,25 +188,23 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             dashboard: projectDashboardData,
             progressStatuses: initialProgressStatuses,
         };
-        // Deep merge to ensure nested objects are not overwritten
         const merged = { 
             ...defaultData, 
             ...storedData,
             progressStatuses: { ...defaultData.progressStatuses, ...(storedData?.progressStatuses || {}) }
         };
-        // Ensure every project has a progressStatuses entry
          Object.keys(merged.contracts).forEach(projectId => {
             if (!merged.progressStatuses[projectId]) {
                 merged.progressStatuses[projectId] = {};
             }
         });
-        // Clean up duplicate progress payments from localStorage on initial load
         return cleanDuplicateProgressPayments(merged);
     });
 
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
+        setProjectData(prevData => cleanDuplicateProgressPayments(prevData));
         setIsLoaded(true);
         if (!selectedProjectId && projects.length > 0) {
             const initialId = getInitialState('selectedProjectId', projects[0].id);
@@ -248,7 +237,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             newData.contracts[newId] = { drafts: [], approved: [] };
             newData.progressPayments[newId] = {};
             newData.deductions[newId] = [];
-            newData.dashboard[newId] = JSON.parse(JSON.stringify(emptyDashboardData)); // Deep copy
+            newData.dashboard[newId] = JSON.parse(JSON.stringify(emptyDashboardData));
             newData.progressStatuses[newId] = {};
             return newData;
         });
@@ -320,18 +309,38 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
 
         setProjectData(prevData => {
+            const progressPayments = prevData.progressPayments[selectedProjectId]?.[contractId];
+            if (progressPayments && progressPayments.length > 0) {
+                toast({
+                    variant: "destructive",
+                    title: "İşlem Başarısız",
+                    description: "Bu sözleşmenin yapılmış hakedişleri var. Geri almak için önce hakedişleri silmelisiniz.",
+                });
+                return prevData;
+            }
+
             const currentProjectContracts = prevData.contracts[selectedProjectId] || { drafts: [], approved: [] };
             const contractToRevert = currentProjectContracts.approved.find(c => c.id === contractId);
 
             if (!contractToRevert) return prevData;
+            
+            const allDraftsCount = Object.values(prevData.contracts).flatMap(p => p.drafts).length;
+            const newTenderId = `IHALE-${String(allDraftsCount + 10).padStart(3, '0')}`;
+
 
             const newDraft: Contract = {
                 ...contractToRevert,
-                status: 'Hazırlık', // Or another appropriate draft status
+                id: newTenderId,
+                status: 'Hazırlık',
             };
 
             const updatedApproved = currentProjectContracts.approved.filter(c => c.id !== contractId);
             const updatedDrafts = [...currentProjectContracts.drafts, newDraft].sort((a, b) => a.id.localeCompare(b.id));
+            
+            toast({
+                title: "İşlem Başarılı",
+                description: `${contractId} numaralı sözleşme taslaklara taşındı. Yeni ID: ${newTenderId}`,
+            });
 
             return {
                 ...prevData,
@@ -344,14 +353,14 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 }
             };
         });
-    }, [selectedProjectId]);
+    }, [selectedProjectId, toast]);
 
     const addDraftTender = useCallback((group: ContractGroupKeys, name: string, subGroup: string) => {
         if (!selectedProjectId) return;
 
         setProjectData(prevData => {
             const allDraftsCount = Object.values(prevData.contracts).flatMap(p => p.drafts).length;
-            const newIdNumber = allDraftsCount + 8; // Keep original logic
+            const newIdNumber = allDraftsCount + 10;
             const newTenderId = `IHALE-${String(newIdNumber).padStart(3, '0')}`;
 
             const newDraft: Contract = {
@@ -483,32 +492,32 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
 
         setProjectData(prev => {
-            const deepClonedHistory = JSON.parse(JSON.stringify(prev.progressPayments[selectedProjectId]?.[contractId] || []));
+            const contractHistory = JSON.parse(JSON.stringify(prev.progressPayments[selectedProjectId]?.[contractId] || []));
             let updatedContractHistory: ProgressPayment[];
 
             if (editingPaymentNumber !== null) {
-                // Editing mode: Map to a new array
-                updatedContractHistory = deepClonedHistory.map((p: ProgressPayment) => 
+                // Editing mode: Use map to create a new array with the updated item
+                updatedContractHistory = contractHistory.map((p: ProgressPayment) => 
                     p.progressPaymentNumber === editingPaymentNumber
                         ? { ...paymentData, progressPaymentNumber: editingPaymentNumber }
                         : p
                 );
             } else {
-                // New entry mode: Create a new array with the new payment
-                const lastPaymentNumber = deepClonedHistory.length > 0 
-                    ? Math.max(...deepClonedHistory.map((p: ProgressPayment) => p.progressPaymentNumber)) 
+                // New entry mode: Get the last payment number and add 1
+                const lastPaymentNumber = contractHistory.length > 0 
+                    ? Math.max(...contractHistory.map((p: ProgressPayment) => p.progressPaymentNumber)) 
                     : 0;
                 const newPaymentNumber = lastPaymentNumber + 1;
                 const newPayment: ProgressPayment = {
                     ...paymentData,
                     progressPaymentNumber: newPaymentNumber,
                 };
-                updatedContractHistory = [...deepClonedHistory, newPayment];
+                // Create a new array with the new payment
+                updatedContractHistory = [...contractHistory, newPayment];
             }
 
             const paymentNumberToSave = editingPaymentNumber ?? updatedContractHistory.at(-1)!.progressPaymentNumber;
 
-            // Update deductions based on the saved payment
             const newProjectDeductions = (prev.deductions[selectedProjectId] || []).map(d => {
                 if (paymentData.appliedDeductionIds.includes(d.id)) {
                     return { ...d, appliedInPaymentNumber: paymentNumberToSave };
@@ -553,6 +562,38 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         });
     }, [selectedProjectId]);
     
+    const deleteProgressPaymentsForContract = useCallback((contractId: string) => {
+        if (!selectedProjectId) return;
+
+        setProjectData(prev => {
+            const clonedData = JSON.parse(JSON.stringify(prev));
+            
+            // Delete progress payments for the contract
+            if (clonedData.progressPayments[selectedProjectId]) {
+                delete clonedData.progressPayments[selectedProjectId][contractId];
+            }
+
+            // Reset appliedInPaymentNumber for related deductions
+            const projectDeductions = (clonedData.deductions[selectedProjectId] || []).map((deduction: Deduction) => {
+                // This is a simplified logic. In a real app you might want to know which payment was deleted to be more specific.
+                // For now, if a deduction belongs to the contract, we reset it.
+                if (deduction.contractId === contractId && deduction.appliedInPaymentNumber !== null) {
+                    return { ...deduction, appliedInPaymentNumber: null };
+                }
+                return deduction;
+            });
+            clonedData.deductions[selectedProjectId] = projectDeductions;
+            
+             toast({
+                title: "Hakediş Geçmişi Silindi",
+                description: `${contractId} sözleşmesine ait tüm hakedişler ve ilgili kesinti bağlantıları kaldırıldı.`,
+            });
+
+            return clonedData;
+        });
+
+    }, [selectedProjectId, toast]);
+
     
     const updateProgressPaymentStatus = useCallback((month: string, contractId: string, status: ProgressPaymentStatus) => {
         if (!selectedProjectId) return;
@@ -595,8 +636,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!isLoaded) return null;
         const project = projects.find(p => p.id === selectedProjectId) || projects[0] || null;
         if (project && project.id !== selectedProjectId) {
-           // This avoids state update during render if the selected ID from storage is invalid
-           // The check in useEffect will handle setting a valid ID.
         }
         return project;
     }, [selectedProjectId, projects, isLoaded]);
@@ -617,6 +656,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         deleteContractItem,
         addDeduction,
         saveProgressPayment,
+        deleteProgressPaymentsForContract,
         updateProgressPaymentStatus,
         getDashboardData,
         getContractsByProject
@@ -636,17 +676,3 @@ export const useProject = (): ProjectContextType => {
     }
     return context;
 };
-
-    
-
-    
-
-
-
-
-    
-
-    
-
-
-

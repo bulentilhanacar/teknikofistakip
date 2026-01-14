@@ -83,7 +83,7 @@ const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, o
     const budget = contract.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
     const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
     const isApproved = contract.status === 'Onaylandı';
-    const actionColSpan = onApprove || onRevert ? 7 : 6;
+    const actionColSpan = 7;
 
     return (
         <Collapsible asChild>
@@ -101,22 +101,20 @@ const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, o
                             <Badge variant={isApproved ? "default" : "secondary"} className="w-28 justify-center">{contract.status}</Badge>
                             <span className="w-28 text-center">{contract.date}</span>
                             <span className="w-32 text-right">{formatCurrency(budget)}</span>
-                            {onApprove && !isApproved && (
-                                <div className="text-right w-28 pl-4">
+                            <div className="w-28 flex justify-end">
+                                {onApprove && !isApproved && (
                                     <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove(contract.id); }}>
                                         <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
                                         Onayla
                                     </Button>
-                                </div>
-                            )}
-                             {onRevert && isApproved && (
-                                <div className="text-right w-28 pl-4">
+                                )}
+                                 {onRevert && isApproved && (
                                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onRevert(contract.id); }}>
                                         <Undo2 className="mr-2 h-4 w-4 text-muted-foreground"/>
                                         Geri Al
                                     </Button>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     </td>
                 </TableRow>
@@ -191,7 +189,7 @@ const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, o
                                                 </TableRow>
                                             ))}
                                             <TableRow className="font-bold bg-muted">
-                                                <TableCell colSpan={!isApproved ? 6 : 5} className="text-right">Toplam Tutar</TableCell>
+                                                <TableCell colSpan={isApproved ? 5 : 6} className="text-right">Toplam Tutar</TableCell>
                                                 <TableCell className="text-right">{formatCurrency(budget)}</TableCell>
                                                 {!isApproved && <TableCell></TableCell>}
                                             </TableRow>

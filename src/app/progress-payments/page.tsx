@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useProject } from '@/context/project-context';
 import { Badge } from '@/components/ui/badge';
-import { Paperclip, Calendar as CalendarIcon, PlusCircle, Trash2 } from 'lucide-react';
+import { Paperclip, Calendar as CalendarIcon, PlusCircle, Trash2, Trash } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProgressPayment, ProgressItem, Deduction, ExtraWorkItem, Contract } from '@/context/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -20,7 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 
 export default function ProgressPaymentsPage() {
-  const { selectedProject, projectData, saveProgressPayment, getContractsByProject } = useProject();
+  const { selectedProject, projectData, saveProgressPayment, getContractsByProject, deleteProgressPaymentsForContract } = useProject();
   
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [editingPaymentNumber, setEditingPaymentNumber] = useState<number | null>(null); // null for new, number for editing
@@ -57,10 +57,10 @@ export default function ProgressPaymentsPage() {
       return contractProgressHistory.find(p => p.progressPaymentNumber === editingPaymentNumber) || null;
   }, [editingPaymentNumber, contractProgressHistory]);
 
-  const previousCumulativeState = useMemo(() => {
-    const historyToConsider = contractProgressHistory.filter(p => 
-        editingPaymentNumber === null ? true : p.progressPaymentNumber < editingPaymentNumber
-    );
+ const previousCumulativeState = useMemo(() => {
+    const historyToConsider = contractProgressHistory
+        .filter(p => editingPaymentNumber === null ? true : p.progressPaymentNumber < editingPaymentNumber)
+        .sort((a, b) => a.progressPaymentNumber - b.progressPaymentNumber);
 
     const lastRelevantPayment = historyToConsider.length > 0 ? historyToConsider[historyToConsider.length - 1] : null;
 
@@ -104,7 +104,6 @@ export default function ProgressPaymentsPage() {
     const loadedItems = contract.items.map((item: any) => {
         const previousCumulativeQuantity = prevQtys[item.poz] || 0;
         
-        // If editing an existing payment, use its quantities. Otherwise (for a new payment), start with the previous quantities.
         const currentItemState = payment?.items.find(pi => pi.id === item.poz);
         const currentCumulativeQuantity = currentItemState?.cumulativeQuantity ?? previousCumulativeQuantity;
         
@@ -125,14 +124,11 @@ export default function ProgressPaymentsPage() {
   }, []);
 
   useEffect(() => {
-    // Reset everything when the project changes
     setSelectedContractId(null);
     setEditingPaymentNumber(null);
   }, [selectedProject]);
 
   useEffect(() => {
-    // This effect runs when contract or editing number changes
-    // It finds the correct previous state and loads the form accordingly.
      if (!selectedContract) {
          loadStateForPayment(null, null, {});
          return;
@@ -143,7 +139,7 @@ export default function ProgressPaymentsPage() {
 
   const handleContractChange = (contractId: string) => {
     setSelectedContractId(contractId);
-    setEditingPaymentNumber(null); // Always default to new payment mode when contract changes
+    setEditingPaymentNumber(null);
   };
   
   const handlePaymentSelectionChange = (paymentNumberStr: string) => {
@@ -153,7 +149,7 @@ export default function ProgressPaymentsPage() {
 
   const handlePercentageChange = (itemId: string, percentageStr: string) => {
     const percentage = parseFloat(percentageStr);
-    if (isNaN(percentage)) { // Handle empty input
+    if (isNaN(percentage)) { 
        setProgressItems(items => items.map(item => item.id === itemId ? { ...item, currentCumulativePercentage: '', currentCumulativeQuantity: item.previousCumulativeQuantity } : item));
        return;
     }
@@ -172,7 +168,7 @@ export default function ProgressPaymentsPage() {
   
     const handleQuantityChange = (itemId: string, quantityStr: string) => {
       const quantity = parseFloat(quantityStr);
-       if (isNaN(quantity)) { // Handle empty input
+       if (isNaN(quantity)) {
             setProgressItems(items => items.map(item => item.id === itemId ? { ...item, currentCumulativePercentage: (item.previousCumulativeQuantity / item.contractQuantity * 100).toFixed(2), currentCumulativeQuantity: item.previousCumulativeQuantity } : item));
             return;
         }
@@ -181,8 +177,8 @@ export default function ProgressPaymentsPage() {
         items.map(item => {
           if (item.id === itemId) {
             const newCumulativeQuantity = quantity;
-            if (newCumulativeQuantity > item.contractQuantity) return item; // Don't allow more than contract quantity
-            if (newCumulativeQuantity < item.previousCumulativeQuantity) return item; // Don't allow less than previous
+            if (newCumulativeQuantity > item.contractQuantity) return item;
+            if (newCumulativeQuantity < item.previousCumulativeQuantity) return item;
 
             const newPercentage = item.contractQuantity > 0 ? ((newCumulativeQuantity / item.contractQuantity) * 100).toFixed(2) : "0.00";
             return { ...item, currentCumulativePercentage: newPercentage, currentCumulativeQuantity: newCumulativeQuantity };
@@ -278,6 +274,12 @@ export default function ProgressPaymentsPage() {
     setEditingPaymentNumber(null);
   };
 
+  const handleDeleteHistory = () => {
+    if (!selectedContractId) return;
+    deleteProgressPaymentsForContract(selectedContractId);
+    setEditingPaymentNumber(null); // Reset form
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
   }
@@ -370,12 +372,36 @@ export default function ProgressPaymentsPage() {
               </>
             )}
           </div>
+           {selectedContractId && contractProgressHistory.length > 0 && (
+                <div className="flex justify-end pt-2">
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm">
+                                <Trash className="mr-2 h-4 w-4" />
+                                Tüm Hakediş Geçmişini Sil
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    `{selectedContractId}` numaralı sözleşmeye ait **tüm hakediş geçmişi** kalıcı olarak silinecektir. Bu işlem geri alınamaz.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>İptal</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteHistory}>Evet, Hepsini Sil</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
+            )}
         </CardContent>
       </Card>
       
       {selectedContractId && (
         <>
-          {contractProgressHistory.length > 0 && editingPaymentNumber === null && (
+          {contractProgressHistory.length > 0 && (
             <Card>
                 <CardHeader>
                     <CardTitle className="text-lg font-semibold">Önceki Hakedişler</CardTitle>
