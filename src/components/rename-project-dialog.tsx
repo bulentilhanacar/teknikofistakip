@@ -26,6 +26,8 @@ export function RenameProjectDialog({ project, onSave, children }: RenameProject
   const [isOpen, setIsOpen] = React.useState(false);
   const [name, setName] = React.useState(project.name);
 
+  // When the dialog opens, reset the name to the current project name.
+  // This is crucial if the user closes and reopens the dialog for different projects.
   React.useEffect(() => {
     if (isOpen) {
       setName(project.name);
