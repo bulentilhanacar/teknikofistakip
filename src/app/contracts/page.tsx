@@ -16,7 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Contract, ContractGroupKeys, ContractItem, contractGroups } from '@/context/types';
-import { useAuth, useCollection, useFirestore } from '@/firebase';
+import { useAuth, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { addDoc, collection, deleteDoc, doc, query, updateDoc, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -376,7 +376,7 @@ export default function ContractsPage() {
     const firestore = useFirestore();
     const { toast } = useToast();
 
-    const contractsQuery = useMemo(() => {
+    const contractsQuery = useMemoFirebase(() => {
         if (!firestore || !selectedProject) return null;
         return query(collection(firestore, 'projects', selectedProject.id, 'contracts'));
     }, [firestore, selectedProject]);

@@ -10,7 +10,7 @@ import type { ProgressPaymentStatus, Contract, ProgressPayment } from '@/context
 import { format, addMonths } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, setDoc, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -36,19 +36,19 @@ export default function ProgressTrackingPage() {
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
   const monthOptions = useMemo(() => getMonthOptions(), []);
 
-  const contractsQuery = useMemo(() => {
+  const contractsQuery = useMemoFirebase(() => {
     if (!firestore || !selectedProject) return null;
     return query(collection(firestore, `projects/${selectedProject.id}/contracts`), where('isDraft', '==', false));
   }, [firestore, selectedProject]);
   const { data: approvedContracts, loading: contractsLoading } = useCollection<Contract>(contractsQuery);
 
-  const paymentsQuery = useMemo(() => {
+  const paymentsQuery = useMemoFirebase(() => {
     if (!firestore || !selectedProject) return null;
     return collection(firestore, `projects/${selectedProject.id}/progressPayments`);
   }, [firestore, selectedProject]);
   const { data: allPayments, loading: paymentsLoading } = useCollection<ProgressPayment>(paymentsQuery);
 
-  const statusesQuery = useMemo(() => {
+  const statusesQuery = useMemoFirebase(() => {
     if (!firestore || !selectedProject || !selectedMonth) return null;
     return query(
         collection(firestore, `projects/${selectedProject.id}/progressStatuses`),
@@ -59,7 +59,7 @@ export default function ProgressTrackingPage() {
   // This query is tricky. Firestore doesn't support substring matches well.
   // A better structure might be projects/{pid}/statuses/{month}/contracts/{cid}
   // For now, we fetch all and filter client side.
-   const allStatusesQuery = useMemo(() => {
+   const allStatusesQuery = useMemoFirebase(() => {
     if (!firestore || !selectedProject) return null;
     return collection(firestore, `projects/${selectedProject.id}/progressStatuses`);
   }, [firestore, selectedProject]);

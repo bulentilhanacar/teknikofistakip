@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Deduction, Contract } from '@/context/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { addDoc, collection, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -38,7 +38,7 @@ export default function DeductionsPage() {
     const [newDeduction, setNewDeduction] = useState(newDeductionInitialState);
     const [date, setDate] = useState<Date | undefined>(new Date());
 
-    const contractsQuery = useMemo(() => {
+    const contractsQuery = useMemoFirebase(() => {
         if (!firestore || !selectedProject) return null;
         return query(
             collection(firestore, 'projects', selectedProject.id, 'contracts'),
@@ -47,7 +47,7 @@ export default function DeductionsPage() {
     }, [firestore, selectedProject]);
     const { data: approvedContracts, loading: contractsLoading } = useCollection<Contract>(contractsQuery);
 
-    const deductionsQuery = useMemo(() => {
+    const deductionsQuery = useMemoFirebase(() => {
         if (!firestore || !selectedProject) return null;
         return collection(firestore, 'projects', selectedProject.id, 'deductions');
     }, [firestore, selectedProject]);

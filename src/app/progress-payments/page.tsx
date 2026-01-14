@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, setDoc, where, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,7 +35,7 @@ export default function ProgressPaymentsPage() {
   const [selectedDeductionIds, setSelectedDeductionIds] = useState<string[]>([]);
   const [progressDate, setProgressDate] = useState<Date | undefined>(new Date());
 
-  const contractsQuery = useMemo(() => {
+  const contractsQuery = useMemoFirebase(() => {
     if (!firestore || !selectedProject) return null;
     return query(collection(firestore, `projects/${selectedProject.id}/contracts`), where('isDraft', '==', false));
   }, [firestore, selectedProject]);
@@ -46,7 +46,7 @@ export default function ProgressPaymentsPage() {
     return approvedContracts.find(c => c.id === selectedContractId) as Contract | null;
   }, [selectedContractId, approvedContracts]);
 
-  const paymentsQuery = useMemo(() => {
+  const paymentsQuery = useMemoFirebase(() => {
     if (!firestore || !selectedProject) return null;
     // We fetch all payments for the project and filter client-side.
     // For larger scale, one might query per contract.
@@ -61,7 +61,7 @@ export default function ProgressPaymentsPage() {
         .sort((a,b) => a.progressPaymentNumber - b.progressPaymentNumber);
   }, [allPayments, selectedContractId]);
 
-  const deductionsQuery = useMemo(() => {
+  const deductionsQuery = useMemoFirebase(() => {
     if (!firestore || !selectedProject) return null;
     return collection(firestore, `projects/${selectedProject.id}/deductions`);
   }, [firestore, selectedProject]);
