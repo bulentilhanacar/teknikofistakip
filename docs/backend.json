@@ -43,7 +43,8 @@
         "name",
         "ilanDate",
         "sonBasvuruDate",
-        "tahminiIhaleTarihi"
+        "tahminiIhaleTarihi",
+        "createdBy"
       ]
     },
     "Sozlesme": {
@@ -174,8 +175,7 @@
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "google.com"
     ]
   },
   "firestore": {
@@ -288,3 +288,4 @@
     "reasoning": "The Firestore structure is designed to manage inşaat (construction) tracking data, focusing on ihale (tenders), contracts, progress payments, and deductions. The structure prioritizes authorization independence, clarity, and security. Each entity is organized under a user-specific collection to ensure that only the creating user has access to the base level of the data.\n\nAuthorization Independence is achieved by storing the `createdBy` (user ID) in the Ihale documents. This allows security rules to validate access based on the document's content rather than relying on parent document lookups. Further children such as Sozlesme, Hakedis, and Kesinti inherit implicit ownership from the Ihale they belong to.\n\nThe structure supports the required QAPs (Rules are not Filters) by using path-based ownership for private user data. Segregation is used to separate data based on ownership, avoiding the need for complex filtering in rules. The use of user-specific collections (`/users/{userId}/ihales/{ihaleId}`) naturally restricts list operations to only the data owned by the authenticated user."
   }
 }
+    
