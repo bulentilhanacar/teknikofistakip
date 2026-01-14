@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -26,7 +27,11 @@ import { FileClock, Gavel, FileSignature, LogIn } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useProject } from "@/context/project-context";
 import { useMemo } from "react";
-import { useUser } from "@/firebase";
+import { useAuth, useUser } from "@/firebase";
+import { Button } from "@/components/ui/button";
+import { signInWithPopup } from 'firebase/auth';
+import { googleProvider } from "@/firebase/provider";
+
 
 const chartConfig = {
   income: {
@@ -44,6 +49,17 @@ const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const { selectedProject } = useProject();
+  const auth = useAuth();
+
+  const handleGoogleSignIn = async () => {
+    if (auth) {
+      try {
+        await signInWithPopup(auth, googleProvider);
+      } catch (error) {
+        console.error("Google ile giriş hatası", error);
+      }
+    }
+  };
   
   // const data = useMemo(() => {
   //   return getDashboardData();
@@ -70,12 +86,15 @@ export default function Home() {
       <Card>
           <CardHeader>
               <CardTitle className="font-headline">Hoş Geldiniz!</CardTitle>
+              <CardDescription>Projelerinizi yönetmeye başlamak için lütfen giriş yapın.</CardDescription>
           </CardHeader>
           <CardContent>
-              <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground">
-                  <LogIn className="w-12 h-12 mb-4" />
-                  <p>Uygulama oturumu başlatılıyor...</p>
-                  <p className="text-xs mt-2">Lütfen bekleyin.</p>
+              <div className="flex flex-col items-center justify-center h-48 text-center">
+                  <LogIn className="w-12 h-12 mb-4 text-muted-foreground" />
+                  <Button onClick={handleGoogleSignIn}>
+                    Google ile Giriş Yap
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-4">Verileriniz Google hesabınızla güvenli bir şekilde saklanır.</p>
               </div>
           </CardContent>
       </Card>

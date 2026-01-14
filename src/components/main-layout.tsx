@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -11,11 +12,11 @@ import {
   FolderKanban,
   ChevronsUpDown,
   Gavel,
-  MoreHorizontal,
   Edit,
   Trash,
   ClipboardList,
   PlusCircle,
+  LogOut,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -42,12 +43,19 @@ import { Button } from "./ui/button";
 import { useProject } from "@/context/project-context";
 import { Skeleton } from "./ui/skeleton";
 import { useUser, useAuth } from "@/firebase";
-import { signInAnonymously } from "firebase/auth";
 import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 import { Project } from "@/context/types";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
+const projectMenuItems = [
+  { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
+  { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
+  { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
+  { href: "/progress-tracking", label: "Hakediş Takip", icon: ClipboardList },
+  { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
+];
 
 function ProjectSelector() {
   const { projects, selectedProject, selectProject, deleteProject, updateProjectName } = useProject();
@@ -59,9 +67,9 @@ function ProjectSelector() {
     setEditingName(project.name);
   };
 
-  const handleSaveRename = async () => {
+  const handleSaveRename = () => {
     if (editingProject && editingName.trim()) {
-      await updateProjectName(editingProject.id, editingName.trim());
+      updateProjectName(editingProject.id, editingName.trim());
       setEditingProject(null);
     }
   };
@@ -118,7 +126,7 @@ function ProjectSelector() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>İptal</AlertDialogCancel>
-                            <AlertDialogAction onClick={async () => await deleteProject(selectedProject.id)}>Evet, Sil</AlertDialogAction>
+                            <AlertDialogAction onClick={() => deleteProject(selectedProject.id)}>Evet, Sil</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                  </AlertDialog>
@@ -139,13 +147,6 @@ function ProjectSelector() {
   );
 }
 
-const projectMenuItems = [
-  { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
-  { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
-  { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
-  { href: "/progress-tracking", label: "Hakediş Takip", icon: ClipboardList },
-  { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
-];
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -156,12 +157,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     setIsClient(true);
-    if (auth && !user && !isUserLoading) {
-        signInAnonymously(auth).catch((error) => {
-            console.error("Anonymous sign-in failed", error);
-        });
+  }, []);
+
+  const handleSignOut = () => {
+    if (auth) {
+      auth.signOut();
     }
-  }, [auth, user, isUserLoading]);
+  };
 
   return (
     <SidebarProvider>
@@ -181,7 +183,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               <ProjectSelector />
               <SidebarSeparator className="my-1"/>
               <div className="p-2 pt-0">
-                <AddProjectDialog />
+                <AddProjectDialog>
+                  <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+                    <PlusCircle className="mr-2" />
+                    <span className="group-data-[collapsible=icon]:hidden">Yeni Proje Ekle</span>
+                  </Button>
+                </AddProjectDialog>
               </div>
             </>
           )}
@@ -215,7 +222,29 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           )}
         </SidebarContent>
         <SidebarFooter>
-            {/* AuthStatus is removed to simplify UI for anonymous login */}
+          {user && (
+            <div className="p-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+                      <Avatar className="h-8 w-8 mr-2 group-data-[collapsible=icon]:mr-0">
+                          <AvatarImage src={user.photoURL || ''} alt={user.displayName || 'Kullanıcı'} />
+                          <AvatarFallback>{user.displayName?.charAt(0) || 'K'}</AvatarFallback>
+                      </Avatar>
+                      <span className="truncate group-data-[collapsible=icon]:hidden">{user.displayName || 'Kullanıcı'}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[var(--sidebar-width)] mb-2 -translate-x-2">
+                    <DropdownMenuLabel>Hesabım</DropdownMenuLabel>
+                    <DropdownMenuSeparator/>
+                    <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="mr-2 h-4 w-4"/>
+                        <span>Çıkış Yap</span>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
