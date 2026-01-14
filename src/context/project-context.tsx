@@ -4,7 +4,7 @@ import React, { createContext, useState, useContext, useMemo, useEffect, useCall
 import { Contract, ContractGroupKeys, ContractItem, Deduction, ProgressPayment, ExtraWorkItem, ProgressPaymentStatus, Project } from './types';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useCollection, useDoc, useFirestore, useAuth, errorEmitter } from '@/firebase';
+import { useUser, useCollection, useDoc, useFirestore, useAuth, errorEmitter, useMemoFirebase } from '@/firebase';
 import { addDoc, collection, deleteDoc, doc, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -43,7 +43,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => getInitialState('selectedProjectId', null));
 
-    const projectsQuery = useMemo(() => {
+    const projectsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
     }, [firestore, user]);
