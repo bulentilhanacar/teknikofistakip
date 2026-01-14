@@ -45,7 +45,7 @@ import { SiteHeader } from "./site-header";
 import { Button } from "./ui/button";
 import { useProject } from "@/context/project-context";
 import { Skeleton } from "./ui/skeleton";
-import { useFirestore, useUser } from "@/firebase";
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 import { Project } from "@/context/types";
@@ -168,29 +168,39 @@ function ProjectSelector() {
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { selectedProject, setProjects } = useProject();
+  const { setProjects } = useProject();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
   React.useEffect(() => {
-    const fetchProjects = async () => {
-        if (firestore && user) {
-            try {
-                const q = query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
-                const querySnapshot = await getDocs(q);
+    const fetchProjects = () => {
+        // Ensure we only fetch when we have a definite user (not loading)
+        if (firestore && user && !isUserLoading) {
+            const q = query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
+            
+            getDocs(q).then(querySnapshot => {
                 const userProjects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
                 setProjects(userProjects);
-            } catch (error) {
-                console.error("Error fetching projects:", error);
-                setProjects([]); // Set to empty array on error to stop loading
-            }
-        } else if (!isUserLoading) {
-            setProjects(null); // Clear projects if user logs out
+            }).catch(error => {
+                // Emit a detailed, contextual error for better debugging.
+                const permissionError = new FirestorePermissionError({
+                  path: 'projects', // The path that was queried
+                  operation: 'list',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                console.error("Original error fetching projects:", error); // Also log original error
+                setProjects([]); // Set to empty on error to unblock UI
+            });
+        } else if (!isUserLoading && !user) {
+            // If loading is finished and there's no user, clear projects
+            setProjects(null);
         }
     };
 
     fetchProjects();
   }, [user, firestore, setProjects, isUserLoading]);
+
+  const selectedProject = useProject().selectedProject;
 
   return (
     <SidebarProvider>
