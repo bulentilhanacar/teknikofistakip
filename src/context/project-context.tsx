@@ -445,7 +445,11 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 contractHistory.push(newPayment);
             }
     
-            const newProjectHistory = { ...(prev.progressPayments[selectedProjectId] || {}), [contractId]: contractHistory };
+            const projectPayments = prev.progressPayments[selectedProjectId] || {};
+            const updatedProjectPayments = {
+                ...projectPayments,
+                [contractId]: contractHistory,
+            };
             
             const newProjectDeductions = (prev.deductions[selectedProjectId] || []).map(d => {
                 if (paymentData.appliedDeductionIds.includes(d.id)) {
@@ -469,7 +473,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     
             return {
                 ...prev,
-                progressPayments: { ...prev.progressPayments, [selectedProjectId]: newProjectHistory },
+                progressPayments: { ...prev.progressPayments, [selectedProjectId]: updatedProjectPayments },
                 deductions: { ...prev.deductions, [selectedProjectId]: newProjectDeductions },
                 progressStatuses: { ...prev.progressStatuses, [selectedProjectId]: newProgressStatuses }
             };
