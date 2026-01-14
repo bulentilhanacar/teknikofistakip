@@ -424,14 +424,13 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         setProjectData(prev => {
             const contractHistory = [...(prev.progressPayments[selectedProjectId]?.[contractId] || [])];
     
+            // Editing an existing payment
             if (editingPaymentNumber !== null) {
-                // Editing an existing payment
                 const paymentIndex = contractHistory.findIndex(p => p.progressPaymentNumber === editingPaymentNumber);
-                if (paymentIndex !== -1) {
-                    contractHistory[paymentIndex] = { ...paymentData, progressPaymentNumber: editingPaymentNumber };
+                if (paymentIndex > -1) {
+                    contractHistory.splice(paymentIndex, 1, { ...paymentData, progressPaymentNumber: editingPaymentNumber });
                 }
-            } else {
-                // Creating a new payment
+            } else { // Creating a new payment
                 const lastPaymentNumber = contractHistory.length > 0 ? contractHistory[contractHistory.length - 1].progressPaymentNumber : 0;
                 const newPaymentNumber = lastPaymentNumber + 1;
                 const newPayment: ProgressPayment = {
@@ -566,5 +565,7 @@ export const useProject = (): ProjectContextType => {
 
 
 
+
+    
 
     
