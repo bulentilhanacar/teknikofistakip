@@ -153,8 +153,6 @@ function ProjectSelector() {
                     </DropdownMenu>
                 </DropdownMenuItem>
                 ))}
-                <DropdownMenuSeparator />
-                <AddProjectDialog />
             </DropdownMenuContent>
         </DropdownMenu>
         
@@ -194,12 +192,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           {isClient && !isUserLoading && user && (
-            <div className="p-2">
+            <div className="p-2 space-y-1">
               <ProjectSelector />
+              <AddProjectDialog />
             </div>
           )}
            {isClient && isUserLoading && (
              <div className="p-2 space-y-2">
+                <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
              </div>
            )}

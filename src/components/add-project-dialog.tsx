@@ -14,7 +14,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useProject } from '@/context/project-context';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { PlusCircle } from 'lucide-react';
 
 export function AddProjectDialog() {
@@ -39,10 +38,10 @@ export function AddProjectDialog() {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            <span>Yeni Proje Ekle</span>
-        </DropdownMenuItem>
+        <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+            <PlusCircle className="mr-2" />
+            <span className="group-data-[collapsible=icon]:hidden">Yeni Proje Ekle</span>
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
