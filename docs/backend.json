@@ -1,172 +1,290 @@
 {
   "entities": {
-    "UserProfile": {
-      "title": "User Profile",
-      "description": "Represents a user's profile information.",
+    "Ihale": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Ihale",
       "type": "object",
+      "description": "Represents an ihale (tender) in the inşaat takip (construction tracking) application.",
       "properties": {
-        "displayName": {
+        "id": {
           "type": "string",
-          "description": "The user's display name."
+          "description": "Unique identifier for the Ihale entity."
         },
-        "email": {
-          "type": "string",
-          "description": "The user's email address."
-        },
-        "photoURL": {
-          "type": "string",
-          "description": "URL of the user's profile picture."
-        }
-      },
-      "required": ["displayName", "email"]
-    },
-    "Project": {
-      "title": "Project",
-      "description": "Represents a construction project.",
-      "type": "object",
-      "properties": {
         "name": {
           "type": "string",
-          "description": "The name of the project."
+          "description": "Name of the ihale (tender)."
         },
-        "ownerId": {
+        "description": {
           "type": "string",
-          "description": "The UID of the user who owns the project."
+          "description": "Description of the ihale."
+        },
+        "ilanDate": {
+          "type": "string",
+          "description": "Date when the ihale was announced.",
+          "format": "date-time"
+        },
+        "sonBasvuruDate": {
+          "type": "string",
+          "description": "Last date for application to the ihale.",
+          "format": "date-time"
+        },
+        "tahminiIhaleTarihi": {
+          "type": "string",
+          "description": "Estimated date of the ihale.",
+          "format": "date-time"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The user who created this ihale entry."
         }
       },
-      "required": ["name", "ownerId"]
+      "required": [
+        "id",
+        "name",
+        "ilanDate",
+        "sonBasvuruDate",
+        "tahminiIhaleTarihi"
+      ]
     },
-    "ContractItem": {
-        "title": "Contract Item",
-        "description": "An individual item within a contract.",
-        "type": "object",
-        "properties": {
-            "poz": { "type": "string" },
-            "description": { "type": "string" },
-            "unit": { "type": "string" },
-            "quantity": { "type": "number" },
-            "unitPrice": { "type": "number" }
+    "Sozlesme": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Sozlesme",
+      "type": "object",
+      "description": "Represents a contract (sözleşme) in the inşaat takip application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Sozlesme entity."
         },
-        "required": ["poz", "description", "unit", "quantity", "unitPrice"]
+        "ihaleId": {
+          "type": "string",
+          "description": "Reference to Ihale. (Relationship: Ihale 1:N Sozlesme)"
+        },
+        "sozlesmeAdi": {
+          "type": "string",
+          "description": "Name of the contract."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Start date of the contract.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "End date of the contract.",
+          "format": "date-time"
+        },
+        "taraf1": {
+          "type": "string",
+          "description": "Party 1 of the contract."
+        },
+        "taraf2": {
+          "type": "string",
+          "description": "Party 2 of the contract."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the contract."
+        }
+      },
+      "required": [
+        "id",
+        "ihaleId",
+        "sozlesmeAdi",
+        "startDate",
+        "endDate",
+        "taraf1",
+        "taraf2"
+      ]
     },
-    "Contract": {
-        "title": "Contract",
-        "description": "Represents a contract or tender.",
-        "type": "object",
-        "properties": {
-            "name": { "type": "string" },
-            "group": { "type": "string" },
-            "subGroup": { "type": "string" },
-            "status": { "type": "string" },
-            "date": { "type": "string" },
-            "items": {
-                "type": "array",
-                "items": { "$ref": "#/entities/ContractItem" }
-            },
-            "isDraft": {"type": "boolean"}
+    "Hakedis": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Hakedis",
+      "type": "object",
+      "description": "Represents a progress payment (hakediş) in the inşaat takip application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Hakedis entity."
         },
-        "required": ["name", "group", "subGroup", "status", "date", "items", "isDraft"]
+        "sozlesmeId": {
+          "type": "string",
+          "description": "Reference to Sozlesme. (Relationship: Sozlesme 1:N Hakedis)"
+        },
+        "hakedisNo": {
+          "type": "number",
+          "description": "Hakedis number."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date of the hakedis.",
+          "format": "date-time"
+        },
+        "tutar": {
+          "type": "number",
+          "description": "Amount of the hakedis."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the hakedis."
+        }
+      },
+      "required": [
+        "id",
+        "sozlesmeId",
+        "hakedisNo",
+        "date",
+        "tutar"
+      ]
     },
-    "ProgressItem": {
-        "title": "Progress Item",
-        "description": "Tracks the progress of a single contract item in a payment.",
-        "type": "object",
-        "properties": {
-            "id": { "type": "string" },
-            "cumulativeQuantity": { "type": "number" }
+    "Kesinti": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Kesinti",
+      "type": "object",
+      "description": "Represents a deduction (kesinti) in the inşaat takip application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Kesinti entity."
         },
-        "required": ["id", "cumulativeQuantity"]
-    },
-    "ExtraWorkItem": {
-        "title": "Extra Work Item",
-        "description": "Represents work done outside the original contract scope.",
-        "type": "object",
-        "properties": {
-            "id": { "type": "string" },
-            "description": { "type": "string" },
-            "unit": { "type": "string" },
-            "quantity": { "type": "number" },
-            "unitPrice": { "type": "number" }
+        "hakedisId": {
+          "type": "string",
+          "description": "Reference to Hakedis. (Relationship: Hakedis 1:N Kesinti)"
         },
-        "required": ["id", "description", "unit", "quantity", "unitPrice"]
-    },
-    "ProgressPayment": {
-        "title": "Progress Payment",
-        "description": "Represents a single progress payment (hakediş).",
-        "type": "object",
-        "properties": {
-            "progressPaymentNumber": { "type": "number" },
-            "date": { "type": "string" },
-            "totalAmount": { "type": "number" },
-            "items": {
-                "type": "array",
-                "items": { "$ref": "#/entities/ProgressItem" }
-            },
-            "extraWorkItems": {
-                "type": "array",
-                "items": { "$ref": "#/entities/ExtraWorkItem" }
-            },
-            "appliedDeductionIds": {
-                "type": "array",
-                "items": { "type": "string" }
-            }
+        "kesintiAdi": {
+          "type": "string",
+          "description": "Name of the deduction."
         },
-        "required": ["progressPaymentNumber", "date", "totalAmount", "items", "appliedDeductionIds"]
-    },
-    "Deduction": {
-        "title": "Deduction",
-        "description": "Represents a deduction to be applied to a progress payment.",
-        "type": "object",
-        "properties": {
-            "contractId": { "type": "string" },
-            "type": { "type": "string", "enum": ["muhasebe", "tutanakli"] },
-            "date": { "type": "string" },
-            "amount": { "type": "number" },
-            "description": { "type": "string" },
-            "appliedInPaymentNumber": { "type": ["number", "null"] }
+        "tutar": {
+          "type": "number",
+          "description": "Amount of the deduction."
         },
-        "required": ["contractId", "type", "date", "amount", "description"]
-    },
-    "ProgressStatus": {
-        "title": "Progress Status",
-        "description": "Monthly status of a contract's progress payment.",
-        "type": "object",
-        "properties": {
-           "status": {
-                "type": "string",
-                "enum": ["yok", "sahada", "imzada", "onayda", "pas_gec"]
-           }
-        },
-        "required": ["status"]
+        "description": {
+          "type": "string",
+          "description": "Description of the deduction."
+        }
+      },
+      "required": [
+        "id",
+        "hakedisId",
+        "kesintiAdi",
+        "tutar"
+      ]
     }
   },
   "auth": {
-    "providers": ["google.com"]
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": { "$ref": "#/entities/UserProfile" },
-      "description": "Stores public information about a user."
-    },
-    "/projects/{projectId}": {
-        "schema": { "$ref": "#/entities/Project" },
-        "description": "Top-level collection for projects. Each project is owned by a user."
-    },
-    "/projects/{projectId}/contracts/{contractId}": {
-        "schema": { "$ref": "#/entities/Contract" },
-        "description": "Stores draft and approved contracts for a specific project."
-    },
-    "/projects/{projectId}/deductions/{deductionId}": {
-        "schema": { "$ref": "#/entities/Deduction" },
-        "description": "Stores all deductions related to a specific project."
-    },
-    "/projects/{projectId}/progressPayments/{paymentId}": {
-        "schema": { "$ref": "#/entities/ProgressPayment" },
-        "description": "Stores all progress payments for all contracts within a project. The document ID can be a composite key like '{contractId}_{progressPaymentNumber}'."
-    },
-    "/projects/{projectId}/progressStatuses/{statusId}": {
-        "schema": { "$ref": "#/entities/ProgressStatus" },
-        "description": "Stores the monthly progress status for each contract. The document ID is a composite key like '{month}_{contractId}'."
-    }
+    "structure": [
+      {
+        "path": "/users/{userId}/ihales/{ihaleId}",
+        "definition": {
+          "entityName": "Ihale",
+          "schema": {
+            "$ref": "#/backend/entities/Ihale"
+          },
+          "description": "Stores ihale (tender) information. Includes 'createdBy' field (user ID) for authorization independence. This collection uses path-based ownership ensuring that only the user with the matching {userId} can access the data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who created the ihale."
+            },
+            {
+              "name": "ihaleId",
+              "description": "The unique ID of the ihale (tender)."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/ihales/{ihaleId}/sozlesmes/{sozlesmeId}",
+        "definition": {
+          "entityName": "Sozlesme",
+          "schema": {
+            "$ref": "#/backend/entities/Sozlesme"
+          },
+          "description": "Stores contract (sözleşme) information related to a specific ihale. This collection uses hierarchical paths to inherit ownership from the parent Ihale document. The user in {userId} implicitly owns this data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the parent ihale."
+            },
+            {
+              "name": "ihaleId",
+              "description": "The ID of the parent ihale."
+            },
+            {
+              "name": "sozlesmeId",
+              "description": "The unique ID of the contract (sözleşme)."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/ihales/{ihaleId}/sozlesmes/{sozlesmeId}/hakedisler/{hakedisId}",
+        "definition": {
+          "entityName": "Hakedis",
+          "schema": {
+            "$ref": "#/backend/entities/Hakedis"
+          },
+          "description": "Stores progress payment (hakediş) information related to a specific contract. This collection uses hierarchical paths to inherit ownership from the parent Sozlesme and Ihale documents. The user in {userId} implicitly owns this data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the parent ihale."
+            },
+            {
+              "name": "ihaleId",
+              "description": "The ID of the parent ihale."
+            },
+            {
+              "name": "sozlesmeId",
+              "description": "The ID of the parent contract (sözleşme)."
+            },
+            {
+              "name": "hakedisId",
+              "description": "The unique ID of the progress payment (hakediş)."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/ihales/{ihaleId}/sozlesmes/{sozlesmeId}/hakedisler/{hakedisId}/kesintiler/{kesintiId}",
+        "definition": {
+          "entityName": "Kesinti",
+          "schema": {
+            "$ref": "#/backend/entities/Kesinti"
+          },
+          "description": "Stores deduction (kesinti) information related to a specific progress payment. This collection uses hierarchical paths to inherit ownership from the parent Hakedis, Sozlesme, and Ihale documents. The user in {userId} implicitly owns this data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the parent ihale."
+            },
+            {
+              "name": "ihaleId",
+              "description": "The ID of the parent ihale."
+            },
+            {
+              "name": "sozlesmeId",
+              "description": "The ID of the parent contract (sözleşme)."
+            },
+            {
+              "name": "hakedisId",
+              "description": "The ID of the parent progress payment (hakediş)."
+            },
+            {
+              "name": "kesintiId",
+              "description": "The unique ID of the deduction (kesinti)."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to manage inşaat (construction) tracking data, focusing on ihale (tenders), contracts, progress payments, and deductions. The structure prioritizes authorization independence, clarity, and security. Each entity is organized under a user-specific collection to ensure that only the creating user has access to the base level of the data.\n\nAuthorization Independence is achieved by storing the `createdBy` (user ID) in the Ihale documents. This allows security rules to validate access based on the document's content rather than relying on parent document lookups. Further children such as Sozlesme, Hakedis, and Kesinti inherit implicit ownership from the Ihale they belong to.\n\nThe structure supports the required QAPs (Rules are not Filters) by using path-based ownership for private user data. Segregation is used to separate data based on ownership, avoiding the need for complex filtering in rules. The use of user-specific collections (`/users/{userId}/ihales/{ihaleId}`) naturally restricts list operations to only the data owned by the authenticated user."
   }
 }
