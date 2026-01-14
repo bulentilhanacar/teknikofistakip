@@ -74,8 +74,8 @@ export default function Home() {
           <CardContent>
               <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground">
                   <LogIn className="w-12 h-12 mb-4" />
-                  <p>Uygulamayı kullanmak için lütfen giriş yapın.</p>
-                  <p className="text-xs mt-2">Sol alttaki menüden Google hesabınızla giriş yapabilirsiniz.</p>
+                  <p>Uygulamayı kullanmak için kullanıcı oturumu açılıyor...</p>
+                  <p className="text-xs mt-2">Lütfen bekleyin.</p>
               </div>
           </CardContent>
       </Card>
@@ -217,3 +217,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

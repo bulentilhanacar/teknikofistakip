@@ -16,7 +16,7 @@ import {
   Edit,
   Trash,
   ClipboardList,
-  LogIn,
+  User,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -48,7 +48,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useUser, useAuth } from "@/firebase";
-import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { signInAnonymously } from "firebase/auth";
 
 const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
@@ -206,28 +206,17 @@ function ProjectSelector() {
   );
 }
 
-function AuthButton() {
+function AuthStatus() {
     const auth = useAuth();
     const { user, loading } = useUser();
 
-    const handleSignIn = async () => {
-        if (!auth) return;
-        const provider = new GoogleAuthProvider();
-        try {
-            await signInWithPopup(auth, provider);
-        } catch (error) {
-            console.error("Error signing in with Google", error);
+    React.useEffect(() => {
+        if (auth && !user && !loading) {
+            signInAnonymously(auth).catch((error) => {
+                console.error("Error signing in anonymously", error);
+            });
         }
-    };
-
-    const handleSignOut = async () => {
-        if (!auth) return;
-        try {
-            await signOut(auth);
-        } catch (error) {
-            console.error("Error signing out", error);
-        }
-    };
+    }, [auth, user, loading]);
     
     if (loading) {
       return <Skeleton className="h-10 w-full" />
@@ -235,45 +224,28 @@ function AuthButton() {
 
     if (!user) {
         return (
-            <Button onClick={handleSignIn} className="w-full justify-start">
-                <LogIn className="mr-2 h-4 w-4" />
-                Google ile Giriş Yap
-            </Button>
+             <div className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                 <div className="flex flex-col gap-1">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-3 w-28" />
+                </div>
+            </div>
         );
     }
-    
-    const userAvatar = user.photoURL;
 
     return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <button className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2">
-                    <Avatar className="h-8 w-8">
-                        {userAvatar && (
-                            <AvatarImage
-                                src={userAvatar}
-                                alt={user.displayName || 'User Avatar'}
-                            />
-                        )}
-                        <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col truncate">
-                        <span className="font-semibold">{user.displayName || 'Kullanıcı'}</span>
-                        <span className="text-xs text-sidebar-foreground/70">
-                            {user.email}
-                        </span>
-                    </div>
-                </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-56">
-                <DropdownMenuLabel>Hesabım</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>Profil</DropdownMenuItem>
-                <DropdownMenuItem>Ayarlar</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>Çıkış Yap</DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm">
+            <Avatar className="h-8 w-8">
+                <AvatarFallback><User/></AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col truncate">
+                <span className="font-semibold">Anonim Kullanıcı</span>
+                <span className="text-xs text-sidebar-foreground/70" title={user.uid}>
+                    {user.uid.substring(0, 15)}...
+                </span>
+            </div>
+        </div>
     )
 }
 
@@ -330,7 +302,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           )}
         </SidebarContent>
         <SidebarFooter>
-            {isClient ? <AuthButton /> : <Skeleton className="h-12 w-full" />}
+            {isClient ? <AuthStatus /> : <Skeleton className="h-12 w-full" />}
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
@@ -340,3 +312,5 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    
