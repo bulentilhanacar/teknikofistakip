@@ -491,13 +491,13 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!selectedProjectId) return;
 
         setProjectData(prev => {
-            const contractHistory = JSON.parse(JSON.stringify(prev.progressPayments[selectedProjectId]?.[contractId] || []));
+            const contractHistory: ProgressPayment[] = JSON.parse(JSON.stringify(prev.progressPayments[selectedProjectId]?.[contractId] || []));
             
             let updatedContractHistory: ProgressPayment[];
 
             if (editingPaymentNumber !== null) {
                 // Editing existing payment
-                updatedContractHistory = contractHistory.map((p: ProgressPayment) => 
+                updatedContractHistory = contractHistory.map(p => 
                     p.progressPaymentNumber === editingPaymentNumber
                         ? { ...paymentData, progressPaymentNumber: editingPaymentNumber }
                         : p
@@ -505,7 +505,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             } else {
                 // Creating new payment
                 const lastPaymentNumber = contractHistory.length > 0 
-                    ? Math.max(...contractHistory.map((p: ProgressPayment) => p.progressPaymentNumber)) 
+                    ? Math.max(...contractHistory.map(p => p.progressPaymentNumber)) 
                     : 0;
                 const newPaymentNumber = lastPaymentNumber + 1;
                 const newPayment: ProgressPayment = {
