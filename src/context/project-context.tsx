@@ -52,12 +52,18 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
     const selectedProject = useMemo(() => {
         if (projectsLoading || !projects) return null;
+        if (selectedProjectId === null && projects.length > 0) {
+            const firstProjectId = projects[0].id;
+            setSelectedProjectId(firstProjectId);
+            return projects[0];
+        }
         const project = projects.find(p => p.id === selectedProjectId);
         if (project) {
             return project;
         }
         if (projects.length > 0) {
-            setSelectedProjectId(projects[0].id);
+            const firstProjectId = projects[0].id;
+            setSelectedProjectId(firstProjectId);
             return projects[0];
         }
         return null;
@@ -83,7 +89,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 ownerId: user.uid,
             };
             const newProjectRef = await addDoc(collection(firestore, "projects"), newProjectData);
-            setSelectedProjectId(newProjectRef.id);
+            // Don't select project immediately, let useCollection update the list
+            // setSelectedProjectId(newProjectRef.id);
             toast({ title: "Proje oluşturuldu!" });
         } catch (err) {
             const permissionError = new FirestorePermissionError({ path: '/projects', operation: 'create', requestResourceData: { name: projectName } });
@@ -91,7 +98,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         }
     }, [firestore, user, toast]);
     
-    const updateProjectName = useCallback((projectId: string, newName: string) => {
+    const updateProjectName = (projectId: string, newName: string) => {
         if (!firestore) return;
         const projectRef = doc(firestore, "projects", projectId);
         updateDoc(projectRef, { name: newName })
@@ -102,24 +109,29 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 const permissionError = new FirestorePermissionError({ path: `/projects/${projectId}`, operation: 'update', requestResourceData: { name: newName } });
                 errorEmitter.emit('permission-error', permissionError);
             });
-    }, [firestore, toast]);
+    };
 
     const deleteProject = useCallback(async (projectId: string) => {
         if (!firestore) return;
+        
+        const nextSelectedId = projects && projects.length > 1 
+            ? (projects.find(p => p.id !== projectId)?.[0]?.id ?? null) 
+            : null;
+        
+        selectProject(nextSelectedId);
+
         const projectRef = doc(firestore, "projects", projectId);
         deleteDoc(projectRef)
             .then(() => {
-                if (selectedProjectId === projectId) {
-                    const remainingProjects = projects?.filter(p => p.id !== projectId);
-                    setSelectedProjectId(remainingProjects && remainingProjects.length > 0 ? remainingProjects[0].id : null);
-                }
                 toast({ title: "Proje silindi." });
             })
             .catch(err => {
+                // If deletion fails, revert selection
+                selectProject(projectId);
                 const permissionError = new FirestorePermissionError({ path: projectRef.path, operation: 'delete' });
                 errorEmitter.emit('permission-error', permissionError);
             });
-    }, [firestore, toast, selectedProjectId, projects]);
+    }, [firestore, toast, projects]);
     
     const updateDraftContractName = useCallback(async (contractId: string, newName: string) => {
          if (!firestore || !selectedProject) return;

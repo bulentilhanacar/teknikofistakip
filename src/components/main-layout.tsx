@@ -15,6 +15,7 @@ import {
   Edit,
   Trash,
   ClipboardList,
+  PlusCircle,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -26,6 +27,7 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarInset,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -44,6 +46,7 @@ import { signInAnonymously } from "firebase/auth";
 import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 import { Project } from "@/context/types";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
 const projectMenuItems = [
@@ -57,20 +60,7 @@ const projectMenuItems = [
 
 function ProjectSelector() {
   const { projects, selectedProject, selectProject, deleteProject, updateProjectName } = useProject();
-  const [editingProject, setEditingProject] = React.useState<Project | null>(null);
-  const [editingName, setEditingName] = React.useState("");
-
-  const handleRenameClick = (project: Project) => {
-    setEditingProject(project);
-    setEditingName(project.name);
-  };
-  
-  const handleSaveRename = () => {
-    if (editingProject && editingName.trim()) {
-      updateProjectName(editingProject.id, editingName.trim());
-      setEditingProject(null);
-    }
-  };
+  const [isRenameOpen, setIsRenameOpen] = React.useState(false);
 
   if (!projects) {
      return <Skeleton className="h-10 w-full" />
@@ -95,38 +85,49 @@ function ProjectSelector() {
                 <DropdownMenuLabel>Projeler</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {projects.map((project) => (
-                    <DropdownMenuItem key={project.id} onSelect={(e) => e.preventDefault()} className="group/item flex justify-between items-center pr-1">
-                        <button className="flex-1 text-left" onClick={() => selectProject(project.id)}>
+                    <DropdownMenuItem key={project.id} onSelect={() => selectProject(project.id)}>
                         {project.name}
-                        </button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-6 w-6 p-0 opacity-0 group-hover/item:opacity-100 data-[state=open]:opacity-100">
-                                    <MoreHorizontal className="h-4 w-4"/>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent side="right" align="start">
-                                <DropdownMenuItem onSelect={() => handleRenameClick(project)}>
-                                    <Edit className="mr-2 h-4 w-4"/>
-                                    <span>Yeniden Adlandır</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => deleteProject(project.id)} className="text-destructive">
-                                    <Trash className="mr-2 h-4 w-4"/>
-                                    <span>Sil</span>
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
                     </DropdownMenuItem>
                 ))}
             </DropdownMenuContent>
         </DropdownMenu>
-        <RenameProjectDialog
-            isOpen={!!editingProject}
-            onOpenChange={(isOpen) => !isOpen && setEditingProject(null)}
-            name={editingName}
-            setName={setEditingName}
-            onSave={handleSaveRename}
-        />
+
+        {selectedProject && (
+            <div className="mt-2 space-y-1 group-data-[collapsible=icon]:hidden">
+                 <RenameProjectDialog 
+                    project={selectedProject}
+                    onSave={updateProjectName}
+                    isOpen={isRenameOpen}
+                    onOpenChange={setIsRenameOpen}
+                 >
+                    <Button variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground/80 hover:text-sidebar-foreground">
+                        <Edit className="mr-2" />
+                        <span>Yeniden Adlandır</span>
+                    </Button>
+                 </RenameProjectDialog>
+
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="w-full justify-start text-destructive/80 hover:text-destructive">
+                            <Trash className="mr-2"/>
+                            <span>Proje Sil</span>
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                "{selectedProject.name}" projesini ve tüm verilerini kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>İptal</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteProject(selectedProject.id)}>Evet, Sil</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                 </AlertDialog>
+            </div>
+        )}
     </>
   );
 }
@@ -164,6 +165,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           {isClient && !isUserLoading && user && (
             <div className="p-2 space-y-1">
               <ProjectSelector />
+              <SidebarSeparator className="my-2"/>
               <AddProjectDialog />
             </div>
           )}

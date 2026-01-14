@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -9,29 +9,42 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Project } from '@/context/types';
 
 interface RenameProjectDialogProps {
+  project: Project;
+  onSave: (projectId: string, newName: string) => void;
+  children: React.ReactNode;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  name: string;
-  setName: (name: string) => void;
-  onSave: () => void;
 }
 
-export function RenameProjectDialog({ isOpen, onOpenChange, name, setName, onSave }: RenameProjectDialogProps) {
+export function RenameProjectDialog({ project, onSave, children, isOpen, onOpenChange }: RenameProjectDialogProps) {
+  const [name, setName] = React.useState(project.name);
+
+  useEffect(() => {
+    if (isOpen) {
+        setName(project.name);
+    }
+  }, [isOpen, project.name]);
   
   const handleSave = () => {
-    if (name.trim()) {
-      onSave();
+    if (name.trim() && name.trim() !== project.name) {
+      onSave(project.id, name.trim());
     }
+    onOpenChange(false);
   };
 
   return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Proje Adını Değiştir</DialogTitle>
