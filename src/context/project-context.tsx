@@ -492,15 +492,18 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
         setProjectData(prev => {
             const contractHistory = JSON.parse(JSON.stringify(prev.progressPayments[selectedProjectId]?.[contractId] || []));
+            
             let updatedContractHistory: ProgressPayment[];
 
             if (editingPaymentNumber !== null) {
-                 updatedContractHistory = contractHistory.map((p: ProgressPayment) => 
+                // Editing existing payment
+                updatedContractHistory = contractHistory.map((p: ProgressPayment) => 
                     p.progressPaymentNumber === editingPaymentNumber
                         ? { ...paymentData, progressPaymentNumber: editingPaymentNumber }
                         : p
                 );
             } else {
+                // Creating new payment
                 const lastPaymentNumber = contractHistory.length > 0 
                     ? Math.max(...contractHistory.map((p: ProgressPayment) => p.progressPaymentNumber)) 
                     : 0;
@@ -571,8 +574,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
             // Reset appliedInPaymentNumber for related deductions
             const projectDeductions = (clonedData.deductions[selectedProjectId] || []).map((deduction: Deduction) => {
-                // This is a simplified logic. In a real app you might want to know which payment was deleted to be more specific.
-                // For now, if a deduction belongs to the contract, we reset it.
                 if (deduction.contractId === contractId && deduction.appliedInPaymentNumber !== null) {
                     return { ...deduction, appliedInPaymentNumber: null };
                 }
@@ -672,5 +673,7 @@ export const useProject = (): ProjectContextType => {
     }
     return context;
 };
+
+    
 
     
