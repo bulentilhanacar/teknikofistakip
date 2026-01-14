@@ -114,26 +114,22 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         if (!contractsSnapshot.empty) {
             toast({
                 variant: 'destructive',
-                title: 'Proje Silinemedi',
-                description: 'Bu projeye ait sözleşmeler (taslak veya onaylı) bulunduğu için silinemez.',
+                title: 'Hata',
+                description: 'Bu projeye ait sözleşmeler bulunduğu için SİLİNEMEZ. Projeyi silebilmeniz için ÖNCE projedeki Ana ve Alt sözleşme gruplarındaki tüm sözleşmeleri silmeniz gerekmektedir.',
             });
             return;
         }
         
-        const nextSelectedId = projects && projects.length > 1 
-            ? (projects.find(p => p.id !== projectId)?.[0]?.id ?? null) 
-            : null;
-        
-        selectProject(nextSelectedId);
-
         const projectRef = doc(firestore, "projects", projectId);
         deleteDoc(projectRef)
             .then(() => {
                 toast({ title: "Proje silindi." });
+                 const nextSelectedId = projects && projects.length > 1 
+                    ? (projects.find(p => p.id !== projectId)?.id ?? null) 
+                    : null;
+                selectProject(nextSelectedId);
             })
             .catch(err => {
-                // If deletion fails, revert selection
-                selectProject(projectId);
                 const permissionError = new FirestorePermissionError({ path: projectRef.path, operation: 'delete' });
                 errorEmitter.emit('permission-error', permissionError);
             });

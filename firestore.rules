@@ -3,22 +3,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if the user is the owner of a project
-    function isProjectOwner(projectId) {
-      return get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
-    
-    // Users can create projects for themselves
+
     match /projects/{projectId} {
-      allow read, update, delete: if isProjectOwner(projectId);
-      allow create: if request.resource.data.ownerId == request.auth.uid;
+      allow read, update, delete: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
+      allow create: if isOwner(request.resource.data.ownerId);
       
-      // Allow users to list only their own projects
       allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
       
-      // Users can only access subcollections of projects they own
-      match /{collection}/{docId} {
-        allow read, write: if isProjectOwner(projectId);
+      match /{allChildren=**} {
+        allow read, write: if isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId);
       }
     }
   }

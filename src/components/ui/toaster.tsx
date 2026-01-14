@@ -8,10 +8,12 @@ import {
   ToastProvider,
   ToastTitle,
   ToastViewport,
+  ToastAction,
 } from "@/components/ui/toast"
+import { Button } from "./button"
 
 export function Toaster() {
-  const { toasts } = useToast()
+  const { toasts, dismiss } = useToast()
 
   return (
     <ToastProvider>
@@ -25,6 +27,11 @@ export function Toaster() {
               )}
             </div>
             {action}
+             {props.variant === 'destructive' && !action && (
+                <ToastAction asChild altText="Tamam" onClick={() => dismiss(id)}>
+                    <Button variant="outline" className="text-destructive-foreground border-destructive-foreground/20 hover:bg-destructive/90 hover:text-destructive-foreground">Tamam</Button>
+                </ToastAction>
+            )}
             <ToastClose />
           </Toast>
         )
