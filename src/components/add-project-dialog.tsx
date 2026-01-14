@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -15,8 +14,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useProject } from '@/context/project-context';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { PlusCircle } from 'lucide-react';
 
-export function AddProjectDialog({ children }: { children: React.ReactNode }) {
+export function AddProjectDialog() {
   const [isOpen, setIsOpen] = React.useState(false);
   const [name, setName] = React.useState('');
   const { addProject } = useProject();
@@ -24,8 +25,6 @@ export function AddProjectDialog({ children }: { children: React.ReactNode }) {
   const handleSave = async () => {
     if (name.trim()) {
       await addProject(name.trim());
-      // The context will handle selecting the new project, no need to do anything else here.
-      // After a successful save, close the dialog.
       setIsOpen(false);
     }
   };
@@ -39,7 +38,12 @@ export function AddProjectDialog({ children }: { children: React.ReactNode }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            <span>Yeni Proje Ekle</span>
+        </DropdownMenuItem>
+      </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Yeni Proje Ekle</DialogTitle>

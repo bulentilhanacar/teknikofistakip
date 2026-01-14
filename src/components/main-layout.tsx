@@ -154,12 +154,7 @@ function ProjectSelector() {
                 </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <AddProjectDialog>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      <span>Yeni Proje Ekle</span>
-                  </DropdownMenuItem>
-                </AddProjectDialog>
+                <AddProjectDialog />
             </DropdownMenuContent>
         </DropdownMenu>
         
