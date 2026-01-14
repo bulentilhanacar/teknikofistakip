@@ -27,9 +27,9 @@ import { FileClock, Gavel, FileSignature, LogIn } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useProject } from "@/context/project-context";
 import { useMemo } from "react";
-import { useAuth, useUser, googleProvider } from "@/firebase";
+import { useAuth, useUser } from "@/firebase";
 import { Button } from "@/components/ui/button";
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
 
 const chartConfig = {
@@ -53,7 +53,8 @@ export default function Home() {
   const handleGoogleSignIn = async () => {
     if (auth) {
       try {
-        await signInWithPopup(auth, googleProvider);
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
       } catch (error) {
         console.error("Google sign-in error", error);
       }
@@ -69,11 +70,11 @@ export default function Home() {
     return (
       <Card>
           <CardHeader>
-              <CardTitle className="font-headline">Finansal Özet</CardTitle>
+              <CardTitle className="font-headline">Yükleniyor...</CardTitle>
           </CardHeader>
           <CardContent>
               <div className="flex items-center justify-center h-48 text-muted-foreground">
-                  Yükleniyor...
+                  Kullanıcı bilgileri doğrulanıyor...
               </div>
           </CardContent>
       </Card>
