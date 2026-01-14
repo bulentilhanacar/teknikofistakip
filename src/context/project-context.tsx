@@ -423,11 +423,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     
         setProjectData(prev => {
             const contractHistory = [...(prev.progressPayments[selectedProjectId]?.[contractId] || [])];
-            let paymentNumberToSave: number;
     
             if (editingPaymentNumber !== null) {
                 // Editing an existing payment
-                paymentNumberToSave = editingPaymentNumber;
                 const paymentIndex = contractHistory.findIndex(p => p.progressPaymentNumber === editingPaymentNumber);
                 if (paymentIndex !== -1) {
                     contractHistory[paymentIndex] = { ...paymentData, progressPaymentNumber: editingPaymentNumber };
@@ -435,13 +433,15 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             } else {
                 // Creating a new payment
                 const lastPaymentNumber = contractHistory.length > 0 ? contractHistory[contractHistory.length - 1].progressPaymentNumber : 0;
-                paymentNumberToSave = lastPaymentNumber + 1;
+                const newPaymentNumber = lastPaymentNumber + 1;
                 const newPayment: ProgressPayment = {
                     ...paymentData,
-                    progressPaymentNumber: paymentNumberToSave,
+                    progressPaymentNumber: newPaymentNumber,
                 };
                 contractHistory.push(newPayment);
             }
+
+            const paymentNumberToSave = editingPaymentNumber !== null ? editingPaymentNumber : contractHistory.at(-1)!.progressPaymentNumber;
     
             const projectPayments = prev.progressPayments[selectedProjectId] || {};
             const updatedProjectPayments = {
@@ -453,7 +453,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 if (paymentData.appliedDeductionIds.includes(d.id)) {
                     return { ...d, appliedInPaymentNumber: paymentNumberToSave };
                 } else if (d.appliedInPaymentNumber === paymentNumberToSave) {
-                    // This deduction was previously linked to this payment, but is now unselected
                     return { ...d, appliedInPaymentNumber: null };
                 }
                 return d;
@@ -566,3 +565,6 @@ export const useProject = (): ProjectContextType => {
     
 
 
+
+
+    
