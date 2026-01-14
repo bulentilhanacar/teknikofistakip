@@ -11,6 +11,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 interface ProjectContextType {
     projects: Project[] | null;
+    setProjects: (projects: Project[]) => void;
     selectedProject: Project | null;
     selectProject: (projectId: string | null) => void;
     addProject: (projectName: string) => Promise<void>;
@@ -145,6 +146,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
     const value: ProjectContextType = {
         projects,
+        setProjects: () => {}, // This is a placeholder, as useCollection now manages the state
         selectedProject,
         selectProject,
         addProject,

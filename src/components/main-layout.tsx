@@ -50,6 +50,9 @@ import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 import { Project } from "@/context/types";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 
 function ProjectSelector() {
@@ -168,7 +171,13 @@ const projectMenuItems = [
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
-  const selectedProject = useProject().selectedProject;
+  const { selectedProject, loading: isProjectDataLoading, setProjects } = useProject();
+  const firestore = useFirestore();
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   return (
     <SidebarProvider>
@@ -192,7 +201,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               </div>
             </>
           )}
-           {isUserLoading && (
+           {isMounted && isUserLoading && (
              <div className="p-2 space-y-2">
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
