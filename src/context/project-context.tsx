@@ -475,31 +475,31 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const deleteDeduction = useCallback((deductionId: string) => {
         if (!selectedProjectId) return;
         
+        const projectDeductions = projectData.deductions[selectedProjectId] || [];
+        const deductionToDelete = projectDeductions.find((d: Deduction) => d.id === deductionId);
+
+        if (deductionToDelete && deductionToDelete.appliedInPaymentNumber !== null) {
+            toast({
+                variant: "destructive",
+                title: "İşlem Başarısız",
+                description: "Bu kesinti bir hakedişe uygulandığı için silinemez.",
+            });
+            return;
+        }
+
         setProjectData(prev => {
             const newPrevData = JSON.parse(JSON.stringify(prev));
-            const projectDeductions = newPrevData.deductions[selectedProjectId] || [];
-            
-            const deductionToDelete = projectDeductions.find((d: Deduction) => d.id === deductionId);
-            if (deductionToDelete && deductionToDelete.appliedInPaymentNumber !== null) {
-                toast({
-                    variant: "destructive",
-                    title: "İşlem Başarısız",
-                    description: "Bu kesinti bir hakedişe uygulandığı için silinemez.",
-                });
-                return newPrevData;
-            }
-
-            const updatedDeductions = projectDeductions.filter((d: Deduction) => d.id !== deductionId);
+            const updatedDeductions = (newPrevData.deductions[selectedProjectId] || []).filter((d: Deduction) => d.id !== deductionId);
             newPrevData.deductions[selectedProjectId] = updatedDeductions;
-            
-            toast({
-                title: "Kesinti Silindi",
-                description: "Seçili kesinti başarıyla silindi.",
-            });
-
             return newPrevData;
         });
-    }, [selectedProjectId, toast]);
+
+        toast({
+            title: "Kesinti Silindi",
+            description: "Seçili kesinti başarıyla silindi.",
+        });
+
+    }, [selectedProjectId, projectData, toast]);
 
    const saveProgressPayment = useCallback((contractId: string, paymentData: Omit<ProgressPayment, 'progressPaymentNumber'>, editingPaymentNumber: number | null) => {
         if (!selectedProjectId) return;
