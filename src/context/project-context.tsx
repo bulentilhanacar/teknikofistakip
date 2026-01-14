@@ -153,6 +153,23 @@ const projectDashboardData: Record<string, any> = {
 };
 const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
+const cleanDuplicateProgressPayments = (data: AllProjectData): AllProjectData => {
+    const cleanedData = JSON.parse(JSON.stringify(data));
+    for (const projectId in cleanedData.progressPayments) {
+        for (const contractId in cleanedData.progressPayments[projectId]) {
+            const history = cleanedData.progressPayments[projectId][contractId] as ProgressPayment[];
+            if (Array.isArray(history)) {
+                 const uniquePayments = history.reduce((acc, current) => {
+                    acc[current.progressPaymentNumber] = current;
+                    return acc;
+                }, {} as Record<number, ProgressPayment>);
+                cleanedData.progressPayments[projectId][contractId] = Object.values(uniquePayments);
+            }
+        }
+    }
+    return cleanedData;
+};
+
 
 export const ProjectProvider = ({ children }: { children: React.ReactNode }) => {
     const [projects, setProjects] = useState<Project[]>(() => getInitialState('projects', defaultProjects));
@@ -179,7 +196,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 merged.progressStatuses[projectId] = {};
             }
         });
-        return merged;
+        // Clean up duplicate progress payments from localStorage on initial load
+        return cleanDuplicateProgressPayments(merged);
     });
 
     const [isLoaded, setIsLoaded] = useState(false);
@@ -418,16 +436,15 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         });
     }, [selectedProjectId]);
 
-    const saveProgressPayment = useCallback((contractId: string, paymentData: Omit<ProgressPayment, 'progressPaymentNumber'>, editingPaymentNumber: number | null) => {
+   const saveProgressPayment = useCallback((contractId: string, paymentData: Omit<ProgressPayment, 'progressPaymentNumber'>, editingPaymentNumber: number | null) => {
         if (!selectedProjectId) return;
-    
+
         setProjectData(prev => {
-            // Deep copy to prevent mutation issues.
             const contractHistory = JSON.parse(JSON.stringify(prev.progressPayments[selectedProjectId]?.[contractId] || []));
             let updatedContractHistory: ProgressPayment[];
-    
+
             if (editingPaymentNumber !== null) {
-                // Editing mode: Replace the item
+                // Editing mode: Replace the item in the array
                 updatedContractHistory = contractHistory.map((p: ProgressPayment) => 
                     p.progressPaymentNumber === editingPaymentNumber
                         ? { ...paymentData, progressPaymentNumber: editingPaymentNumber }
@@ -445,21 +462,19 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 };
                 updatedContractHistory = [...contractHistory, newPayment];
             }
-    
+
             const paymentNumberToSave = editingPaymentNumber ?? updatedContractHistory.at(-1)!.progressPaymentNumber;
-    
+
             // Update deductions based on the saved payment
             const newProjectDeductions = (prev.deductions[selectedProjectId] || []).map(d => {
                 if (paymentData.appliedDeductionIds.includes(d.id)) {
                     return { ...d, appliedInPaymentNumber: paymentNumberToSave };
                 } else if (d.appliedInPaymentNumber === paymentNumberToSave) {
-                    // This case handles deselection of a deduction
                     return { ...d, appliedInPaymentNumber: null };
                 }
                 return d;
             });
             
-            // Update progress statuses
             const currentMonth = format(new Date(paymentData.date), 'yyyy-MM');
             const projectStatuses = prev.progressStatuses[selectedProjectId] || {};
             const monthStatuses = projectStatuses[currentMonth] || {};
@@ -470,16 +485,18 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                     [contractId]: 'odendi' as ProgressPaymentStatus
                 }
              };
-    
-            // Return the full new state
+
+            const projectPayments = prev.progressPayments[selectedProjectId] || {};
+            const updatedProjectPayments = {
+                ...projectPayments,
+                [contractId]: updatedContractHistory,
+            };
+
             return {
                 ...prev,
                 progressPayments: {
                     ...prev.progressPayments,
-                    [selectedProjectId]: {
-                        ...prev.progressPayments[selectedProjectId],
-                        [contractId]: updatedContractHistory,
-                    }
+                    [selectedProjectId]: updatedProjectPayments,
                 },
                 deductions: {
                     ...prev.deductions,
@@ -586,4 +603,5 @@ export const useProject = (): ProjectContextType => {
     
 
     
+
 
