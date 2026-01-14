@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, CheckCircle, ChevronDown, MoreHorizontal, Edit, Trash2, Undo2 } from "lucide-react";
+import { PlusCircle, CheckCircle, ChevronDown, Edit, Trash2, Undo2 } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useProject } from '@/context/project-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Contract, ContractGroupKeys, ContractItem, contractGroups } from '@/context/types';
@@ -82,82 +81,26 @@ const ItemDialog = ({ contractId, item, onSave, children, mode }: { contractId: 
     );
 };
 
-
-const ContractRowActions = ({ contract, onRename, onDelete }: { contract: Contract, onRename: (id: string, newName: string) => void, onDelete: (id: string) => void }) => {
-    const [isRenameOpen, setIsRenameOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [newName, setNewName] = useState(contract.name);
-
-    const handleRename = () => {
-        onRename(contract.id, newName);
-        setIsRenameOpen(false);
-    };
-
-    return (
-        <>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 ml-2">
-                        <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                    <DropdownMenuItem onSelect={() => setIsRenameOpen(true)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Yeniden Adlandır
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setIsDeleteOpen(true)} className="text-destructive">
-                         <Trash2 className="mr-2 h-4 w-4" />
-                        Sil
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Taslağı Yeniden Adlandır</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <Label htmlFor="contract-name">Yeni Ad</Label>
-                        <Input id="contract-name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-                    </div>
-                    <DialogFooter>
-                        <DialogClose asChild><Button variant="secondary">İptal</Button></DialogClose>
-                        <Button onClick={handleRename}>Kaydet</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            "{contract.name}" taslağını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>İptal</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDelete(contract.id)}>Evet, Sil</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </>
-    )
-}
-
 const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, onDeleteItem, onRenameContract, onDeleteContract }: { contract: Contract, onApprove?: (contractId: string) => void, onRevert?: (contractId: string) => void, onAddItem?: (contractId: string, item: ContractItem) => void, onUpdateItem: (contractId: string, item: ContractItem, originalPoz: string) => void, onDeleteItem: (contractId: string, itemPoz: string) => void, onRenameContract?: (id: string, newName: string) => void, onDeleteContract?: (id: string) => void }) => {
     const budget = contract.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
     const formatCurrency = (amount: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
     const isApproved = !contract.isDraft;
-    const actionColSpan = 7;
 
+    const [isRenameOpen, setIsRenameOpen] = useState(false);
+    const [newName, setNewName] = useState(contract.name);
+
+    const handleRename = () => {
+        if (onRenameContract) {
+            onRenameContract(contract.id, newName);
+            setIsRenameOpen(false);
+        }
+    };
+    
     return (
         <Collapsible asChild>
             <tbody className='bg-background'>
                 <TableRow>
-                    <td colSpan={actionColSpan} className="p-0">
+                    <td colSpan={7} className="p-0">
                         <div className="flex items-center p-4 w-full group">
                             <CollapsibleTrigger asChild>
                                 <button className='flex items-center flex-1 text-left'>
@@ -169,7 +112,7 @@ const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, o
                             <Badge variant={isApproved ? "default" : "secondary"} className="w-28 justify-center">{contract.status}</Badge>
                             <span className="w-28 text-center">{contract.date}</span>
                             <span className="w-32 text-right">{formatCurrency(budget)}</span>
-                            <div className="w-28 flex justify-end items-center">
+                            <div className="w-48 flex justify-end items-center gap-1">
                                 {onApprove && !isApproved && (
                                     <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onApprove(contract.id); }}>
                                         <CheckCircle className="mr-2 h-4 w-4 text-green-600"/>
@@ -183,7 +126,48 @@ const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, o
                                     </Button>
                                 )}
                                 {!isApproved && onRenameContract && onDeleteContract && (
-                                    <ContractRowActions contract={contract} onRename={onRenameContract} onDelete={onDeleteContract} />
+                                   <>
+                                        <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
+                                            <DialogTrigger asChild>
+                                                 <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Taslağı Yeniden Adlandır</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="py-4">
+                                                    <Label htmlFor="contract-name">Yeni Ad</Label>
+                                                    <Input id="contract-name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                                                </div>
+                                                <DialogFooter>
+                                                    <DialogClose asChild><Button variant="secondary">İptal</Button></DialogClose>
+                                                    <Button onClick={handleRename}>Kaydet</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        "{contract.name}" taslağını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>İptal</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => onDeleteContract(contract.id)}>Evet, Sil</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                   </>
                                 )}
                             </div>
                         </div>
@@ -191,7 +175,7 @@ const ContractRow = ({ contract, onApprove, onRevert, onAddItem, onUpdateItem, o
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={actionColSpan} className="p-0">
+                        <TableCell colSpan={7} className="p-0">
                             <div className="p-4 bg-muted/50">
                                 <div className="flex justify-between items-center mb-2">
                                     <h4 className='text-base font-semibold pl-2'>Sözleşme Detayları</h4>
