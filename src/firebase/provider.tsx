@@ -4,12 +4,13 @@ import React, { createContext, useContext, ReactNode, useMemo, useState, useEffe
 import { FirebaseApp, initializeApp } from 'firebase/app';
 import { Firestore, getFirestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged, GoogleAuthProvider, getAuth } from 'firebase/auth';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 import { firebaseConfig } from './config';
+import { FirestorePermissionError } from './errors';
 
 // User-specific authentication state
 interface UserAuthState {
   user: User | null;
+  auth: Auth | null;
   isUserLoading: boolean; // True during initial auth check
   userError: Error | null; // Error from auth listener
 }
@@ -39,6 +40,7 @@ export interface FirebaseServicesAndUser {
 // Return type for useUser() - specific to user auth state
 export interface UserHookResult { 
   user: User | null;
+  auth: Auth | null;
   isUserLoading: boolean;
   userError: Error | null;
 }
@@ -58,6 +60,7 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [userAuthState, setUserAuthState] = useState<UserAuthState>({
     user: null,
+    auth: null,
     isUserLoading: true, // Start loading until first auth event
     userError: null,
   });
@@ -81,18 +84,18 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({
   // Effect to subscribe to Firebase auth state changes
   useEffect(() => {
     if (!firebaseServices.auth) { 
-      setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not available.") });
+      setUserAuthState({ user: null, auth: null, isUserLoading: false, userError: new Error("Auth service not available.") });
       return;
     }
 
     const unsubscribe = onAuthStateChanged(
       firebaseServices.auth,
       (firebaseUser) => { 
-        setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
+        setUserAuthState({ user: firebaseUser, auth: firebaseServices.auth, isUserLoading: false, userError: null });
       },
       (error) => { 
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
-        setUserAuthState({ user: null, isUserLoading: false, userError: error });
+        setUserAuthState({ user: null, auth: firebaseServices.auth, isUserLoading: false, userError: error });
       }
     );
     return () => unsubscribe(); 
@@ -113,7 +116,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode }> = ({
   
   return (
     <FirebaseContext.Provider value={contextValue}>
-      {contextValue.areServicesAvailable && <FirebaseErrorListener />}
       {children}
     </FirebaseContext.Provider>
   );
@@ -173,7 +175,8 @@ export const useUser = (): UserHookResult => {
     throw new Error('useUser must be used within a FirebaseProvider.');
   }
   return { 
-    user: context.user, 
+    user: context.user,
+    auth: context.auth, 
     isUserLoading: context.isUserLoading, 
     userError: context.userError 
   };

@@ -6,7 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { addDoc, collection, deleteDoc, doc, query, updateDoc, where } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
 
 
 interface ProjectContextType {
@@ -23,7 +22,7 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
-    const { user, isUserLoading } = useUser();
+    const { user, auth, isUserLoading } = useUser();
     
     let firestore: any;
     try {
@@ -108,18 +107,20 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             selectProject(newProjectRef.id);
             toast({ title: "Proje oluşturuldu!" });
         } catch(err) {
-            const permissionError = new FirestorePermissionError({ path: '/projects', operation: 'create', requestResourceData: newProjectData });
-            errorEmitter.emit('permission-error', permissionError);
+            const permissionError = new FirestorePermissionError({ path: '/projects', operation: 'create', requestResourceData: newProjectData, authObject: auth });
+            console.error(permissionError);
+            toast({ title: "İzin Hatası", description: "Proje oluşturma izniniz yok.", variant: "destructive" });
         };
-    }, [firestore, user, toast]);
+    }, [firestore, user, toast, auth]);
     
     const updateProjectName = (projectId: string, newName: string) => {
          if (!firestore) return;
          const projectRef = doc(firestore, 'projects', projectId);
          updateDoc(projectRef, { name: newName })
             .catch(err => {
-                 const permissionError = new FirestorePermissionError({ path: projectRef.path, operation: 'update', requestResourceData: { name: newName } });
-                 errorEmitter.emit('permission-error', permissionError);
+                 const permissionError = new FirestorePermissionError({ path: projectRef.path, operation: 'update', requestResourceData: { name: newName }, authObject: auth });
+                 console.error(permissionError);
+                 toast({ title: "İzin Hatası", description: "Projeyi güncelleme izniniz yok.", variant: "destructive" });
             });
     };
 
@@ -135,16 +136,17 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
                 }
             })
             .catch(err => {
-                const permissionError = new FirestorePermissionError({ path: projectRef.path, operation: 'delete' });
-                errorEmitter.emit('permission-error', permissionError);
+                const permissionError = new FirestorePermissionError({ path: projectRef.path, operation: 'delete', authObject: auth });
+                console.error(permissionError);
+                toast({ title: "İzin Hatası", description: "Projeyi silme izniniz yok.", variant: "destructive" });
             });
-    }, [firestore, selectedProjectId, toast]);
+    }, [firestore, selectedProjectId, toast, auth]);
     
 
     const value: ProjectContextType = {
         projects: projects,
         selectedProject,
-        selectProject,
+        selectProject: setSelectedProjectId,
         addProject,
         updateProjectName,
         deleteProject,

@@ -1,8 +1,5 @@
 'use client';
 
-// This file serves as an entrypoint for all Firebase-related functionality.
-// It re-exports modules for easy access throughout the application.
-
 export { 
     FirebaseProvider, 
     useFirebase, 
@@ -20,7 +17,6 @@ export { FirestorePermissionError } from './errors';
 export * from './error-emitter';
 export { useMemo } from 'react';
 
-// A re-export of useMemo that is tagged for Firebase Studio's internal use
 import { useMemo as useMemoOriginal, DependencyList } from 'react';
 type MemoFirebase <T> = T & {__memo?: boolean};
 export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | (MemoFirebase<T>) {
