@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -9,7 +8,6 @@ import {
   Calculator,
   FileSignature,
   LayoutDashboard,
-  FolderKanban,
   ClipboardList,
   Gavel,
 } from "lucide-react";
@@ -70,8 +68,8 @@ function ProjectNav() {
   );
 }
 
-function AppContent({ children }: { children: React.ReactNode }) {
-  const { selectedProject, loading } = useProject();
+export function MainLayout({ children }: { children: React.ReactNode }) {
+  const { loading } = useProject();
   
   const renderContent = () => {
     if (loading) {
@@ -100,7 +98,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           <div className="p-2 group-data-[collapsible=icon]:hidden">
-             <p className="text-sm font-medium text-sidebar-foreground/80">{selectedProject?.name || 'Proje Yükleniyor...'}</p>
+             <p className="text-sm font-medium text-sidebar-foreground/80">Genel Proje</p>
           </div>
           <ProjectNav />
         </SidebarContent>
@@ -110,11 +108,5 @@ function AppContent({ children }: { children: React.ReactNode }) {
         {renderContent()}
       </SidebarInset>
     </SidebarProvider>
-  );
-}
-
-export function MainLayout({ children }: { children: React.ReactNode }) {
-  return (
-      <AppContent>{children}</AppContent>
   );
 }
