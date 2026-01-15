@@ -4,9 +4,8 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
 import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { useUser } from '@/firebase/provider';
-import { addDoc, collection, deleteDoc, doc, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { addDoc, collection, deleteDoc, doc, getDocs, query, updateDoc, where, writeBatch, setDoc, getDoc } from 'firebase/firestore';
 
 interface AppUser {
     id: string;
@@ -34,36 +33,89 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [isBootstrapping, setIsBootstrapping] = useState(true);
 
-    // Fetch user role
-    const userRoleQuery = useMemoFirebase(() => {
+    const userQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
-        return query(collection(firestore, "users"), where("email", "==", user.email));
+        // Query by doc ID which is the user's UID
+        return doc(firestore, "users", user.uid);
     }, [firestore, user]);
-    const { data: userData, isLoading: userRoleLoading } = useCollection<AppUser>(userRoleQuery);
+    
+    // We will use this to get the user's role
+    const { data: userDoc, isLoading: userRoleLoading } = useCollection<AppUser>(
+        useMemoFirebase(() => {
+            if (!firestore || !user) return null;
+            return query(collection(firestore, "users"), where("email", "==", user.email));
+        }, [firestore, user])
+    );
 
-    useEffect(() => {
-        if (userData && userData.length > 0) {
-            setIsAdmin(userData[0].role === 'admin');
+     useEffect(() => {
+        if (userDoc && userDoc.length > 0) {
+            setIsAdmin(userDoc[0].role === 'admin');
         } else {
             setIsAdmin(false);
         }
-    }, [userData]);
+    }, [userDoc]);
+
+
+    // Bootstrap function to make the first logged-in user an admin if no admin exists
+    useEffect(() => {
+        const bootstrapAdmin = async () => {
+            if (!firestore || !user || userRoleLoading) return;
+
+            try {
+                // Check if any admin user exists
+                const adminQuery = query(collection(firestore, "users"), where("role", "==", "admin"));
+                const adminSnapshot = await getDocs(adminQuery);
+
+                // If no admin exists, make the current user an admin
+                if (adminSnapshot.empty) {
+                    console.log("No admins found. Making current user admin.");
+                    
+                    const userRef = doc(firestore, 'users_by_email', user.email!);
+                    const userDocSnap = await getDoc(userRef);
+
+                    // A user might exist in users_by_email but not in users collection yet
+                    // Or they might not exist at all.
+                    // We ensure they are created with admin role.
+                    if (!userDocSnap.exists()) {
+                         await setDoc(userRef, { email: user.email });
+                    }
+                   
+                    const userRecordRef = doc(firestore, 'users', user.uid);
+                    await setDoc(userRecordRef, { email: user.email, role: 'admin' }, { merge: true });
+
+                    setIsAdmin(true); // Immediately update the state
+                    toast({ title: "Admin Yetkisi Verildi", description: `${user.email} artık bir admin.`});
+                }
+            } catch (error) {
+                console.error("Error bootstrapping admin:", error);
+            } finally {
+                setIsBootstrapping(false);
+            }
+        };
+
+        if(user) {
+            bootstrapAdmin();
+        } else if (!userLoading) {
+            setIsBootstrapping(false);
+        }
+    }, [firestore, user, userLoading, toast]);
 
 
     const projectsQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
+        if (!firestore || !user || isBootstrapping) return null;
         if (isAdmin) {
              // Admin sees all projects
             return collection(firestore, "projects");
         }
         // Regular user sees only their projects
         return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
-    }, [firestore, user, isAdmin]);
+    }, [firestore, user, isAdmin, isBootstrapping]);
     
     const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-    const loading = userLoading || projectsLoading || userRoleLoading;
+    const loading = userLoading || projectsLoading || userRoleLoading || isBootstrapping;
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -80,14 +132,12 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
                 const storedId = localStorage.getItem('selectedProjectId');
                 const projectExists = projects.some(p => p.id === storedId);
 
-                // If user is not an admin, ensure they can only see their own selected project
                 const selectedProjectData = projects.find(p => p.id === storedId);
                 const isOwner = selectedProjectData?.ownerId === user?.uid;
 
                 if (storedId && projectExists && (isAdmin || isOwner)) {
                     setSelectedProjectId(storedId);
                 } else {
-                    // Fallback to first available project
                     setSelectedProjectId(projects[0].id);
                     localStorage.setItem('selectedProjectId', projects[0].id);
                 }
@@ -135,15 +185,12 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
         const projectToDelete = projects?.find(p => p.id === id);
         if (!projectToDelete) return;
 
-        // Security check: only admin or owner can delete
         if (!isAdmin && projectToDelete.ownerId !== user.uid) {
              toast({ title: "Hata", description: "Bu projeyi silme yetkiniz yok.", variant: "destructive" });
              return;
         }
 
         try {
-            // In a real app, you would need to delete all sub-collections (contracts, etc.)
-            // This requires a Cloud Function for robust deletion.
             await deleteDoc(doc(firestore, "projects", id));
             toast({ title: "Proje silindi." });
             if (selectedProjectId === id) {
@@ -163,13 +210,12 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     
     const selectedProject = projects?.find(p => p.id === selectedProjectId) || null;
     
-    // Final check to ensure a non-admin isn't viewing a project they don't own
     if (!loading && selectedProject && !isAdmin && selectedProject.ownerId !== user?.uid) {
         return (
             <ProjectContext.Provider value={{
                 projects: null,
                 selectedProject: null,
-                loading: true, // Keep loading state to prevent flicker
+                loading: true,
                 addProject,
                 selectProject,
                 renameProject,
