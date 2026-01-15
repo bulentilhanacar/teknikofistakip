@@ -11,9 +11,7 @@ import {
   ClipboardList,
   Gavel,
   ChevronDown,
-  Trash2,
-  Edit,
-  FolderKanban as ProjectIcon,
+  Shield,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -27,7 +25,6 @@ import {
 } from "@/components/ui/sidebar";
 import { SiteHeader } from "./site-header";
 import { useProject } from "@/context/project-context";
-import { useUser } from "@/firebase/provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,8 +35,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { AddProjectDialog } from "./add-project-dialog";
-import { RenameProjectDialog } from "./rename-project-dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Project } from "@/context/types";
 
 
@@ -48,15 +43,10 @@ function ProjectNav() {
   const { 
     projects, 
     selectedProject, 
-    selectProject, 
-    deleteProject, 
-    renameProject
+    selectProject,
+    isAdmin,
+    user
   } = useProject();
-  const { user } = useUser();
-  
-  const [isRenameOpen, setIsRenameOpen] = React.useState(false);
-  const [projectToRename, setProjectToRename] = React.useState<Project | null>(null);
-  const [newProjectName, setNewProjectName] = React.useState("");
 
   const projectMenuItems = [
     { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
@@ -69,34 +59,28 @@ function ProjectNav() {
   if (!user) {
      return (
         <div className="p-4 text-sm text-sidebar-foreground/80 group-data-[collapsible=icon]:hidden">
-            Projelerinizi görmek için lütfen giriş yapın.
+            Lütfen sisteme giriş yapın.
         </div>
     )
   }
 
-  if (!selectedProject) {
+  if (!selectedProject && projects && projects.length === 0) {
     return (
       <div className="p-4 text-sm text-sidebar-foreground/80 group-data-[collapsible=icon]:hidden">
-        <p className="mb-4">Henüz bir projeniz yok veya seçilmedi.</p>
+        <p className="mb-4">Henüz bir projeniz yok.</p>
         <AddProjectDialog />
       </div>
     );
   }
 
-  const handleRenameClick = (project: Project) => {
-    setProjectToRename(project);
-    setNewProjectName(project.name);
-    setIsRenameOpen(true);
-  };
-
-  const handleRenameSave = () => {
-    if (projectToRename && newProjectName) {
-      renameProject(projectToRename.id, newProjectName);
-      setIsRenameOpen(false);
-      setProjectToRename(null);
-    }
-  };
-
+  if (!selectedProject) {
+     return (
+      <div className="p-4 text-sm text-sidebar-foreground/80 group-data-[collapsible=icon]:hidden">
+        <p className="mb-4">Lütfen bir proje seçin veya yeni bir tane oluşturun.</p>
+        <AddProjectDialog />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -104,7 +88,6 @@ function ProjectNav() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="w-full justify-start items-center gap-2 px-2">
-                <ProjectIcon className="h-5 w-5 text-primary"/>
                 <span className="font-semibold text-base truncate flex-1 text-left">{selectedProject.name}</span>
                 <ChevronDown className="h-4 w-4"/>
             </Button>
@@ -115,30 +98,6 @@ function ProjectNav() {
             {projects && projects.map((project) => (
               <DropdownMenuItem key={project.id} onSelect={() => selectProject(project.id)} className="flex justify-between items-center">
                 <span>{project.name}</span>
-                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleRenameClick(project)}}>
-                        <Edit className="h-4 w-4"/>
-                    </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}>
-                                <Trash2 className="h-4 w-4"/>
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    "{project.name}" projesini ve içindeki tüm verileri kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>İptal</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteProject(project.id)}>Evet, Sil</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                 </div>
               </DropdownMenuItem>
             ))}
              <DropdownMenuSeparator />
@@ -169,32 +128,33 @@ function ProjectNav() {
             </SidebarMenuItem>
           );
         })}
+        {isAdmin && (
+             <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === '/admin'}
+                tooltip={"Admin Paneli"}
+              >
+                <Link href="/admin">
+                  <Shield />
+                  <span>Admin Paneli</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+        )}
        </SidebarMenu>
-       {projectToRename && (
-         <RenameProjectDialog 
-            project={projectToRename}
-            name={newProjectName}
-            setName={setNewProjectName}
-            onSave={handleRenameSave}
-            isOpen={isRenameOpen}
-            onOpenChange={setIsRenameOpen}
-         />
-       )}
     </>
   );
 }
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-  const { loading: projectLoading } = useProject();
-  const { user, loading: authLoading } = useUser();
-  
-  const loading = projectLoading || authLoading;
+  const { loading, selectedProject, user } = useProject();
 
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex flex-col items-center justify-center h-screen text-muted-foreground text-center">
-          <ProjectIcon className="w-16 h-16 mb-4 animate-pulse" />
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
+          <Building2 className="w-16 h-16 mb-4 animate-pulse" />
           <p className="text-lg">Proje verileri yükleniyor, lütfen bekleyin...</p>
         </div>
       );
@@ -202,12 +162,23 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     
     if (!user) {
         return (
-             <div className="flex flex-col items-center justify-center h-screen text-muted-foreground text-center">
-                <ProjectIcon className="w-16 h-16 mb-4" />
+             <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
+                <Building2 className="w-16 h-16 mb-4" />
                 <h2 className="text-2xl font-semibold mb-2">İnşaat Takip Uygulamasına Hoş Geldiniz</h2>
                 <p className="text-lg">Projelerinizi yönetmek için lütfen giriş yapın.</p>
             </div>
         )
+    }
+    
+    if (!selectedProject && (!loading && user)) {
+       return (
+         <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
+            <Building2 className="w-16 h-16 mb-4" />
+            <h2 className="text-2xl font-semibold mb-2">Proje Seçimi Gerekli</h2>
+            <p className="text-lg mb-4">Devam etmek için lütfen bir proje seçin veya yeni bir tane oluşturun.</p>
+            <AddProjectDialog />
+        </div>
+       )
     }
 
     return <main className="flex-1 p-4 sm:p-6">{children}</main>;

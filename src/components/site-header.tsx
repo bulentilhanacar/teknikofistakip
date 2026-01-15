@@ -6,10 +6,9 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useUser } from "@/firebase/provider";
+import { useUser, useFirebaseApp } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { signInWithPopup, GoogleAuthProvider, getAuth } from "firebase/auth";
-import { useFirebaseApp } from "@/firebase";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut } from "lucide-react";
+import { useProject } from '@/context/project-context';
 
 const breadcrumbNameMap: { [key: string]: string } = {
   '/': 'Finansal Özet',
@@ -27,10 +27,12 @@ const breadcrumbNameMap: { [key: string]: string } = {
   '/progress-payments': 'Hakediş Hesaplama',
   '/progress-tracking': 'Hakediş Takip',
   '/deductions': 'Kesinti Yönetimi',
+  '/admin': 'Admin Paneli',
 };
 
 const UserMenu = () => {
     const { user, loading } = useUser();
+    const { isAdmin } = useProject();
     const app = useFirebaseApp();
     const auth = getAuth(app);
 
@@ -70,6 +72,7 @@ const UserMenu = () => {
                     <div className="flex flex-col space-y-1">
                         <p className="text-sm font-medium leading-none">{user.displayName}</p>
                         <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                        {isAdmin && <p className="text-xs font-bold text-primary leading-none pt-1">Admin</p>}
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -86,7 +89,7 @@ const UserMenu = () => {
 export function SiteHeader() {
   const pathname = usePathname();
   
-  const pathnames = pathname === '/' ? ['/'] : pathname.split('/').filter(x => x);
+  const pathSegments = pathname.split('/').filter(x => x);
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
@@ -98,11 +101,10 @@ export function SiteHeader() {
               <Link href="/">Ana Sayfa</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
-          {pathnames.map((value, index) => {
-            if (value === '/') return null;
-            const to = `/${pathnames.slice(0, index + 1).join('/')}`;
-            const isLast = index === pathnames.length - 1;
-            const name = breadcrumbNameMap[to] || value.charAt(0).toUpperCase() + value.slice(1);
+          {pathSegments.map((segment, index) => {
+            const to = `/${pathSegments.slice(0, index + 1).join('/')}`;
+            const isLast = index === pathSegments.length - 1;
+            const name = breadcrumbNameMap[to] || segment.charAt(0).toUpperCase() + segment.slice(1);
             
             return (
               <React.Fragment key={to}>

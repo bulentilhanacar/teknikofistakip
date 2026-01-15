@@ -1,23 +1,59 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only manage their own user document
+    
+    // Get user role from the 'users' collection
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    }
+    
+    function isUserInAllowlist(email) {
+      return exists(
+        /databases/$(database)/documents/users_by_email/$(email)
+      );
+    }
+    
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Admins can read/write any user document (for role management)
+      allow read, write: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
+      // Users can read their own document
+      allow get: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // A separate collection to quickly check if a user's email is allowed.
+    // This is managed by an admin.
+    match /users_by_email/{email} {
+      allow read: if request.auth != null; // Allow authenticated users to check if they exist
+      allow write: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
     }
 
-    // Projects can be created by any authenticated user.
-    // Only the owner of a project can read, update, or delete it.
     match /projects/{projectId} {
-      allow read, update, delete: if request.auth != null && get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      // Create: User must be authenticated and exist in the allowed users list.
+      allow create: if request.auth != null 
+                    && isUserInAllowlist(request.auth.token.email)
+                    && request.resource.data.ownerId == request.auth.uid;
+                    
+      // Read: Admin can read all. User can read their own.
+      allow get: if request.auth != null
+                  && (getUserRole(request.auth.uid) == 'admin' || resource.data.ownerId == request.auth.uid);
+                  
+      // List: Admin can list all. User can list their own using a query.
+      allow list: if request.auth != null; // Further filtering happens in the query
+                  
+      // Update, Delete: Admin can update/delete all. User can update/delete their own.
+      allow update, delete: if request.auth != null
+                          && (getUserRole(request.auth.uid) == 'admin' || resource.data.ownerId == request.auth.uid);
     }
 
     // All sub-collections under a project (contracts, deductions, etc.)
-    // can only be accessed by the owner of the parent project.
+    // inherit the permissions of the parent project.
     match /projects/{projectId}/{document=**} {
-       allow read, write: if request.auth != null && get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
+       allow read, write: if request.auth != null && (
+          getUserRole(request.auth.uid) == 'admin' 
+          || get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid
+       );
     }
   }
 }
