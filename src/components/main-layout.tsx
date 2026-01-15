@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -24,9 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { SiteHeader } from "./site-header";
 import { useProject } from "@/context/project-context";
-import { FirebaseProvider } from "@/firebase";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
-import { Skeleton } from "./ui/skeleton";
+import { FolderKanban as ProjectIcon } from "lucide-react";
 
 function ProjectNav() {
   const pathname = usePathname();
@@ -39,6 +38,14 @@ function ProjectNav() {
     { href: "/progress-tracking", label: "Hakediş Takip", icon: ClipboardList },
     { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
   ];
+
+  if (!selectedProject) {
+    return (
+        <div className="p-4 text-sm text-sidebar-foreground/80">
+            Proje menüsü yükleniyor...
+        </div>
+    )
+  }
 
   return (
     <SidebarMenu>
@@ -70,7 +77,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
     if (loading) {
         return (
              <div className="flex flex-col items-center justify-center h-screen text-muted-foreground text-center">
-                <FolderKanban className="w-16 h-16 mb-4 animate-pulse" />
+                <ProjectIcon className="w-16 h-16 mb-4 animate-pulse" />
                 <p className="text-lg">Proje verileri yükleniyor, lütfen bekleyin...</p>
             </div>
         )
@@ -108,8 +115,6 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   return (
-    <FirebaseProvider>
-        <AppContent>{children}</AppContent>
-    </FirebaseProvider>
+      <AppContent>{children}</AppContent>
   );
 }
