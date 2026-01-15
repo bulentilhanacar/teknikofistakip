@@ -4,7 +4,8 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
 import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser } from '@/firebase/provider';
 import { addDoc, collection, deleteDoc, doc, getDocs, query, updateDoc, where, writeBatch, setDoc, getDoc } from 'firebase/firestore';
 
 interface AppUser {
@@ -33,89 +34,65 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
-    const [isBootstrapping, setIsBootstrapping] = useState(true);
+    const [dataLoading, setDataLoading] = useState(true);
 
-    const userQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        // Query by doc ID which is the user's UID
-        return doc(firestore, "users", user.uid);
-    }, [firestore, user]);
-    
-    // We will use this to get the user's role
-    const { data: userDoc, isLoading: userRoleLoading } = useCollection<AppUser>(
-        useMemoFirebase(() => {
-            if (!firestore || !user) return null;
-            return query(collection(firestore, "users"), where("email", "==", user.email));
-        }, [firestore, user])
-    );
-
-     useEffect(() => {
-        if (userDoc && userDoc.length > 0) {
-            setIsAdmin(userDoc[0].role === 'admin');
-        } else {
-            setIsAdmin(false);
-        }
-    }, [userDoc]);
-
-
-    // Bootstrap function to make the first logged-in user an admin if no admin exists
+    // This effect determines the user's role and manages their record in Firestore.
     useEffect(() => {
-        const bootstrapAdmin = async () => {
-            if (!firestore || !user || userRoleLoading) return;
+        if (userLoading) return;
+        if (!user || !firestore) {
+            setIsAdmin(false);
+            setDataLoading(false);
+            return;
+        }
 
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+        const isDesignatedAdmin = user.email === adminEmail;
+        setIsAdmin(isDesignatedAdmin);
+
+        const userRef = doc(firestore, 'users', user.uid);
+        const userByEmailRef = doc(firestore, 'users_by_email', user.email!);
+
+        const setupUser = async () => {
             try {
-                // Check if any admin user exists
-                const adminQuery = query(collection(firestore, "users"), where("role", "==", "admin"));
-                const adminSnapshot = await getDocs(adminQuery);
+                const userDoc = await getDoc(userRef);
+                const userByEmailDoc = await getDoc(userByEmailRef);
 
-                // If no admin exists, make the current user an admin
-                if (adminSnapshot.empty) {
-                    console.log("No admins found. Making current user admin.");
-                    
-                    const userRef = doc(firestore, 'users_by_email', user.email!);
-                    const userDocSnap = await getDoc(userRef);
+                const role = isDesignatedAdmin ? 'admin' : 'user';
+                const userData = { email: user.email, role };
 
-                    // A user might exist in users_by_email but not in users collection yet
-                    // Or they might not exist at all.
-                    // We ensure they are created with admin role.
-                    if (!userDocSnap.exists()) {
-                         await setDoc(userRef, { email: user.email });
-                    }
-                   
-                    const userRecordRef = doc(firestore, 'users', user.uid);
-                    await setDoc(userRecordRef, { email: user.email, role: 'admin' }, { merge: true });
-
-                    setIsAdmin(true); // Immediately update the state
-                    toast({ title: "Admin Yetkisi Verildi", description: `${user.email} artık bir admin.`});
+                if (!userDoc.exists() || userDoc.data().role !== role) {
+                    await setDoc(userRef, userData, { merge: true });
+                }
+                if (!userByEmailDoc.exists() || userByEmailDoc.data().role !== role) {
+                     await setDoc(userByEmailRef, { email: user.email, role }, { merge: true });
                 }
             } catch (error) {
-                console.error("Error bootstrapping admin:", error);
-            } finally {
-                setIsBootstrapping(false);
+                console.error("Error setting up user role:", error);
+                toast({ title: "Hata", description: "Kullanıcı rolü ayarlanırken bir sorun oluştu.", variant: "destructive" });
             }
         };
 
-        if(user) {
-            bootstrapAdmin();
-        } else if (!userLoading) {
-            setIsBootstrapping(false);
-        }
-    }, [firestore, user, userLoading, toast]);
+        setupUser();
 
+    }, [user, userLoading, firestore, toast]);
 
     const projectsQuery = useMemoFirebase(() => {
-        if (!firestore || !user || isBootstrapping) return null;
+        if (userLoading || !user || !firestore) return null;
+        
         if (isAdmin) {
-             // Admin sees all projects
+            // Admin sees all projects
             return collection(firestore, "projects");
         }
         // Regular user sees only their projects
         return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
-    }, [firestore, user, isAdmin, isBootstrapping]);
+    }, [firestore, user, isAdmin, userLoading]);
     
     const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-    const loading = userLoading || projectsLoading || userRoleLoading || isBootstrapping;
+    useEffect(() => {
+        setDataLoading(userLoading || projectsLoading);
+    }, [userLoading, projectsLoading])
+
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -127,15 +104,12 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     useEffect(() => {
-        if (!loading && projects) {
+        if (!dataLoading && projects) {
             if (projects.length > 0) {
                 const storedId = localStorage.getItem('selectedProjectId');
                 const projectExists = projects.some(p => p.id === storedId);
 
-                const selectedProjectData = projects.find(p => p.id === storedId);
-                const isOwner = selectedProjectData?.ownerId === user?.uid;
-
-                if (storedId && projectExists && (isAdmin || isOwner)) {
+                if (storedId && projectExists) {
                     setSelectedProjectId(storedId);
                 } else {
                     setSelectedProjectId(projects[0].id);
@@ -146,7 +120,7 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
                 localStorage.removeItem('selectedProjectId');
             }
         }
-    }, [projects, loading, isAdmin, user]);
+    }, [projects, dataLoading]);
 
     const selectProject = (id: string) => {
         setSelectedProjectId(id);
@@ -210,28 +184,10 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     
     const selectedProject = projects?.find(p => p.id === selectedProjectId) || null;
     
-    if (!loading && selectedProject && !isAdmin && selectedProject.ownerId !== user?.uid) {
-        return (
-            <ProjectContext.Provider value={{
-                projects: null,
-                selectedProject: null,
-                loading: true,
-                addProject,
-                selectProject,
-                renameProject,
-                deleteProject,
-                user,
-                isAdmin: false,
-            }}>
-                {children}
-            </ProjectContext.Provider>
-        );
-    }
-
     const value: ProjectContextType = {
         projects,
         selectedProject,
-        loading,
+        loading: dataLoading,
         addProject,
         selectProject,
         renameProject,
