@@ -47,10 +47,8 @@ export default function Home() {
   const { selectedProject, loading: projectLoading } = useProject();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
-  // const data = useMemo(() => {
-  //   return getDashboardData();
-  // }, [selectedProject, getDashboardData]);
-  const data = emptyDashboardData; // Placeholder until dashboard data is also moved to Firestore
+  // Placeholder until dashboard data is also moved to Firestore
+  const data = emptyDashboardData; 
 
   const handleLogin = () => {
     if (auth) {
