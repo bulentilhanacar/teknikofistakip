@@ -40,13 +40,13 @@ export default function ProgressTrackingPage() {
     if (!firestore || !selectedProject) return null;
     return query(collection(firestore, `projects/${selectedProject.id}/contracts`), where('isDraft', '==', false));
   }, [firestore, selectedProject]);
-  const { data: approvedContracts, isLoading: contractsLoading } = useCollection<Contract>(contractsQuery);
+  const { data: approvedContracts } = useCollection<Contract>(contractsQuery);
 
   const paymentsQuery = useMemoFirebase(() => {
     if (!firestore || !selectedProject) return null;
     return collection(firestore, `projects/${selectedProject.id}/progressPayments`);
   }, [firestore, selectedProject]);
-  const { data: allPayments, isLoading: paymentsLoading } = useCollection<ProgressPayment>(paymentsQuery);
+  const { data: allPayments } = useCollection<ProgressPayment>(paymentsQuery);
 
   const statusesQuery = useMemoFirebase(() => {
     if (!firestore || !selectedProject || !selectedMonth) return null;
@@ -63,7 +63,7 @@ export default function ProgressTrackingPage() {
     if (!firestore || !selectedProject) return null;
     return collection(firestore, `projects/${selectedProject.id}/progressStatuses`);
   }, [firestore, selectedProject]);
-  const { data: allStatuses, isLoading: statusesLoading } = useCollection<{id: string, status: ProgressPaymentStatus}>(allStatusesQuery);
+  const { data: allStatuses } = useCollection<{id: string, status: ProgressPaymentStatus}>(allStatusesQuery);
 
 
   const getContractProgressInfo = useCallback((contract: Contract) => {
@@ -114,31 +114,14 @@ export default function ProgressTrackingPage() {
       'pas_gec': 'Bu Ay Pas Geçildi'
   };
 
-
-  if (!selectedProject) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline">Hakediş Takip</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="flex items-center justify-center h-48 text-muted-foreground">
-                    Lütfen devam etmek için bir proje seçin.
-                </div>
-            </CardContent>
-        </Card>
-    );
-  }
-
   const selectedMonthLabel = monthOptions.find(m => m.value === selectedMonth)?.label;
-  const loading = contractsLoading || paymentsLoading || statusesLoading;
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <div>
             <CardTitle className="font-headline">Hakediş Takip</CardTitle>
-            <CardDescription>{selectedProject.name} | Sözleşmelerin aylık hakediş durumlarını takip edin.</CardDescription>
+            <CardDescription>{selectedProject!.name} | Sözleşmelerin aylık hakediş durumlarını takip edin.</CardDescription>
         </div>
          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-[200px]">
@@ -152,9 +135,6 @@ export default function ProgressTrackingPage() {
         </Select>
       </CardHeader>
       <CardContent>
-        {loading ? (
-             <div className="flex items-center justify-center h-48 text-muted-foreground">Yükleniyor...</div>
-        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -209,7 +189,6 @@ export default function ProgressTrackingPage() {
             )}
           </TableBody>
         </Table>
-        )}
       </CardContent>
     </Card>
   );

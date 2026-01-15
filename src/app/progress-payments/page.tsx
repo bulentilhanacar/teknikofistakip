@@ -39,7 +39,7 @@ export default function ProgressPaymentsPage() {
     if (!firestore || !selectedProject) return null;
     return query(collection(firestore, `projects/${selectedProject.id}/contracts`), where('isDraft', '==', false));
   }, [firestore, selectedProject]);
-  const { data: approvedContracts, isLoading: contractsLoading } = useCollection<Contract>(contractsQuery);
+  const { data: approvedContracts } = useCollection<Contract>(contractsQuery);
 
   const selectedContract = useMemo(() => {
     if (!selectedContractId || !approvedContracts) return null;
@@ -52,7 +52,7 @@ export default function ProgressPaymentsPage() {
     // For larger scale, one might query per contract.
     return collection(firestore, `projects/${selectedProject.id}/progressPayments`);
   }, [firestore, selectedProject]);
-  const { data: allPayments, isLoading: paymentsLoading } = useCollection<ProgressPayment>(paymentsQuery);
+  const { data: allPayments } = useCollection<ProgressPayment>(paymentsQuery);
 
   const contractProgressHistory = useMemo(() => {
     if (!allPayments || !selectedContractId) return [];
@@ -65,7 +65,7 @@ export default function ProgressPaymentsPage() {
     if (!firestore || !selectedProject) return null;
     return collection(firestore, `projects/${selectedProject.id}/deductions`);
   }, [firestore, selectedProject]);
-  const { data: allDeductions, isLoading: deductionsLoading } = useCollection<Deduction>(deductionsQuery);
+  const { data: allDeductions } = useCollection<Deduction>(deductionsQuery);
   
 
   const paymentToEdit = useMemo(() => {
@@ -358,30 +358,13 @@ export default function ProgressPaymentsPage() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
   }
-  
-  if (!selectedProject) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline">Hakediş Hesaplama</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="flex items-center justify-center h-48 text-muted-foreground">
-                    Lütfen devam etmek için bir proje seçin.
-                </div>
-            </CardContent>
-        </Card>
-    );
-  }
-  
-  const loading = contractsLoading || paymentsLoading || deductionsLoading;
 
   return (
     <div className="grid gap-6">
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">Hakediş Hesaplama</CardTitle>
-          <CardDescription>{selectedProject.name} | Sözleşme seçerek yeni bir hakediş raporu oluşturun veya eskisini düzenleyin.</CardDescription>
+          <CardDescription>{selectedProject!.name} | Sözleşme seçerek yeni bir hakediş raporu oluşturun veya eskisini düzenleyin.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
@@ -407,7 +390,6 @@ export default function ProgressPaymentsPage() {
                   <Select 
                       value={editingPaymentNumber === null ? "new" : String(editingPaymentNumber)}
                       onValueChange={handlePaymentSelectionChange}
-                      disabled={loading}
                   >
                       <SelectTrigger>
                           <SelectValue />
@@ -432,7 +414,6 @@ export default function ProgressPaymentsPage() {
                             "w-full justify-start text-left font-normal",
                             !progressDate && "text-muted-foreground"
                             )}
-                             disabled={loading}
                         >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {progressDate ? format(progressDate, "PPP") : <span>Tarih seçin</span>}
@@ -451,7 +432,7 @@ export default function ProgressPaymentsPage() {
               </>
             )}
           </div>
-           {selectedContractId && contractProgressHistory.length > 0 && !loading &&(
+           {selectedContractId && contractProgressHistory.length > 0 && (
                 <div className="flex justify-end pt-2">
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -475,11 +456,10 @@ export default function ProgressPaymentsPage() {
                     </AlertDialog>
                 </div>
             )}
-            {loading && selectedContractId && <div className='text-center p-4 text-muted-foreground'>Veriler yükleniyor...</div>}
         </CardContent>
       </Card>
       
-      {selectedContractId && !loading && (
+      {selectedContractId && (
         <>
           {contractProgressHistory.length > 0 && (
             <Card>

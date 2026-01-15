@@ -45,13 +45,13 @@ export default function DeductionsPage() {
             where('isDraft', '==', false)
         );
     }, [firestore, selectedProject]);
-    const { data: approvedContracts, isLoading: contractsLoading } = useCollection<Contract>(contractsQuery);
+    const { data: approvedContracts } = useCollection<Contract>(contractsQuery);
 
     const deductionsQuery = useMemoFirebase(() => {
         if (!firestore || !selectedProject) return null;
         return collection(firestore, 'projects', selectedProject.id, 'deductions');
     }, [firestore, selectedProject]);
-    const { data: allDeductions, isLoading: deductionsLoading } = useCollection<Deduction>(deductionsQuery);
+    const { data: allDeductions } = useCollection<Deduction>(deductionsQuery);
     
     useEffect(() => {
         if (selectedProject) {
@@ -131,43 +131,12 @@ export default function DeductionsPage() {
         return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
     };
 
-    if (!selectedProject) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline">Kesinti Yönetimi</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-center h-48 text-muted-foreground">
-                        Lütfen devam etmek için bir proje seçin.
-                    </div>
-                </CardContent>
-            </Card>
-        );
-    }
-    
-     if (contractsLoading || deductionsLoading) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline">Kesinti Yönetimi</CardTitle>
-                    <CardDescription>{selectedProject.name} | Bu proje kapsamındaki sözleşmelere yeni kesinti ekleyin.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-center h-48 text-muted-foreground">
-                        Yükleniyor...
-                    </div>
-                </CardContent>
-            </Card>
-        )
-    }
-
     return (
         <div className="grid gap-6">
             <Card>
                 <CardHeader>
                     <CardTitle className="font-headline">Yeni Kesinti Ekle</CardTitle>
-                    <CardDescription>{selectedProject.name} | Bu proje kapsamındaki sözleşmelere yeni kesinti ekleyin.</CardDescription>
+                    <CardDescription>{selectedProject!.name} | Bu proje kapsamındaki sözleşmelere yeni kesinti ekleyin.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 grid gap-4">

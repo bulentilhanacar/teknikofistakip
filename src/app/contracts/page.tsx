@@ -365,7 +365,7 @@ export default function ContractsPage() {
         return query(collection(firestore, 'projects', selectedProject.id, 'contracts'));
     }, [firestore, selectedProject]);
     
-    const { data: contracts, isLoading: loading } = useCollection<Contract>(contractsQuery);
+    const { data: contracts } = useCollection<Contract>(contractsQuery);
 
     const { draftContracts, approvedContracts } = useMemo(() => {
         if (!contracts) {
@@ -533,44 +533,13 @@ export default function ContractsPage() {
     const groupedDrafts = groupContracts(draftContracts);
     const groupedApproved = groupContracts(approvedContracts);
 
-  if (!selectedProject) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline">Sözleşme Yönetimi</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="flex items-center justify-center h-48 text-muted-foreground">
-                    Lütfen devam etmek için bir proje seçin.
-                </div>
-            </CardContent>
-        </Card>
-    );
-  }
-  
-    if (loading) {
-        return (
-             <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline">Sözleşme Yönetimi</CardTitle>
-                     <CardDescription>{selectedProject.name} | Taslak ve onaylı tüm proje sözleşmelerini yönetin.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-center h-48 text-muted-foreground">
-                        Yükleniyor...
-                    </div>
-                </CardContent>
-            </Card>
-        )
-    }
-
   return (
     <Card>
         <CardHeader>
             <div className="flex items-center justify-between">
             <div>
                 <CardTitle className="font-headline">Sözleşme Yönetimi</CardTitle>
-                <CardDescription>{selectedProject.name} | Taslak ve onaylı tüm proje sözleşmelerini yönetin.</CardDescription>
+                <CardDescription>{selectedProject!.name} | Taslak ve onaylı tüm proje sözleşmelerini yönetin.</CardDescription>
             </div>
             </div>
       </CardHeader>

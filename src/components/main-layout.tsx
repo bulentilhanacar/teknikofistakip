@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -10,12 +9,8 @@ import {
   FileSignature,
   LayoutDashboard,
   FolderKanban,
-  ChevronsUpDown,
-  Gavel,
-  Edit,
-  Trash,
   ClipboardList,
-  LogOut,
+  Gavel,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -25,324 +20,96 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarSeparator,
   SidebarInset,
-  SidebarFooter,
 } from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { SiteHeader } from "./site-header";
-import { Button } from "./ui/button";
-import { useProject, ProjectProvider } from "@/context/project-context";
-import { Skeleton } from "./ui/skeleton";
-import { AddProjectDialog } from "./add-project-dialog";
-import { RenameProjectDialog } from "./rename-project-dialog";
-import { Project } from "@/context/types";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { FirebaseProvider, useAuth, useUser } from "@/firebase/provider";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { initiateGoogleSignIn } from "@/firebase/non-blocking-login";
+import { useProject } from "@/context/project-context";
+import { FirebaseProvider } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
+import { Skeleton } from "./ui/skeleton";
 
-function ProjectSelector() {
-  const { projects, selectedProject, selectProject, deleteProject, updateProjectName, loading } = useProject();
-  const [editingProject, setEditingProject] = React.useState<Project | null>(null);
-  const [editingName, setEditingName] = React.useState('');
+function ProjectNav() {
+  const pathname = usePathname();
+  const { selectedProject } = useProject();
 
-  const handleRenameClick = (project: Project) => {
-    setEditingProject(project);
-    setEditingName(project.name);
-  };
-
-  const handleSaveRename = () => {
-    if (editingProject && editingName.trim()) {
-      updateProjectName(editingProject.id, editingName.trim());
-    }
-    setEditingProject(null);
-  };
-  
-  const handleDeleteClick = (project: Project) => {
-    deleteProject(project.id);
-  }
-
-  if (loading) {
-     return (
-        <div className="p-2 space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-        </div>
-     )
-  }
+  const projectMenuItems = [
+    { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
+    { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
+    { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
+    { href: "/progress-tracking", label: "Hakediş Takip", icon: ClipboardList },
+    { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
+  ];
 
   return (
-    <>
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button
-                variant="ghost"
-                className="w-full justify-between text-sidebar-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                >
-                <span className="truncate group-data-[collapsible=icon]:hidden">
-                    {selectedProject?.name ?? "Proje Seçin"}
-                </span>
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 group-data-[collapsible=icon]:hidden" />
-                <FolderKanban className="hidden h-5 w-5 group-data-[collapsible=icon]:block" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[var(--sidebar-width)] -translate-x-2">
-                <DropdownMenuLabel>Projeler</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {projects && projects.map((project) => (
-                    <DropdownMenuItem key={project.id} onSelect={() => selectProject(project.id)}>
-                        {project.name}
-                    </DropdownMenuItem>
-                ))}
-                 {(!projects || projects.length === 0) && (
-                    <DropdownMenuItem disabled>
-                        Henüz proje oluşturulmamış.
-                    </DropdownMenuItem>
-                )}
-            </DropdownMenuContent>
-        </DropdownMenu>
-
-        {selectedProject && (
-            <div className="mt-2 space-y-1 p-2 pt-0 group-data-[collapsible=icon]:hidden">
-                <Button variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground/80 hover:text-sidebar-foreground" onClick={() => handleRenameClick(selectedProject)}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    <span>Yeniden Adlandır</span>
-                </Button>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="w-full justify-start text-destructive/80 hover:text-destructive">
-                            <Trash className="mr-2 h-4 w-4"/>
-                            <span>Proje Sil</span>
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                "{selectedProject.name}" projesini ve tüm verilerini kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>İptal</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteClick(selectedProject)}>Evet, Sil</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                 </AlertDialog>
-            </div>
-        )}
-        
-        {editingProject && (
-            <RenameProjectDialog 
-                project={editingProject}
-                name={editingName}
-                setName={setEditingName}
-                onSave={handleSaveRename}
-                isOpen={!!editingProject}
-                onOpenChange={(isOpen) => !isOpen && setEditingProject(null)}
-            />
-        )}
-    </>
+    <SidebarMenu>
+      {projectMenuItems.map((item) => {
+        const isActive = pathname === item.href;
+        return (
+          <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton
+              asChild
+              isActive={isActive}
+              tooltip={item.label}
+            >
+              <Link href={item.href}>
+                <item.icon />
+                <span>{item.label}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      })}
+    </SidebarMenu>
   );
 }
 
-function UserProfile() {
-    const { user, isUserLoading } = useUser();
-    const auth = useAuth();
-
-    if (isUserLoading) {
-        return <Skeleton className="h-10 w-full" />
-    }
-
-    if (!user) {
-        return null;
-    }
-    
-    const getInitials = (name: string | null | undefined) => {
-        if (!name) return 'S';
-        return name.split(' ').map(n => n[0]).join('');
-    }
-
-    return (
-        <div className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center">
-            <Avatar className="h-8 w-8">
-                <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"}/>
-                <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-                <span className="text-sm font-medium truncate">{user.displayName || "Kullanıcı"}</span>
-                <span className="text-xs text-sidebar-foreground/70 truncate">{user.email}</span>
-            </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto group-data-[collapsible=icon]:hidden" onClick={() => auth?.signOut()}>
-                <LogOut className="h-4 w-4" />
-            </Button>
-        </div>
-    )
-}
-
-const projectMenuItems = [
-  { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
-  { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
-  { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
-  { href: "/progress-tracking", label: "Hakediş Takip", icon: ClipboardList },
-  { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
-];
-
-
 function AppContent({ children }: { children: React.ReactNode }) {
-    const pathname = usePathname();
-    const { selectedProject, loading: projectLoading } = useProject();
-    const { user, isUserLoading } = useUser();
-    const auth = useAuth();
-
-    const handleLogin = () => {
-        if (auth) {
-            initiateGoogleSignIn(auth);
-        }
-    };
-    
-    const showLoading = isUserLoading || projectLoading;
-
-    const renderContent = () => {
-        if (showLoading) {
-             return (
-                <div className="p-4 sm:p-6">
-                    <div className="grid gap-6">
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                        <Skeleton className="h-28" />
-                        <Skeleton className="h-28" />
-                        <Skeleton className="h-28" />
-                        <Skeleton className="h-28" />
-                        </div>
-                        <div className="grid gap-6 lg:grid-cols-2">
-                        <Skeleton className="h-80" />
-                        <Skeleton className="h-80" />
-                        </div>
-                    </div>
-                </div>
-            )
-        }
-
-        if (!user) {
-            return (
-                <div className="p-4 sm:p-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="font-headline">Hoş Geldiniz!</CardTitle>
-                            <CardDescription>Devam etmek için lütfen giriş yapın.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex flex-col items-center justify-center h-48 text-center">
-                                <p className="mb-4 text-muted-foreground">Proje verilerinizi yönetmek için Google hesabınızla oturum açın.</p>
-                                <Button onClick={handleLogin} size="lg">Google ile Giriş Yap</Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )
-        }
-        
-        if (!selectedProject) {
-            return (
-                <div className="p-4 sm:p-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="font-headline">Proje Seçin</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground text-center">
-                                <FolderKanban className="w-12 h-12 mb-4" />
-                                <p>Devam etmek için lütfen sol menüden bir proje seçin veya yeni bir proje oluşturun.</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )
-        }
-
-        return <main className="flex-1 p-4 sm:p-6">{children}</main>
+  const { selectedProject, loading } = useProject();
+  
+  const renderContent = () => {
+    if (loading) {
+        return (
+             <div className="flex flex-col items-center justify-center h-screen text-muted-foreground text-center">
+                <FolderKanban className="w-16 h-16 mb-4 animate-pulse" />
+                <p className="text-lg">Proje verileri yükleniyor, lütfen bekleyin...</p>
+            </div>
+        )
     }
 
+    return <main className="flex-1 p-4 sm:p-6">{children}</main>;
+  };
 
-    return (
-        <SidebarProvider>
-        <Sidebar side="left" collapsible="icon">
-            <SidebarHeader>
-            <Link
-                href="/"
-                className="flex items-center gap-2 font-headline text-lg font-semibold text-sidebar-foreground"
-            >
-                <Building2 className="h-6 w-6 text-primary" />
-                <span className="truncate">İnşaat Takip</span>
-            </Link>
-            </SidebarHeader>
-            <SidebarContent>
-            {isUserLoading && (
-                <div className="p-2 space-y-2">
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-8 w-full" />
-                </div>
-            )}
-            {user && (
-                <>
-                <ProjectSelector />
-                <SidebarSeparator className="my-1"/>
-                <div className="p-2 pt-0">
-                    <AddProjectDialog />
-                </div>
-                </>
-            )}
-            {selectedProject && (
-                <SidebarMenu>
-                {projectMenuItems.map((item) => {
-                    const itemPath = item.href === "/" ? "/" : item.href;
-                    const isActive = pathname === itemPath;
-                    return (
-                    <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton
-                        asChild
-                        isActive={isActive}
-                        tooltip={item.label}
-                        >
-                        <Link href={itemPath}>
-                            <item.icon />
-                            <span>{item.label}</span>
-                        </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    );
-                })}
-                </SidebarMenu>
-            )}
-            </SidebarContent>
-            <SidebarFooter>
-                {user && <UserProfile />}
-            </SidebarFooter>
-        </Sidebar>
-        <SidebarInset>
-            <SiteHeader />
-            {renderContent()}
-        </SidebarInset>
-        </SidebarProvider>
-    )
+  return (
+    <SidebarProvider>
+      <Sidebar side="left" collapsible="icon">
+        <SidebarHeader>
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-headline text-lg font-semibold text-sidebar-foreground"
+          >
+            <Building2 className="h-6 w-6 text-primary" />
+            <span className="truncate">İnşaat Takip</span>
+          </Link>
+        </SidebarHeader>
+        <SidebarContent>
+          <div className="p-2 group-data-[collapsible=icon]:hidden">
+             <p className="text-sm font-medium text-sidebar-foreground/80">{selectedProject?.name || 'Proje Yükleniyor...'}</p>
+          </div>
+          <ProjectNav />
+        </SidebarContent>
+      </Sidebar>
+      <SidebarInset>
+        <SiteHeader />
+        {renderContent()}
+      </SidebarInset>
+    </SidebarProvider>
+  );
 }
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-    return (
-        <FirebaseProvider>
-            <ProjectProvider>
-                <AppContent>{children}</AppContent>
-            </ProjectProvider>
-        </FirebaseProvider>
-    )
+  return (
+    <FirebaseProvider>
+        <AppContent>{children}</AppContent>
+    </FirebaseProvider>
+  );
 }
