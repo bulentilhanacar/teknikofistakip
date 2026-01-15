@@ -1,14 +1,15 @@
 "use client";
 
 import { ProjectProvider } from "@/context/project-context";
-import { FirebaseClientProvider } from "@/firebase";
+import { FirebaseProvider } from "@/firebase/provider";
+import { MainLayout } from "@/components/main-layout";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <FirebaseClientProvider>
+    <FirebaseProvider>
       <ProjectProvider>
-        {children}
+        <MainLayout>{children}</MainLayout>
       </ProjectProvider>
-    </FirebaseClientProvider>
+    </FirebaseProvider>
   );
 }

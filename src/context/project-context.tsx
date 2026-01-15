@@ -4,7 +4,7 @@
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback } from 'react';
 import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase/provider';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase/provider';
 import { addDoc, collection, deleteDoc, doc, query, updateDoc, where } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -26,7 +26,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const { toast } = useToast();
     const { user, isUserLoading } = useUser();
     
-    // useFirestore can throw if Firebase is not initialized, so we need to handle it.
     let firestore: any;
     try {
         firestore = useFirestore();
@@ -45,14 +44,15 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
     
     useEffect(() => {
-        // This effect should only run on the client
-        try {
-            const storedProjectId = localStorage.getItem('selectedProjectId');
-            if (storedProjectId) {
-                setSelectedProjectId(JSON.parse(storedProjectId));
+        if (typeof window !== 'undefined') {
+            try {
+                const storedProjectId = localStorage.getItem('selectedProjectId');
+                if (storedProjectId) {
+                    setSelectedProjectId(JSON.parse(storedProjectId));
+                }
+            } catch (error) {
+                console.error("Could not access localStorage:", error);
             }
-        } catch (error) {
-            console.error("Could not access localStorage:", error);
         }
         setIsInitialLoad(false);
     }, []);
@@ -68,14 +68,12 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         
         if (projects.length > 0) {
             const firstProject = projects[0];
-            // Automatically select the first project if no valid project is selected
             if (selectedProjectId !== firstProject.id) {
                  setSelectedProjectId(firstProject.id);
             }
             return firstProject;
         }
         
-        // No projects exist, so no project should be selected.
         if(selectedProjectId !== null) {
             setSelectedProjectId(null);
         }
@@ -86,21 +84,19 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     useEffect(() => {
         if (isInitialLoad) return;
         
-        try {
-            if (selectedProject) {
-                localStorage.setItem('selectedProjectId', JSON.stringify(selectedProject.id));
-            } else {
-                localStorage.removeItem('selectedProjectId');
+        if (typeof window !== 'undefined') {
+            try {
+                if (selectedProject) {
+                    localStorage.setItem('selectedProjectId', JSON.stringify(selectedProject.id));
+                } else {
+                    localStorage.removeItem('selectedProjectId');
+                }
+            } catch (error) {
+                 console.error("Could not access localStorage:", error);
             }
-        } catch (error) {
-             console.error("Could not access localStorage:", error);
         }
     }, [selectedProject, isInitialLoad]);
 
-
-    const selectProject = (projectId: string | null) => {
-        setSelectedProjectId(projectId);
-    };
 
     const addProject = useCallback(async (projectName: string) => {
         if (!firestore || !user) {

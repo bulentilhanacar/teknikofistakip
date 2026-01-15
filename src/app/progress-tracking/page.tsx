@@ -10,7 +10,7 @@ import type { ProgressPaymentStatus, Contract, ProgressPayment } from '@/context
 import { format, addMonths } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase/provider';
 import { collection, doc, query, setDoc, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 

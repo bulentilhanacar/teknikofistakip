@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import { MainLayout } from "@/components/main-layout";
 import { Inter as FontSans, Roboto_Mono as FontMono } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Providers } from "./providers";
@@ -35,7 +34,7 @@ export default function RootLayout({
           fontMono.variable
         )}>
         <Providers>
-          <MainLayout>{children}</MainLayout>
+          {children}
         </Providers>
         <Toaster />
       </body>

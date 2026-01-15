@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Contract, ContractGroupKeys, ContractItem, contractGroups } from '@/context/types';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase/provider';
 import { addDoc, collection, deleteDoc, doc, query, updateDoc, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
