@@ -6,15 +6,17 @@
 
 export { 
     FirebaseProvider, 
-    useFirebase, 
-    useAuth, 
-    useFirestore, 
-    useFirebaseApp,
+    useFirebaseApp, 
+    useFirestore,
+    useAuth,
+    useUser,
+    googleProvider
 } from './provider';
+
 export { useCollection } from './firestore/use-collection';
 export { useDoc } from './firestore/use-doc';
 export { FirestorePermissionError } from './errors';
-export { useMemo } from 'react';
+
 
 import { useMemo as useMemoOriginal, DependencyList } from 'react';
 type MemoFirebase <T> = T & {__memo?: boolean};
