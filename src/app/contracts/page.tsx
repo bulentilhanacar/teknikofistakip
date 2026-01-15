@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Contract, ContractGroupKeys, ContractItem, contractGroups } from '@/context/types';
-import { useAuth, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { addDoc, collection, deleteDoc, doc, query, updateDoc, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -356,7 +356,7 @@ const ContractGroupAccordion = ({ title, contracts, onApprove, onRevert, onAddDr
 
 
 export default function ContractsPage() {
-    const { selectedProject, updateDraftContractName, deleteDraftContract } = useProject();
+    const { selectedProject } = useProject();
     const firestore = useFirestore();
     const { toast } = useToast();
 
@@ -365,7 +365,7 @@ export default function ContractsPage() {
         return query(collection(firestore, 'projects', selectedProject.id, 'contracts'));
     }, [firestore, selectedProject]);
     
-    const { data: contracts, loading } = useCollection<Contract>(contractsQuery);
+    const { data: contracts, isLoading: loading } = useCollection<Contract>(contractsQuery);
 
     const { draftContracts, approvedContracts } = useMemo(() => {
         if (!contracts) {
@@ -443,6 +443,29 @@ export default function ContractsPage() {
             toast({ title: "Hata", description: "Kalem silinemedi.", variant: "destructive" });
         }
     }, [firestore, selectedProject, contracts, toast]);
+
+    const updateDraftContractName = useCallback(async (contractId: string, newName: string) => {
+        if (!firestore || !selectedProject) return;
+        try {
+            const contractRef = doc(firestore, 'projects', selectedProject.id, 'contracts', contractId);
+            await updateDoc(contractRef, { name: newName });
+            toast({ title: "Taslak adı güncellendi." });
+        } catch (error) {
+            console.error("Error updating draft name:", error);
+            toast({ title: "Hata", description: "Taslak adı güncellenemedi.", variant: "destructive" });
+        }
+    }, [firestore, selectedProject, toast]);
+    
+    const deleteDraftContract = useCallback(async (contractId: string) => {
+        if (!firestore || !selectedProject) return;
+        try {
+            await deleteDoc(doc(firestore, 'projects', selectedProject.id, 'contracts', contractId));
+            toast({ title: "Taslak silindi." });
+        } catch (error) {
+            console.error("Error deleting draft:", error);
+            toast({ title: "Hata", description: "Taslak silinemedi.", variant: "destructive" });
+        }
+    }, [firestore, selectedProject, toast]);
     
      const approveTender = useCallback(async (tenderId: string) => {
         if (!firestore || !selectedProject) return;

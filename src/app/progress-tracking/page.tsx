@@ -40,13 +40,13 @@ export default function ProgressTrackingPage() {
     if (!firestore || !selectedProject) return null;
     return query(collection(firestore, `projects/${selectedProject.id}/contracts`), where('isDraft', '==', false));
   }, [firestore, selectedProject]);
-  const { data: approvedContracts, loading: contractsLoading } = useCollection<Contract>(contractsQuery);
+  const { data: approvedContracts, isLoading: contractsLoading } = useCollection<Contract>(contractsQuery);
 
   const paymentsQuery = useMemoFirebase(() => {
     if (!firestore || !selectedProject) return null;
     return collection(firestore, `projects/${selectedProject.id}/progressPayments`);
   }, [firestore, selectedProject]);
-  const { data: allPayments, loading: paymentsLoading } = useCollection<ProgressPayment>(paymentsQuery);
+  const { data: allPayments, isLoading: paymentsLoading } = useCollection<ProgressPayment>(paymentsQuery);
 
   const statusesQuery = useMemoFirebase(() => {
     if (!firestore || !selectedProject || !selectedMonth) return null;
@@ -63,7 +63,7 @@ export default function ProgressTrackingPage() {
     if (!firestore || !selectedProject) return null;
     return collection(firestore, `projects/${selectedProject.id}/progressStatuses`);
   }, [firestore, selectedProject]);
-  const { data: allStatuses, loading: statusesLoading } = useCollection<{id: string, status: ProgressPaymentStatus}>(allStatusesQuery);
+  const { data: allStatuses, isLoading: statusesLoading } = useCollection<{id: string, status: ProgressPaymentStatus}>(allStatusesQuery);
 
 
   const getContractProgressInfo = useCallback((contract: Contract) => {

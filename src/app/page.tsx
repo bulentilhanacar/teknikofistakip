@@ -25,7 +25,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { FileClock, Gavel, FileSignature, FolderKanban } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useProject } from "@/context/project-context";
-import { useUser, useAuth } from "@/firebase";
+import { useUser, useAuth } from "@/firebase/provider";
 import { Button } from "@/components/ui/button";
 import { initiateGoogleSignIn } from "@/firebase/non-blocking-login";
 import { Skeleton } from "@/components/ui/skeleton";

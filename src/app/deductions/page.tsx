@@ -45,13 +45,13 @@ export default function DeductionsPage() {
             where('isDraft', '==', false)
         );
     }, [firestore, selectedProject]);
-    const { data: approvedContracts, loading: contractsLoading } = useCollection<Contract>(contractsQuery);
+    const { data: approvedContracts, isLoading: contractsLoading } = useCollection<Contract>(contractsQuery);
 
     const deductionsQuery = useMemoFirebase(() => {
         if (!firestore || !selectedProject) return null;
         return collection(firestore, 'projects', selectedProject.id, 'deductions');
     }, [firestore, selectedProject]);
-    const { data: allDeductions, loading: deductionsLoading } = useCollection<Deduction>(deductionsQuery);
+    const { data: allDeductions, isLoading: deductionsLoading } = useCollection<Deduction>(deductionsQuery);
     
     useEffect(() => {
         if (selectedProject) {

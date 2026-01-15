@@ -44,7 +44,7 @@ import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 import { Project } from "@/context/types";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useAuth, useUser } from "@/firebase";
+import { useAuth, useUser } from "@/firebase/provider";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 function ProjectSelector() {
@@ -194,71 +194,72 @@ const projectMenuItems = [
   { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
 ];
 
-export function MainLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const { selectedProject } = useProject();
-  const { user, isUserLoading } = useUser();
 
-  return (
-    <SidebarProvider>
-      <Sidebar side="left" collapsible="icon">
-        <SidebarHeader>
-          <Link
-            href="/"
-            className="flex items-center gap-2 font-headline text-lg font-semibold text-sidebar-foreground"
-          >
-            <Building2 className="h-6 w-6 text-primary" />
-            <span className="truncate">İnşaat Takip</span>
-          </Link>
-        </SidebarHeader>
-        <SidebarContent>
-           {isUserLoading && (
-             <div className="p-2 space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-             </div>
-           )}
-          {user && (
-            <>
-              <ProjectSelector />
-              <SidebarSeparator className="my-1"/>
-              <div className="p-2 pt-0">
-                <AddProjectDialog />
-              </div>
-            </>
-          )}
-          {selectedProject && (
-            <SidebarMenu>
-              {projectMenuItems.map((item) => {
-                const itemPath = item.href === "/" ? "/" : item.href;
-                const isActive = pathname === itemPath;
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.label}
-                    >
-                      <Link href={itemPath}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          )}
-        </SidebarContent>
-         <SidebarFooter>
-            {user && <UserProfile />}
-        </SidebarFooter>
-      </Sidebar>
-      <SidebarInset>
-        <SiteHeader />
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
-      </SidebarInset>
-    </SidebarProvider>
-  );
+export function MainLayout({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname();
+    const { selectedProject } = useProject();
+    const { user, isUserLoading } = useUser();
+
+    return (
+        <SidebarProvider>
+        <Sidebar side="left" collapsible="icon">
+            <SidebarHeader>
+            <Link
+                href="/"
+                className="flex items-center gap-2 font-headline text-lg font-semibold text-sidebar-foreground"
+            >
+                <Building2 className="h-6 w-6 text-primary" />
+                <span className="truncate">İnşaat Takip</span>
+            </Link>
+            </SidebarHeader>
+            <SidebarContent>
+            {isUserLoading && (
+                <div className="p-2 space-y-2">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                </div>
+            )}
+            {user && (
+                <>
+                <ProjectSelector />
+                <SidebarSeparator className="my-1"/>
+                <div className="p-2 pt-0">
+                    <AddProjectDialog />
+                </div>
+                </>
+            )}
+            {selectedProject && (
+                <SidebarMenu>
+                {projectMenuItems.map((item) => {
+                    const itemPath = item.href === "/" ? "/" : item.href;
+                    const isActive = pathname === itemPath;
+                    return (
+                    <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.label}
+                        >
+                        <Link href={itemPath}>
+                            <item.icon />
+                            <span>{item.label}</span>
+                        </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    );
+                })}
+                </SidebarMenu>
+            )}
+            </SidebarContent>
+            <SidebarFooter>
+                {user && <UserProfile />}
+            </SidebarFooter>
+        </Sidebar>
+        <SidebarInset>
+            <SiteHeader />
+            <main className="flex-1 p-4 sm:p-6">{children}</main>
+        </SidebarInset>
+        </SidebarProvider>
+    )
 }

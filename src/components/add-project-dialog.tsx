@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useProject } from '@/context/project-context';
 import { PlusCircle } from 'lucide-react';
-import { useUser } from '@/firebase';
+import { useUser } from '@/firebase/provider';
 
 export function AddProjectDialog() {
   const [isOpen, setIsOpen] = React.useState(false);

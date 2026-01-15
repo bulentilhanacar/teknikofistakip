@@ -39,7 +39,7 @@ export default function ProgressPaymentsPage() {
     if (!firestore || !selectedProject) return null;
     return query(collection(firestore, `projects/${selectedProject.id}/contracts`), where('isDraft', '==', false));
   }, [firestore, selectedProject]);
-  const { data: approvedContracts, loading: contractsLoading } = useCollection<Contract>(contractsQuery);
+  const { data: approvedContracts, isLoading: contractsLoading } = useCollection<Contract>(contractsQuery);
 
   const selectedContract = useMemo(() => {
     if (!selectedContractId || !approvedContracts) return null;
@@ -52,7 +52,7 @@ export default function ProgressPaymentsPage() {
     // For larger scale, one might query per contract.
     return collection(firestore, `projects/${selectedProject.id}/progressPayments`);
   }, [firestore, selectedProject]);
-  const { data: allPayments, loading: paymentsLoading } = useCollection<ProgressPayment>(paymentsQuery);
+  const { data: allPayments, isLoading: paymentsLoading } = useCollection<ProgressPayment>(paymentsQuery);
 
   const contractProgressHistory = useMemo(() => {
     if (!allPayments || !selectedContractId) return [];
@@ -65,7 +65,7 @@ export default function ProgressPaymentsPage() {
     if (!firestore || !selectedProject) return null;
     return collection(firestore, `projects/${selectedProject.id}/deductions`);
   }, [firestore, selectedProject]);
-  const { data: allDeductions, loading: deductionsLoading } = useCollection<Deduction>(deductionsQuery);
+  const { data: allDeductions, isLoading: deductionsLoading } = useCollection<Deduction>(deductionsQuery);
   
 
   const paymentToEdit = useMemo(() => {
