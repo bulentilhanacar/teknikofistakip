@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback } from 'react';
@@ -21,60 +22,64 @@ interface ProjectContextType {
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
-const getInitialState = <T,>(key: string, defaultValue: T): T => {
-    if (typeof window === 'undefined') {
-        return defaultValue;
-    }
-    try {
-        const item = window.localStorage.getItem(key);
-        return item ? JSON.parse(item) : defaultValue;
-    } catch (error) {
-        console.error(`Error reading from localStorage key “${key}”:`, error);
-        return defaultValue;
-    }
-};
-
-
 export const ProjectProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
     const firestore = useFirestore();
     const { user, isUserLoading } = useUser();
     
-    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => getInitialState('selectedProjectId', null));
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
 
     const projectsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
     }, [firestore, user]);
 
-    const { data: projects, loading } = useCollection<Project>(projectsQuery);
+    const { data: projects, loading: projectsLoading } = useCollection<Project>(projectsQuery);
+    
+    useEffect(() => {
+        const storedProjectId = localStorage.getItem('selectedProjectId');
+        if (storedProjectId) {
+            setSelectedProjectId(JSON.parse(storedProjectId));
+        }
+        setIsInitialLoad(false);
+    }, []);
 
     const selectedProject = useMemo(() => {
-        if (!projects || projects.length === 0) return null;
+        if (isInitialLoad || !projects) return null;
         
         const projectExists = projects.some(p => p.id === selectedProjectId);
+
         if (selectedProjectId && projectExists) {
             return projects.find(p => p.id === selectedProjectId) || null;
         } 
         
         if (projects.length > 0) {
             const firstProject = projects[0];
-            setSelectedProjectId(firstProject.id);
+            // Automatically select the first project if no valid project is selected
+            if (selectedProjectId !== firstProject.id) {
+                 setSelectedProjectId(firstProject.id);
+            }
             return firstProject;
         }
         
+        // No projects exist, so no project should be selected.
+        if(selectedProjectId !== null) {
+            setSelectedProjectId(null);
+        }
         return null;
         
-    }, [selectedProjectId, projects]);
+    }, [selectedProjectId, projects, isInitialLoad]);
 
     useEffect(() => {
+        if (isInitialLoad) return;
+        
         if (selectedProject) {
             localStorage.setItem('selectedProjectId', JSON.stringify(selectedProject.id));
-        } else if (!loading && (!projects || projects.length === 0)) {
-            setSelectedProjectId(null);
+        } else {
             localStorage.removeItem('selectedProjectId');
         }
-    }, [selectedProject, projects, loading]);
+    }, [selectedProject, isInitialLoad]);
 
 
     const selectProject = (projectId: string | null) => {
@@ -132,7 +137,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         addProject,
         updateProjectName,
         deleteProject,
-        loading: isUserLoading || loading,
+        loading: isUserLoading || projectsLoading || isInitialLoad,
     };
 
     return (
