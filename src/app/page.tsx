@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Card,
   CardContent,
@@ -24,11 +22,7 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { FileClock, Gavel, FileSignature, FolderKanban } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useProject } from "@/context/project-context";
-import { useUser, useAuth } from "@/firebase/provider";
 import { Button } from "@/components/ui/button";
-import { initiateGoogleSignIn } from "@/firebase/non-blocking-login";
-import { Skeleton } from "@/components/ui/skeleton";
 
 const chartConfig = {
   income: {
@@ -44,68 +38,7 @@ const chartConfig = {
 const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
 export default function Home() {
-  const { selectedProject, loading: projectLoading } = useProject();
-  const { user, isUserLoading } = useUser();
-  const auth = useAuth();
-  // Placeholder until dashboard data is also moved to Firestore
-  const data = emptyDashboardData; 
-
-  const handleLogin = () => {
-    if (auth) {
-      initiateGoogleSignIn(auth);
-    }
-  };
-
-  if (isUserLoading || projectLoading) {
-    return (
-      <div className="grid gap-6">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Skeleton className="h-28" />
-          <Skeleton className="h-28" />
-          <Skeleton className="h-28" />
-          <Skeleton className="h-28" />
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Skeleton className="h-80" />
-          <Skeleton className="h-80" />
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <Card>
-          <CardHeader>
-              <CardTitle className="font-headline">Hoş Geldiniz!</CardTitle>
-              <CardDescription>Devam etmek için lütfen giriş yapın.</CardDescription>
-          </CardHeader>
-          <CardContent>
-              <div className="flex flex-col items-center justify-center h-48 text-center">
-                  <p className="mb-4 text-muted-foreground">Proje verilerinizi yönetmek için Google hesabınızla oturum açın.</p>
-                  <Button onClick={handleLogin} size="lg">Google ile Giriş Yap</Button>
-              </div>
-          </CardContent>
-      </Card>
-    )
-  }
-  
-  if (!selectedProject) {
-     return (
-      <Card>
-          <CardHeader>
-              <CardTitle className="font-headline">Proje Seçin</CardTitle>
-          </CardHeader>
-          <CardContent>
-              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground text-center">
-                  <FolderKanban className="w-12 h-12 mb-4" />
-                  <p>Devam etmek için lütfen sol menüden bir proje seçin veya yeni bir proje oluşturun.</p>
-              </div>
-          </CardContent>
-      </Card>
-    )
-  }
-
+    const data = emptyDashboardData;
 
   return (
     <div className="grid gap-6">

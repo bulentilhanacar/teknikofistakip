@@ -3,7 +3,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Inter as FontSans, Roboto_Mono as FontMono } from "next/font/google";
 import { cn } from "@/lib/utils";
-import { Providers } from "./providers";
+import { MainLayout } from "@/components/main-layout";
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -33,9 +33,7 @@ export default function RootLayout({
           fontSans.variable,
           fontMono.variable
         )}>
-        <Providers>
-          {children}
-        </Providers>
+          <MainLayout>{children}</MainLayout>
         <Toaster />
       </body>
     </html>

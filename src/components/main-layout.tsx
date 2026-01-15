@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -38,14 +39,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SiteHeader } from "./site-header";
 import { Button } from "./ui/button";
-import { useProject } from "@/context/project-context";
+import { useProject, ProjectProvider } from "@/context/project-context";
 import { Skeleton } from "./ui/skeleton";
 import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 import { Project } from "@/context/types";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useAuth, useUser } from "@/firebase/provider";
+import { FirebaseProvider, useAuth, useUser } from "@/firebase/provider";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { initiateGoogleSignIn } from "@/firebase/non-blocking-login";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 
 function ProjectSelector() {
   const { projects, selectedProject, selectProject, deleteProject, updateProjectName, loading } = useProject();
@@ -195,10 +198,80 @@ const projectMenuItems = [
 ];
 
 
-export function MainLayout({ children }: { children: React.ReactNode }) {
+function AppContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const { selectedProject } = useProject();
+    const { selectedProject, loading: projectLoading } = useProject();
     const { user, isUserLoading } = useUser();
+    const auth = useAuth();
+
+    const handleLogin = () => {
+        if (auth) {
+            initiateGoogleSignIn(auth);
+        }
+    };
+    
+    const showLoading = isUserLoading || projectLoading;
+
+    const renderContent = () => {
+        if (showLoading) {
+             return (
+                <div className="p-4 sm:p-6">
+                    <div className="grid gap-6">
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                        <Skeleton className="h-28" />
+                        <Skeleton className="h-28" />
+                        <Skeleton className="h-28" />
+                        <Skeleton className="h-28" />
+                        </div>
+                        <div className="grid gap-6 lg:grid-cols-2">
+                        <Skeleton className="h-80" />
+                        <Skeleton className="h-80" />
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        if (!user) {
+            return (
+                <div className="p-4 sm:p-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="font-headline">Hoş Geldiniz!</CardTitle>
+                            <CardDescription>Devam etmek için lütfen giriş yapın.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex flex-col items-center justify-center h-48 text-center">
+                                <p className="mb-4 text-muted-foreground">Proje verilerinizi yönetmek için Google hesabınızla oturum açın.</p>
+                                <Button onClick={handleLogin} size="lg">Google ile Giriş Yap</Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )
+        }
+        
+        if (!selectedProject) {
+            return (
+                <div className="p-4 sm:p-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="font-headline">Proje Seçin</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground text-center">
+                                <FolderKanban className="w-12 h-12 mb-4" />
+                                <p>Devam etmek için lütfen sol menüden bir proje seçin veya yeni bir proje oluşturun.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )
+        }
+
+        return <main className="flex-1 p-4 sm:p-6">{children}</main>
+    }
+
 
     return (
         <SidebarProvider>
@@ -258,8 +331,18 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </Sidebar>
         <SidebarInset>
             <SiteHeader />
-            <main className="flex-1 p-4 sm:p-6">{children}</main>
+            {renderContent()}
         </SidebarInset>
         </SidebarProvider>
+    )
+}
+
+export function MainLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <FirebaseProvider>
+            <ProjectProvider>
+                <AppContent>{children}</AppContent>
+            </ProjectProvider>
+        </FirebaseProvider>
     )
 }

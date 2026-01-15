@@ -1,10 +1,9 @@
-
 "use client";
 
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback } from 'react';
 import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase/provider';
+import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { addDoc, collection, deleteDoc, doc, query, updateDoc, where } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';

@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Deduction, Contract } from '@/context/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase/provider';
+import { useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { addDoc, collection, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
