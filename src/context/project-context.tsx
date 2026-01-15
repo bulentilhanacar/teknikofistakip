@@ -1,11 +1,10 @@
-
 "use client";
 
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback } from 'react';
 import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { addDoc, collection, deleteDoc, doc, query, updateDoc, where } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 
@@ -39,13 +38,14 @@ const getInitialState = <T,>(key: string, defaultValue: T): T => {
 export const ProjectProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
     const firestore = useFirestore();
+    const { user, isUserLoading } = useUser();
     
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => getInitialState('selectedProjectId', null));
 
     const projectsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return collection(firestore, "projects");
-    }, [firestore]);
+        if (!firestore || !user) return null;
+        return query(collection(firestore, "projects"), where("ownerId", "==", user.uid));
+    }, [firestore, user]);
 
     const { data: projects, loading } = useCollection<Project>(projectsQuery);
 
@@ -57,9 +57,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
             return projects.find(p => p.id === selectedProjectId) || null;
         } 
         
-        // If no project is selected or the selected one is gone, select the first one.
         if (projects.length > 0) {
-            return projects[0];
+            const firstProject = projects[0];
+            setSelectedProjectId(firstProject.id);
+            return firstProject;
         }
         
         return null;
@@ -68,7 +69,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
     useEffect(() => {
         if (selectedProject) {
-            setSelectedProjectId(selectedProject.id);
             localStorage.setItem('selectedProjectId', JSON.stringify(selectedProject.id));
         } else if (!loading && (!projects || projects.length === 0)) {
             setSelectedProjectId(null);
@@ -82,22 +82,20 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     };
 
     const addProject = useCallback(async (projectName: string) => {
-        if (!firestore) {
-            toast({ title: "Hata", description: "Firestore servisi bulunamadı.", variant: "destructive" });
+        if (!firestore || !user) {
+            toast({ title: "Hata", description: "Kullanıcı girişi yapmalısınız.", variant: "destructive" });
             return;
         }
-        try {
-            const newProjectData = { name: projectName }; // Removed ownerId
-            const newProjectRef = await addDoc(collection(firestore, "projects"), newProjectData);
-            
-            selectProject(newProjectRef.id);
-            
-            toast({ title: "Proje oluşturuldu!" });
-        } catch (err) {
-             const permissionError = new FirestorePermissionError({ path: '/projects', operation: 'create', requestResourceData: newProjectData });
-            errorEmitter.emit('permission-error', permissionError);
-        }
-    }, [firestore, toast]);
+        const newProjectData = { name: projectName, ownerId: user.uid };
+        addDoc(collection(firestore, "projects"), newProjectData)
+            .then((newProjectRef) => {
+                selectProject(newProjectRef.id);
+                toast({ title: "Proje oluşturuldu!" });
+            }).catch(err => {
+                const permissionError = new FirestorePermissionError({ path: '/projects', operation: 'create', requestResourceData: newProjectData });
+                errorEmitter.emit('permission-error', permissionError);
+            });
+    }, [firestore, user, toast]);
     
     const updateProjectName = (projectId: string, newName: string) => {
          if (!firestore) return;
@@ -115,6 +113,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         const projectRef = doc(firestore, "projects", projectId);
         deleteDoc(projectRef)
             .then(() => {
+                toast({ title: "Proje Silindi" });
                 if (selectedProjectId === projectId) {
                     selectProject(null);
                 }
@@ -133,7 +132,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         addProject,
         updateProjectName,
         deleteProject,
-        loading,
+        loading: isUserLoading || loading,
     };
 
     return (

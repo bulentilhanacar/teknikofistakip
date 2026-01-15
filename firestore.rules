@@ -3,10 +3,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Allow public read access to all documents for now
-    // This is not secure for production apps.
-    match /{document=**} {
-      allow read, write: if true;
+    function isOwner(projectId) {
+      return request.auth != null && get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
+    }
+    
+    match /projects/{projectId} {
+      allow read, update, delete: if isOwner(projectId);
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
+    }
+    
+    match /projects/{projectId}/{allChildren=**} {
+      allow read, write: if isOwner(projectId);
     }
   }
 }

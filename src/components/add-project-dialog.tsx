@@ -16,11 +16,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useProject } from '@/context/project-context';
 import { PlusCircle } from 'lucide-react';
+import { useUser } from '@/firebase';
 
 export function AddProjectDialog() {
   const [isOpen, setIsOpen] = React.useState(false);
   const [name, setName] = React.useState('');
   const { addProject } = useProject();
+  const { user } = useUser();
 
   const handleSave = async () => {
     if (name.trim()) {
@@ -35,6 +37,8 @@ export function AddProjectDialog() {
       setName('');
     }
   }, [isOpen]);
+
+  if (!user) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -26,7 +25,10 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { FileClock, Gavel, FileSignature, FolderKanban } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useProject } from "@/context/project-context";
-
+import { useUser, useAuth } from "@/firebase";
+import { Button } from "@/components/ui/button";
+import { initiateGoogleSignIn } from "@/firebase/non-blocking-login";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const chartConfig = {
   income: {
@@ -42,22 +44,48 @@ const chartConfig = {
 const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
 export default function Home() {
-  const { selectedProject, loading } = useProject();
-
+  const { selectedProject, loading: projectLoading } = useProject();
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   // const data = useMemo(() => {
   //   return getDashboardData();
   // }, [selectedProject, getDashboardData]);
   const data = emptyDashboardData; // Placeholder until dashboard data is also moved to Firestore
 
-  if (loading) {
+  const handleLogin = () => {
+    if (auth) {
+      initiateGoogleSignIn(auth);
+    }
+  };
+
+  if (isUserLoading || projectLoading) {
+    return (
+      <div className="grid gap-6">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Skeleton className="h-28" />
+          <Skeleton className="h-28" />
+          <Skeleton className="h-28" />
+          <Skeleton className="h-28" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Skeleton className="h-80" />
+          <Skeleton className="h-80" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
     return (
       <Card>
           <CardHeader>
-              <CardTitle className="font-headline">Yükleniyor...</CardTitle>
+              <CardTitle className="font-headline">Hoş Geldiniz!</CardTitle>
+              <CardDescription>Devam etmek için lütfen giriş yapın.</CardDescription>
           </CardHeader>
           <CardContent>
-              <div className="flex items-center justify-center h-48 text-muted-foreground">
-                  Proje verileri yükleniyor...
+              <div className="flex flex-col items-center justify-center h-48 text-center">
+                  <p className="mb-4 text-muted-foreground">Proje verilerinizi yönetmek için Google hesabınızla oturum açın.</p>
+                  <Button onClick={handleLogin} size="lg">Google ile Giriş Yap</Button>
               </div>
           </CardContent>
       </Card>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -15,6 +14,7 @@ import {
   Edit,
   Trash,
   ClipboardList,
+  LogOut,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -26,6 +26,7 @@ import {
   SidebarMenuButton,
   SidebarSeparator,
   SidebarInset,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -43,6 +44,8 @@ import { AddProjectDialog } from "./add-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 import { Project } from "@/context/types";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useAuth, useUser } from "@/firebase";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 function ProjectSelector() {
   const { projects, selectedProject, selectProject, deleteProject, updateProjectName, loading } = useProject();
@@ -149,6 +152,40 @@ function ProjectSelector() {
   );
 }
 
+function UserProfile() {
+    const { user, isUserLoading } = useUser();
+    const auth = useAuth();
+
+    if (isUserLoading) {
+        return <Skeleton className="h-10 w-full" />
+    }
+
+    if (!user) {
+        return null;
+    }
+    
+    const getInitials = (name: string | null | undefined) => {
+        if (!name) return 'S';
+        return name.split(' ').map(n => n[0]).join('');
+    }
+
+    return (
+        <div className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center">
+            <Avatar className="h-8 w-8">
+                <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"}/>
+                <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+                <span className="text-sm font-medium truncate">{user.displayName || "Kullanıcı"}</span>
+                <span className="text-xs text-sidebar-foreground/70 truncate">{user.email}</span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto group-data-[collapsible=icon]:hidden" onClick={() => auth?.signOut()}>
+                <LogOut className="h-4 w-4" />
+            </Button>
+        </div>
+    )
+}
+
 const projectMenuItems = [
   { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
   { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
@@ -159,7 +196,8 @@ const projectMenuItems = [
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { selectedProject, loading } = useProject();
+  const { selectedProject } = useProject();
+  const { user, isUserLoading } = useUser();
 
   return (
     <SidebarProvider>
@@ -174,6 +212,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </SidebarHeader>
         <SidebarContent>
+           {isUserLoading && (
+             <div className="p-2 space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+             </div>
+           )}
+          {user && (
             <>
               <ProjectSelector />
               <SidebarSeparator className="my-1"/>
@@ -181,12 +227,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 <AddProjectDialog />
               </div>
             </>
-           {loading && (
-             <div className="p-2 space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-             </div>
-           )}
+          )}
           {selectedProject && (
             <SidebarMenu>
               {projectMenuItems.map((item) => {
@@ -210,6 +251,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
           )}
         </SidebarContent>
+         <SidebarFooter>
+            {user && <UserProfile />}
+        </SidebarFooter>
       </Sidebar>
       <SidebarInset>
         <SiteHeader />
