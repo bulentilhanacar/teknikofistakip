@@ -6,11 +6,14 @@ service cloud.firestore {
     function isOwner(projectId) {
       return request.auth != null && get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
     }
+
+    match /projects {
+      allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
+    }
     
     match /projects/{projectId} {
       allow read, update, delete: if isOwner(projectId);
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
-      allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
     }
     
     match /projects/{projectId}/{allChildren=**} {
