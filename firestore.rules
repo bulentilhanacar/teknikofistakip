@@ -32,8 +32,8 @@ service cloud.firestore {
       // Users can read their own document.
       allow get: if request.auth != null && request.auth.uid == userId;
 
-      // Only an admin can update a user document (to approve them or change their role).
-      allow update: if request.auth != null && isAdmin(request.auth.uid);
+      // An admin can update any user. A user can update their own document.
+      allow update: if request.auth != null && (isAdmin(request.auth.uid) || request.auth.uid == userId);
       
       // Only an admin can delete users or read the full list.
       allow delete, list: if request.auth != null && isAdmin(request.auth.uid);

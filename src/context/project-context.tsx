@@ -4,9 +4,9 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { useUser } from '@/firebase/provider';
-import { collection, doc, getDoc, setDoc, query, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, query, updateDoc } from 'firebase/firestore';
 
 type UserAppStatus = 'loading' | 'pending' | 'approved' | 'admin' | 'error';
 
@@ -26,9 +26,12 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     const firestore = useFirestore();
     const { user, loading: userLoading } = useUser();
     
-    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+    const [projects, setProjects] = useState<Project[] | null>(null);
+    const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [userAppStatus, setUserAppStatus] = useState<UserAppStatus>('loading');
+    
+    const loading = userLoading || userAppStatus === 'loading';
 
     useEffect(() => {
         if (userLoading) {
@@ -41,41 +44,43 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-        const isDesignatedAdmin = user.email === adminEmail;
         const userRef = doc(firestore, 'users', user.uid);
+        const isDesignatedAdmin = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
         const setupUserAndStatus = async () => {
             try {
-                const userDoc = await getDoc(userRef);
-
-                if (!userDoc.exists()) {
-                    // New user registration. Admin is approved by default.
-                    const newUser = {
+                if (isDesignatedAdmin) {
+                    // This is the admin. Ensure their record is correct.
+                    await setDoc(userRef, {
                         email: user.email,
-                        role: isDesignatedAdmin ? 'admin' : 'user',
-                        status: isDesignatedAdmin ? 'approved' : 'pending'
-                    };
-                    await setDoc(userRef, newUser);
+                        role: 'admin',
+                        status: 'approved'
+                    }, { merge: true }); // Use merge to create or update.
                     
-                    setIsAdmin(isDesignatedAdmin);
-                    setUserAppStatus(isDesignatedAdmin ? 'admin' : 'pending');
-                } else {
-                    // Existing user. Read role and status from DB as the source of truth.
-                    const userData = userDoc.data();
-                    const userRole = userData.role;
-                    const userStatus = userData.status;
-                    
-                    const isCurrentUserAdmin = userRole === 'admin';
-                    
-                    setIsAdmin(isCurrentUserAdmin);
+                    setIsAdmin(true);
+                    setUserAppStatus('admin');
 
-                    if (isCurrentUserAdmin) {
-                        setUserAppStatus('admin');
-                    } else if (userStatus === 'approved') {
-                        setUserAppStatus('approved');
-                    } else {
+                } else {
+                    // This is a regular user.
+                    const userDoc = await getDoc(userRef);
+                    if (!userDoc.exists()) {
+                        // New user, create pending record.
+                        await setDoc(userRef, {
+                            email: user.email,
+                            role: 'user',
+                            status: 'pending'
+                        });
+                        setIsAdmin(false);
                         setUserAppStatus('pending');
+                    } else {
+                        // Existing user, read their status.
+                        const userData = userDoc.data();
+                        setIsAdmin(false); // Regular users are never admins
+                        if (userData.status === 'approved') {
+                            setUserAppStatus('approved');
+                        } else {
+                            setUserAppStatus('pending');
+                        }
                     }
                 }
             } catch (error) {
@@ -89,51 +94,52 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
 
     }, [user, userLoading, firestore, toast]);
 
-    const projectsQuery = useMemoFirebase(() => {
-        if (!firestore || (userAppStatus !== 'approved' && userAppStatus !== 'admin')) {
-            return null;
-        }
-        // Admin and approved users see all projects in the shared workspace
-        return query(collection(firestore, "projects"));
-    }, [firestore, userAppStatus]);
-    
-    const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-    // Effect to manage the single shared project
+    // For this app model, all approved users share one project.
     useEffect(() => {
-        if (userAppStatus === 'approved' || userAppStatus === 'admin') {
-            if (!projectsLoading && projects) {
-                if (projects.length === 0) {
-                    // No projects exist, create the default one
-                    const createDefaultProject = async () => {
-                         if (!firestore) return;
-                         try {
-                            const newProjectRef = doc(collection(firestore, "projects"));
-                            await setDoc(newProjectRef, {
-                                name: "Ortak Proje",
-                            });
-                            setSelectedProjectId(newProjectRef.id);
-                         } catch (error) {
-                             console.error("Error creating default project:", error);
-                         }
-                    }
-                    createDefaultProject();
-                } else {
-                    // Projects exist, select the first one as the default shared project
-                    setSelectedProjectId(projects[0].id);
-                }
-            }
+        if (!firestore || (userAppStatus !== 'approved' && userAppStatus !== 'admin')) {
+            setProjects(null);
+            setSelectedProject(null);
+            return;
         }
-    }, [projects, projectsLoading, userAppStatus, firestore]);
+        
+        const projectCollection = collection(firestore, "projects");
 
-    const selectedProject = projects?.find(p => p.id === selectedProjectId) || null;
-    
-    const contextIsLoading = userLoading || (!!user && (projectsLoading || userAppStatus === 'loading'));
+        // There should only be one project in this shared workspace model.
+        // Let's ensure it exists.
+        const ensureSharedProject = async () => {
+            const projectQuery = query(projectCollection);
+            const querySnapshot = await getDocs(projectQuery);
+            if (querySnapshot.empty) {
+                // If no project exists, the admin should be able to create one.
+                // For now, let's just log this. In a real app, you might prompt the admin.
+                console.log("No shared project found.");
+                const newProjectRef = doc(projectCollection);
+                await setDoc(newProjectRef, {
+                    name: "Ortak Proje",
+                    id: newProjectRef.id
+                });
+                const newProject = { id: newProjectRef.id, name: "Ortak Proje"};
+                setProjects([newProject]);
+                setSelectedProject(newProject);
+                
+            } else {
+                // Set the single shared project.
+                const projectDoc = querySnapshot.docs[0];
+                const projectData = { ...projectDoc.data(), id: projectDoc.id } as Project;
+                setProjects([projectData]);
+                setSelectedProject(projectData);
+            }
+        };
+
+        ensureSharedProject();
+
+    }, [firestore, userAppStatus]);
 
     const value: ProjectContextType = {
         projects,
         selectedProject,
-        loading: contextIsLoading,
+        loading,
         user,
         isAdmin,
         userAppStatus
