@@ -6,7 +6,7 @@ import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { useUser } from '@/firebase/provider';
-import { collection, doc, getDoc, setDoc, query, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, query, getDocs } from 'firebase/firestore';
 
 type UserAppStatus = 'loading' | 'pending' | 'approved' | 'admin' | 'error';
 
@@ -31,110 +31,98 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     const [isAdmin, setIsAdmin] = useState(false);
     const [userAppStatus, setUserAppStatus] = useState<UserAppStatus>('loading');
     
-    const loading = userLoading || userAppStatus === 'loading';
+    // loading is true if firebase auth is loading OR if a user is logged in but their app status hasn't been determined yet.
+    const loading = userLoading || (!!user && userAppStatus === 'loading');
 
     useEffect(() => {
         if (userLoading) {
-            setUserAppStatus('loading');
-            return;
+            return; // Wait for Firebase Auth to finish loading
         }
         if (!user || !firestore) {
-            setUserAppStatus('loading');
+            // No user is logged in. Reset all states. The UI will show the Login screen.
+            setUserAppStatus('loading'); // Reset status
             setIsAdmin(false);
+            setProjects(null);
+            setSelectedProject(null);
             return;
         }
 
-        const userRef = doc(firestore, 'users', user.uid);
         const isDesignatedAdmin = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
-        const setupUserAndStatus = async () => {
+        const setupUserAndProjects = async () => {
+            let finalStatus: UserAppStatus = 'error';
+            let finalIsAdmin = false;
+
             try {
+                const userRef = doc(firestore, 'users', user.uid);
+                
                 if (isDesignatedAdmin) {
-                    // This is the admin. Ensure their record is correct.
+                    finalIsAdmin = true;
+                    finalStatus = 'admin';
+                    // Ensure the user document in Firestore reflects admin status.
                     await setDoc(userRef, {
                         email: user.email,
                         role: 'admin',
                         status: 'approved'
-                    }, { merge: true }); // Use merge to create or update.
-                    
-                    setIsAdmin(true);
-                    setUserAppStatus('admin');
-
+                    }, { merge: true });
                 } else {
                     // This is a regular user.
+                    finalIsAdmin = false;
                     const userDoc = await getDoc(userRef);
                     if (!userDoc.exists()) {
-                        // New user, create pending record.
+                        // New user, create a 'pending' record.
                         await setDoc(userRef, {
                             email: user.email,
                             role: 'user',
                             status: 'pending'
                         });
-                        setIsAdmin(false);
-                        setUserAppStatus('pending');
+                        finalStatus = 'pending';
                     } else {
-                        // Existing user, read their status.
+                        // Existing user, read their status from the document.
                         const userData = userDoc.data();
-                        setIsAdmin(false); // Regular users are never admins
-                        if (userData.status === 'approved') {
-                            setUserAppStatus('approved');
-                        } else {
-                            setUserAppStatus('pending');
-                        }
+                        finalStatus = userData.status === 'approved' ? 'approved' : 'pending';
                     }
                 }
+                
+                // Set the status and admin state once determined
+                setIsAdmin(finalIsAdmin);
+                setUserAppStatus(finalStatus);
+
+                // If the user is approved or admin, load the shared project.
+                if (finalStatus === 'approved' || finalStatus === 'admin') {
+                     const projectCollection = collection(firestore, "projects");
+                     const projectQuery = query(projectCollection);
+                     const querySnapshot = await getDocs(projectQuery);
+                     if (querySnapshot.empty) {
+                         // If no project exists, create the default shared one.
+                         const newProjectRef = doc(projectCollection);
+                         await setDoc(newProjectRef, { name: "Ortak Proje" });
+                         const newProject = { id: newProjectRef.id, name: "Ortak Proje" };
+                         setProjects([newProject]);
+                         setSelectedProject(newProject);
+                     } else {
+                         // Otherwise, load the existing shared project.
+                         const projectDoc = querySnapshot.docs[0];
+                         const projectData = { ...projectDoc.data(), id: projectDoc.id } as Project;
+                         setProjects([projectData]);
+                         setSelectedProject(projectData);
+                     }
+                } else {
+                    // If user is pending, they don't see any projects.
+                    setProjects(null);
+                    setSelectedProject(null);
+                }
+
             } catch (error) {
-                console.error("Error setting up user status:", error);
-                toast({ title: "Hata", description: "Kullanıcı rolü ayarlanırken bir sorun oluştu.", variant: "destructive" });
+                console.error("Error during user and project setup:", error);
+                toast({ title: "Kurulum Hatası", description: "Kullanıcı veya proje verileri ayarlanırken bir sorun oluştu.", variant: "destructive" });
                 setUserAppStatus('error');
             }
         };
 
-        setupUserAndStatus();
+        setupUserAndProjects();
 
     }, [user, userLoading, firestore, toast]);
-
-
-    // For this app model, all approved users share one project.
-    useEffect(() => {
-        if (!firestore || (userAppStatus !== 'approved' && userAppStatus !== 'admin')) {
-            setProjects(null);
-            setSelectedProject(null);
-            return;
-        }
-        
-        const projectCollection = collection(firestore, "projects");
-
-        // There should only be one project in this shared workspace model.
-        // Let's ensure it exists.
-        const ensureSharedProject = async () => {
-            const projectQuery = query(projectCollection);
-            const querySnapshot = await getDocs(projectQuery);
-            if (querySnapshot.empty) {
-                // If no project exists, the admin should be able to create one.
-                // For now, let's just log this. In a real app, you might prompt the admin.
-                console.log("No shared project found.");
-                const newProjectRef = doc(projectCollection);
-                await setDoc(newProjectRef, {
-                    name: "Ortak Proje",
-                    id: newProjectRef.id
-                });
-                const newProject = { id: newProjectRef.id, name: "Ortak Proje"};
-                setProjects([newProject]);
-                setSelectedProject(newProject);
-                
-            } else {
-                // Set the single shared project.
-                const projectDoc = querySnapshot.docs[0];
-                const projectData = { ...projectDoc.data(), id: projectDoc.id } as Project;
-                setProjects([projectData]);
-                setSelectedProject(projectData);
-            }
-        };
-
-        ensureSharedProject();
-
-    }, [firestore, userAppStatus]);
 
     const value: ProjectContextType = {
         projects,
