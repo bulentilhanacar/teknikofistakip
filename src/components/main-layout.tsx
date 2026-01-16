@@ -13,6 +13,8 @@ import {
   Shield,
   Clock,
   UserCheck,
+  FolderOpen,
+  Trash2,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -23,12 +25,19 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { SiteHeader } from "./site-header";
 import { useProject } from "@/context/project-context";
 import { useAuth } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { AddProjectDialog } from "./add-project-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog";
+import { Project } from "@/context/types";
 
 
 // Component for the Login Screen
@@ -84,31 +93,92 @@ const ErrorScreen = () => (
     </div>
 );
 
+// Component to show when no project is selected
+const NoProjectSelected = () => {
+    return (
+        <div className="flex flex-col gap-4 items-center justify-center h-full text-muted-foreground">
+            <FolderOpen className="w-12 h-12" />
+            <p className="text-lg">Lütfen çalışmak için bir proje seçin.</p>
+            <p className="text-sm">Kenar çubuğundaki proje listesinden bir proje seçebilir veya yeni bir tane oluşturabilirsiniz.</p>
+        </div>
+    )
+}
+
 // This component will render the main content area when a project is selected
 const ProjectContent = ({ children }: { children: React.ReactNode }) => {
     const { selectedProject } = useProject();
 
     if (!selectedProject) {
-        return (
-            <div className="flex flex-col gap-4 items-center justify-center h-full text-muted-foreground">
-                <Building2 className="w-12 h-12" />
-                <p className="text-lg">Başlamak için bir sayfa seçin.</p>
-            </div>
-        )
+        return <NoProjectSelected />
     }
 
     return <>{children}</>;
 }
 
 
-function ProjectNav() {
-  const pathname = usePathname();
-  const { 
-    selectedProject, 
-    isAdmin,
-  } = useProject();
+const ProjectSelector = () => {
+    const { projects, selectedProject, setSelectedProjectById, isAdmin, deleteProject } = useProject();
 
-  const projectMenuItems = [
+    const handleDelete = (e: React.MouseEvent, projectId: string) => {
+        e.stopPropagation();
+        deleteProject(projectId);
+    }
+
+    return (
+        <SidebarGroup>
+            <SidebarGroupLabel>Projeler</SidebarGroupLabel>
+            {isAdmin && <AddProjectDialog />}
+             <SidebarGroupContent>
+                {projects && projects.length > 0 ? (
+                    projects.map((project: Project) => (
+                        <div key={project.id} className="relative group/item">
+                             <SidebarMenuButton
+                                onClick={() => setSelectedProjectById(project.id)}
+                                isActive={selectedProject?.id === project.id}
+                                tooltip={project.name}
+                            >
+                                <span className="truncate flex-1">{project.name}</span>
+                            </SidebarMenuButton>
+                             {isAdmin && (
+                                <div className="absolute top-1/2 -translate-y-1/2 right-2 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive">
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    "{project.name}" projesini ve tüm içeriğini (sözleşmeler, hakedişler vb.) kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>İptal</AlertDialogCancel>
+                                                <AlertDialogAction onClick={(e) => handleDelete(e, project.id)}>Evet, Sil</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                             )}
+                        </div>
+                    ))
+                ) : (
+                    <div className="text-xs text-sidebar-foreground/70 px-2 py-1 group-data-[collapsible=icon]:hidden">
+                        {isAdmin ? "Henüz proje oluşturulmadı." : "Görüntülenecek proje yok."}
+                    </div>
+                )}
+             </SidebarGroupContent>
+        </SidebarGroup>
+    )
+}
+
+function MainNavigation() {
+  const pathname = usePathname();
+  const { isAdmin } = useProject();
+
+  const mainMenuItems = [
     { href: "/", label: "Finansal Özet", icon: LayoutDashboard },
     { href: "/contracts", label: "Sözleşme Yönetimi", icon: FileSignature },
     { href: "/progress-payments", label: "Hakediş Hesaplama", icon: Calculator },
@@ -116,24 +186,10 @@ function ProjectNav() {
     { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
   ];
 
-  if (!selectedProject) {
-     return (
-      <div className="p-4 text-sm text-sidebar-foreground/80 group-data-[collapsible=icon]:hidden">
-        <p className="mb-4">Proje yükleniyor...</p>
-      </div>
-    );
-  }
-
   return (
     <>
-      <div className="p-2 group-data-[collapsible=icon]:hidden">
-           <div className="w-full justify-start items-center gap-2 px-2 py-2">
-                <span className="font-semibold text-base truncate flex-1 text-left">{selectedProject.name}</span>
-            </div>
-      </div>
-
        <SidebarMenu>
-        {projectMenuItems.map((item) => {
+        {mainMenuItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <SidebarMenuItem key={item.href}>
@@ -150,21 +206,26 @@ function ProjectNav() {
             </SidebarMenuItem>
           );
         })}
-        {isAdmin && (
-             <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === '/admin'}
-                tooltip={"Admin Paneli"}
-              >
-                <Link href="/admin">
-                  <Shield />
-                  <span>Admin Paneli</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-        )}
        </SidebarMenu>
+       <SidebarSeparator/>
+       <ProjectSelector />
+       <SidebarSeparator/>
+       {isAdmin && (
+             <SidebarMenu>
+                <SidebarMenuItem>
+                <SidebarMenuButton
+                    asChild
+                    isActive={pathname === '/admin'}
+                    tooltip={"Admin Paneli"}
+                >
+                    <Link href="/admin">
+                    <Shield />
+                    <span>Admin Paneli</span>
+                    </Link>
+                </SidebarMenuButton>
+                </SidebarMenuItem>
+             </SidebarMenu>
+        )}
     </>
   );
 }
@@ -184,7 +245,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
        return <PendingScreen />;
     }
 
-    if (userAppStatus === 'error') {
+    if (userAppstatus === 'error') {
         return <ErrorScreen />;
     }
     
@@ -202,7 +263,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 </Link>
                 </SidebarHeader>
                 <SidebarContent>
-                    <ProjectNav />
+                    <MainNavigation />
                 </SidebarContent>
             </Sidebar>
             <SidebarInset>

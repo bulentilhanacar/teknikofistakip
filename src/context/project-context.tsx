@@ -1,12 +1,12 @@
 
 "use client";
 
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback } from 'react';
 import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { useUser } from '@/firebase/provider';
-import { collection, doc, getDoc, setDoc, query, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, addDoc, onSnapshot, Unsubscribe, deleteDoc } from 'firebase/firestore';
 
 type UserAppStatus = 'loading' | 'pending' | 'approved' | 'admin' | 'error';
 
@@ -17,6 +17,9 @@ interface ProjectContextType {
     user: ReturnType<typeof useUser>['user'];
     isAdmin: boolean;
     userAppStatus: UserAppStatus;
+    addProject: (name: string) => Promise<void>;
+    deleteProject: (id: string) => Promise<void>;
+    setSelectedProjectById: (id: string | null) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -31,88 +34,118 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     const [isAdmin, setIsAdmin] = useState(false);
     const [userAppStatus, setUserAppStatus] = useState<UserAppStatus>('loading');
     
-    // loading is true if firebase auth is loading OR if a user is logged in but their app status hasn't been determined yet.
     const loading = userLoading || (!!user && userAppStatus === 'loading');
 
-    useEffect(() => {
-        if (userLoading) {
-            return; // Wait for Firebase Auth to finish loading
+    const addProject = useCallback(async (name: string) => {
+        if (!firestore || !isAdmin) {
+            toast({ title: "Yetki Hatası", description: "Proje ekleme yetkiniz yok.", variant: "destructive" });
+            return;
         }
-        if (!user || !firestore) {
-            // No user is logged in. Reset all states. The UI will show the Login screen.
-            setUserAppStatus('loading'); // Reset status
-            setIsAdmin(false);
-            setProjects(null);
+        try {
+            await addDoc(collection(firestore, "projects"), { name });
+            toast({ title: "Proje Eklendi", description: `${name} projesi başarıyla eklendi.` });
+        } catch (error) {
+            console.error("Error adding project: ", error);
+            toast({ title: "Hata", description: "Proje eklenirken bir sorun oluştu.", variant: "destructive" });
+        }
+    }, [firestore, isAdmin, toast]);
+
+    const deleteProject = useCallback(async (id: string) => {
+        if (!firestore || !isAdmin) {
+            toast({ title: "Yetki Hatası", description: "Proje silme yetkiniz yok.", variant: "destructive" });
+            return;
+        }
+        try {
+            // TODO: Delete subcollections as well using a cloud function or batch writes client-side
+            await deleteDoc(doc(firestore, "projects", id));
+            toast({ title: "Proje Silindi" });
+        } catch (error) {
+            console.error("Error deleting project: ", error);
+            toast({ title: "Hata", description: "Proje silinirken bir sorun oluştu.", variant: "destructive" });
+        }
+    }, [firestore, isAdmin, toast]);
+
+    const setSelectedProjectById = useCallback((id: string | null) => {
+        if (id === null) {
             setSelectedProject(null);
             return;
         }
+        const project = projects?.find(p => p.id === id) || null;
+        setSelectedProject(project);
+    }, [projects]);
 
-        const isDesignatedAdmin = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
+    useEffect(() => {
+        if (userLoading) {
+            setUserAppStatus('loading');
+            return;
+        }
+        
+        if (!user) {
+            // No user is logged in, not loading, not an error. Show login screen.
+            setUserAppStatus('pending'); // Effectively, non-logged in is a pending state
+            setIsAdmin(false);
+            return;
+        }
+        
+        if (!firestore) return;
+
+        let projectsUnsubscribe: Unsubscribe | null = null;
+        
         const setupUserAndProjects = async () => {
-            let finalStatus: UserAppStatus = 'error';
+            setUserAppStatus('loading');
+            const isDesignatedAdmin = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+            const userRef = doc(firestore, 'users', user.uid);
+            let finalStatus: UserAppStatus = 'pending';
             let finalIsAdmin = false;
 
             try {
-                const userRef = doc(firestore, 'users', user.uid);
-                
-                if (isDesignatedAdmin) {
-                    finalIsAdmin = true;
-                    finalStatus = 'admin';
-                    // Ensure the user document in Firestore reflects admin status.
-                    await setDoc(userRef, {
-                        email: user.email,
-                        role: 'admin',
-                        status: 'approved'
-                    }, { merge: true });
-                } else {
-                    // This is a regular user.
-                    finalIsAdmin = false;
-                    const userDoc = await getDoc(userRef);
-                    if (!userDoc.exists()) {
-                        // New user, create a 'pending' record.
-                        await setDoc(userRef, {
-                            email: user.email,
-                            role: 'user',
-                            status: 'pending'
-                        });
-                        finalStatus = 'pending';
+                const userDoc = await getDoc(userRef);
+
+                if (!userDoc.exists()) {
+                    if (isDesignatedAdmin) {
+                        await setDoc(userRef, { email: user.email, role: 'admin', status: 'approved' });
+                        finalIsAdmin = true;
+                        finalStatus = 'admin';
                     } else {
-                        // Existing user, read their status from the document.
-                        const userData = userDoc.data();
+                        await setDoc(userRef, { email: user.email, role: 'user', status: 'pending' });
+                        finalStatus = 'pending';
+                    }
+                } else {
+                    const userData = userDoc.data();
+                    if (isDesignatedAdmin) {
+                        if (userData.role !== 'admin' || userData.status !== 'approved') {
+                           await setDoc(userRef, { role: 'admin', status: 'approved' }, { merge: true });
+                        }
+                        finalIsAdmin = true;
+                        finalStatus = 'admin';
+                    } else {
+                        finalIsAdmin = false;
                         finalStatus = userData.status === 'approved' ? 'approved' : 'pending';
                     }
                 }
-                
-                // Set the status and admin state once determined
+
                 setIsAdmin(finalIsAdmin);
                 setUserAppStatus(finalStatus);
 
-                // If the user is approved or admin, load the shared project.
                 if (finalStatus === 'approved' || finalStatus === 'admin') {
-                     const projectCollection = collection(firestore, "projects");
-                     const projectQuery = query(projectCollection);
-                     const querySnapshot = await getDocs(projectQuery);
-                     if (querySnapshot.empty) {
-                         // If no project exists, create the default shared one.
-                         const newProjectRef = doc(projectCollection);
-                         await setDoc(newProjectRef, { name: "Ortak Proje" });
-                         const newProject = { id: newProjectRef.id, name: "Ortak Proje" };
-                         setProjects([newProject]);
-                         setSelectedProject(newProject);
-                     } else {
-                         // Otherwise, load the existing shared project.
-                         const projectDoc = querySnapshot.docs[0];
-                         const projectData = { ...projectDoc.data(), id: projectDoc.id } as Project;
-                         setProjects([projectData]);
-                         setSelectedProject(projectData);
-                     }
+                    const projectCollection = collection(firestore, "projects");
+                    projectsUnsubscribe = onSnapshot(projectCollection, (querySnapshot) => {
+                        const allProjects = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Project));
+                        setProjects(allProjects);
+
+                        if (selectedProject && !allProjects.some(p => p.id === selectedProject.id)) {
+                            setSelectedProject(null);
+                        }
+                    }, (error) => {
+                        console.error("Error fetching projects: ", error);
+                        toast({ title: "Projeler Yüklenemedi", variant: "destructive" });
+                        setProjects([]);
+                    });
                 } else {
-                    // If user is pending, they don't see any projects.
                     setProjects(null);
                     setSelectedProject(null);
                 }
-
             } catch (error) {
                 console.error("Error during user and project setup:", error);
                 toast({ title: "Kurulum Hatası", description: "Kullanıcı veya proje verileri ayarlanırken bir sorun oluştu.", variant: "destructive" });
@@ -122,6 +155,11 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
 
         setupUserAndProjects();
 
+        return () => {
+            if (projectsUnsubscribe) {
+                projectsUnsubscribe();
+            }
+        };
     }, [user, userLoading, firestore, toast]);
 
     const value: ProjectContextType = {
@@ -130,7 +168,10 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
         loading,
         user,
         isAdmin,
-        userAppStatus
+        userAppStatus,
+        addProject,
+        deleteProject,
+        setSelectedProjectById,
     };
 
     return (

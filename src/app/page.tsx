@@ -25,6 +25,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { FileClock, Gavel, FileSignature, FolderKanban } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useProject } from "@/context/project-context";
 
 const chartConfig = {
   income: {
@@ -40,7 +41,13 @@ const chartConfig = {
 const emptyDashboardData = { stats: { totalProgressPayment: 0, activeContracts: 0, pendingTenders: 0, upcomingPayments: 0, upcomingPaymentsTotal: 0 }, chartData: [], reminders: [] };
 
 export default function Home() {
+    const { selectedProject } = useProject();
     const data = emptyDashboardData;
+
+    if (!selectedProject) {
+      return null; // The main layout will show the "No project selected" message
+    }
+
 
   return (
     <div className="grid gap-6">
