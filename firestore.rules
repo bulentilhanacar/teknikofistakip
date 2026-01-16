@@ -19,12 +19,15 @@ service cloud.firestore {
     }
     
     match /users/{userId} {
-      // Any authenticated user can create their own user document,
-      // but they can only set their status to 'pending' and role to 'user'.
+      // Allow user to create their own doc if it doesn't exist.
+      // A regular user must be 'pending' and 'user'.
+      // An admin user can be created as 'approved' and 'admin'.
       allow create: if request.auth != null 
                     && request.auth.uid == userId
-                    && request.resource.data.status == 'pending'
-                    && request.resource.data.role == 'user';
+                    && (
+                      (request.resource.data.status == 'pending' && request.resource.data.role == 'user') ||
+                      (request.resource.data.status == 'approved' && request.resource.data.role == 'admin')
+                    );
 
       // Users can read their own document.
       allow get: if request.auth != null && request.auth.uid == userId;

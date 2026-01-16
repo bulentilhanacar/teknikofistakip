@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
@@ -5,9 +6,9 @@ import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useUser } from '@/firebase/provider';
-import { collection, doc, getDoc, setDoc, query, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, query, getDocs, updateDoc } from 'firebase/firestore';
 
-type UserAppStatus = 'loading' | 'pending' | 'approved' | 'admin';
+type UserAppStatus = 'loading' | 'pending' | 'approved' | 'admin' | 'error';
 
 interface ProjectContextType {
     projects: Project[] | null;
@@ -58,21 +59,15 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
                     await setDoc(userRef, newUser);
                     
                     setIsAdmin(isDesignatedAdmin);
-                    if (newUser.status === 'approved') {
-                        setUserAppStatus(newUser.role === 'admin' ? 'admin' : 'approved');
-                    } else {
-                        setUserAppStatus('pending');
-                    }
+                    setUserAppStatus(isDesignatedAdmin ? 'admin' : 'pending');
                 } else {
                     // Existing user.
                     const userData = userDoc.data();
                     let userRole = userData.role;
                     let userStatus = userData.status;
                     
-                    // The .env email is the source of truth for the admin role.
-                    // If the user is the designated admin, ensure their record reflects this.
                     if (isDesignatedAdmin && (userRole !== 'admin' || userStatus !== 'approved')) {
-                        await setDoc(userRef, { role: 'admin', status: 'approved' }, { merge: true });
+                        await updateDoc(userRef, { role: 'admin', status: 'approved' });
                         userRole = 'admin';
                         userStatus = 'approved';
                     }
@@ -81,14 +76,16 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
 
                     if (userRole === 'admin') {
                         setUserAppStatus('admin');
+                    } else if (userStatus === 'approved') {
+                        setUserAppStatus('approved');
                     } else {
-                        setUserAppStatus(userStatus as 'pending' | 'approved');
+                        setUserAppStatus('pending');
                     }
                 }
             } catch (error) {
                 console.error("Error setting up user status:", error);
                 toast({ title: "Hata", description: "Kullanıcı rolü ayarlanırken bir sorun oluştu.", variant: "destructive" });
-                setUserAppStatus('loading'); // Revert to loading on error
+                setUserAppStatus('error');
             }
         };
 
@@ -135,7 +132,7 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
 
     const selectedProject = projects?.find(p => p.id === selectedProjectId) || null;
     
-    const contextIsLoading = userLoading || (user != null && projectsLoading && !selectedProject) || userAppStatus === 'loading';
+    const contextIsLoading = userLoading || (!!user && (projectsLoading || userAppStatus === 'loading'));
 
     const value: ProjectContextType = {
         projects,
