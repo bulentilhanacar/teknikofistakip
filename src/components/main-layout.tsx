@@ -26,6 +26,63 @@ import {
 } from "@/components/ui/sidebar";
 import { SiteHeader } from "./site-header";
 import { useProject } from "@/context/project-context";
+import { useAuth } from "@/firebase";
+import { Button } from "@/components/ui/button";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+
+
+// Component for the Login Screen
+const LoginScreen = () => {
+    const auth = useAuth();
+    const handleSignIn = () => {
+        const provider = new GoogleAuthProvider();
+        signInWithPopup(auth, provider).catch(error => {
+            console.error("Giriş sırasında hata oluştu", error);
+        });
+    }
+
+    return (
+        <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground text-center p-4">
+            <Building2 className="w-16 h-16 mb-4 text-primary" />
+            <h2 className="text-3xl font-bold font-headline mb-2">İnşaat Takip Uygulamasına Hoş Geldiniz</h2>
+            <p className="text-lg text-muted-foreground mb-6 max-w-md">Proje yönetimi, hakediş ve sözleşme takibi için merkezi çözümünüz. Başlamak için lütfen giriş yapın.</p>
+            <Button size="lg" onClick={handleSignIn}>
+                <UserCheck className="mr-2" />
+                Google ile Giriş Yap / Kayıt Ol
+            </Button>
+        </div>
+    );
+};
+
+// Component for the Pending Approval Screen
+const PendingScreen = () => {
+    const auth = useAuth();
+    return (
+        <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground text-center p-4">
+            <Clock className="w-16 h-16 mb-4 text-accent" />
+            <h2 className="text-3xl font-bold font-headline mb-2">Hesabınız Onay Bekliyor</h2>
+            <p className="text-lg text-muted-foreground mb-6">Erişim talebiniz alındı. Hesabınız bir admin tarafından onaylandığında sisteme erişebileceksiniz.</p>
+            <Button variant="outline" onClick={() => auth.signOut()}>Çıkış Yap</Button>
+        </div>
+    );
+};
+
+// Component for the Loading Screen
+const LoadingScreen = () => (
+    <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground">
+        <Building2 className="w-16 h-16 mb-4 text-primary animate-pulse" />
+        <p className="text-lg text-muted-foreground">Veriler yükleniyor, lütfen bekleyin...</p>
+    </div>
+);
+
+// Component for a generic error state
+const ErrorScreen = () => (
+     <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground text-center p-4">
+        <Building2 className="w-16 h-16 mb-4 text-destructive" />
+        <h2 className="text-3xl font-bold font-headline mb-2">Bir Hata Oluştu</h2>
+        <p className="text-lg text-muted-foreground">Bilinmeyen bir durum oluştu. Lütfen daha sonra tekrar deneyin veya sistem yöneticinize başvurun.</p>
+    </div>
+);
 
 
 function ProjectNav() {
@@ -46,7 +103,7 @@ function ProjectNav() {
   if (!selectedProject) {
      return (
       <div className="p-4 text-sm text-sidebar-foreground/80 group-data-[collapsible=icon]:hidden">
-        <p className="mb-4">Projeler yükleniyor veya henüz proje oluşturulmamış.</p>
+        <p className="mb-4">Proje yükleniyor...</p>
       </div>
     );
   }
@@ -97,71 +154,44 @@ function ProjectNav() {
 }
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-  const { loading, user, userAppStatus } = useProject();
+    const { loading, user, userAppStatus } = useProject();
 
-  const renderContent = () => {
     if (loading) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
-          <Building2 className="w-16 h-16 mb-4 animate-pulse" />
-          <p className="text-lg">Veriler yükleniyor, lütfen bekleyin...</p>
-        </div>
-      );
+        return <LoadingScreen />;
     }
     
     if (!user) {
-        return (
-             <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
-                <UserCheck className="w-16 h-16 mb-4" />
-                <h2 className="text-2xl font-semibold mb-2">İnşaat Takip Uygulamasına Hoş Geldiniz</h2>
-                <p className="text-lg">Sisteme erişim talebinde bulunmak için lütfen giriş yapın.</p>
-            </div>
-        )
+        return <LoginScreen />;
     }
     
     if (userAppStatus === 'pending') {
-       return (
-         <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
-            <Clock className="w-16 h-16 mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">Hesabınız Onay Bekliyor</h2>
-            <p className="text-lg mb-4">Erişim talebiniz alındı. Hesabınız bir admin tarafından onaylandığında sisteme erişebileceksiniz.</p>
-        </div>
-       )
+       return <PendingScreen />;
     }
     
     if (userAppStatus === 'approved' || userAppStatus === 'admin') {
-       return <main className="flex-1 p-4 sm:p-6">{children}</main>;
+       return (
+         <SidebarProvider>
+            <Sidebar side="left" collapsible="icon">
+                <SidebarHeader>
+                <Link
+                    href="/"
+                    className="flex items-center gap-2 font-headline text-lg font-semibold text-sidebar-foreground"
+                >
+                    <Building2 className="h-6 w-6 text-primary" />
+                    <span className="truncate">İnşaat Takip</span>
+                </Link>
+                </SidebarHeader>
+                <SidebarContent>
+                    <ProjectNav />
+                </SidebarContent>
+            </Sidebar>
+            <SidebarInset>
+                <SiteHeader />
+                <main className="flex-1 p-4 sm:p-6">{children}</main>
+            </SidebarInset>
+        </SidebarProvider>
+       );
     }
 
-    return (
-        <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
-            <Building2 className="w-16 h-16 mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">Bilinmeyen Durum</h2>
-            <p className="text-lg">Bir hata oluştu. Lütfen daha sonra tekrar deneyin.</p>
-        </div>
-    )
-  };
-
-  return (
-    <SidebarProvider>
-      <Sidebar side="left" collapsible="icon">
-        <SidebarHeader>
-          <Link
-            href="/"
-            className="flex items-center gap-2 font-headline text-lg font-semibold text-sidebar-foreground"
-          >
-            <Building2 className="h-6 w-6 text-primary" />
-            <span className="truncate">İnşaat Takip</span>
-          </Link>
-        </SidebarHeader>
-        <SidebarContent>
-          <ProjectNav />
-        </SidebarContent>
-      </Sidebar>
-      <SidebarInset>
-        <SiteHeader />
-        {renderContent()}
-      </SidebarInset>
-    </SidebarProvider>
-  );
+    return <ErrorScreen />;
 }

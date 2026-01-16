@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser, useFirebaseApp } from "@/firebase";
 import { Button } from "@/components/ui/button";
-import { signInWithPopup, GoogleAuthProvider, getAuth } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,30 +31,19 @@ const breadcrumbNameMap: { [key: string]: string } = {
 };
 
 const UserMenu = () => {
-    const { user, loading } = useUser();
+    const { user } = useUser();
     const { isAdmin } = useProject();
     const app = useFirebaseApp();
     const auth = getAuth(app);
 
-    const handleSignIn = () => {
-        const provider = new GoogleAuthProvider();
-        signInWithPopup(auth, provider).catch(error => {
-            console.error("Giriş sırasında hata oluştu", error);
-        });
-    }
-
     const handleSignOut = () => {
         auth.signOut();
     }
-
-    if (loading) {
-        return <div className="w-24 h-8 bg-muted rounded animate-pulse" />
-    }
-
+    
+    // This component will only be rendered for logged-in users,
+    // so we can safely assume 'user' exists.
     if (!user) {
-        return (
-            <Button onClick={handleSignIn}>Google ile Giriş Yap</Button>
-        )
+        return null;
     }
 
     return (
