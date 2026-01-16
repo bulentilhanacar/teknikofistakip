@@ -45,7 +45,7 @@ const LoginScreen = () => {
         <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground text-center p-4">
             <Building2 className="w-16 h-16 mb-4 text-primary" />
             <h2 className="text-3xl font-bold font-headline mb-2">İnşaat Takip Uygulamasına Hoş Geldiniz</h2>
-            <p className="text-lg text-muted-foreground mb-6 max-w-md">Proje yönetimi, hakediş ve sözleşme takibi için merkezi çözümünüz. Başlamak için lütfen giriş yapın.</p>
+            <p className="text-lg text-muted-foreground mb-6 max-w-md">Erişim istemek ve başlamak için lütfen giriş yapın.</p>
             <Button size="lg" onClick={handleSignIn}>
                 <UserCheck className="mr-2" />
                 Google ile Giriş Yap / Kayıt Ol
@@ -83,6 +83,22 @@ const ErrorScreen = () => (
         <p className="text-lg text-muted-foreground">Bilinmeyen bir durum oluştu. Lütfen daha sonra tekrar deneyin veya sistem yöneticinize başvurun.</p>
     </div>
 );
+
+// This component will render the main content area when a project is selected
+const ProjectContent = ({ children }: { children: React.ReactNode }) => {
+    const { selectedProject } = useProject();
+
+    if (!selectedProject) {
+        return (
+            <div className="flex flex-col gap-4 items-center justify-center h-full text-muted-foreground">
+                <Building2 className="w-12 h-12" />
+                <p className="text-lg">Başlamak için bir sayfa seçin.</p>
+            </div>
+        )
+    }
+
+    return <>{children}</>;
+}
 
 
 function ProjectNav() {
@@ -167,6 +183,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     if (userAppStatus === 'pending') {
        return <PendingScreen />;
     }
+
+    if (userAppStatus === 'error') {
+        return <ErrorScreen />;
+    }
     
     if (userAppStatus === 'approved' || userAppStatus === 'admin') {
        return (
@@ -187,11 +207,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             </Sidebar>
             <SidebarInset>
                 <SiteHeader />
-                <main className="flex-1 p-4 sm:p-6">{children}</main>
+                <main className="flex-1 p-4 sm:p-6">
+                    <ProjectContent>{children}</ProjectContent>
+                </main>
             </SidebarInset>
         </SidebarProvider>
        );
     }
 
+    // Fallback error screen
     return <ErrorScreen />;
 }
