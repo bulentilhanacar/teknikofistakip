@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -14,19 +13,19 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useProject } from '@/context/project-context';
 import { PlusCircle } from 'lucide-react';
-import { useUser } from '@/firebase';
+// useProject hook will be used if project creation is re-enabled.
+// For now, it's a shared workspace, so adding projects is disabled.
 
 export function AddProjectDialog({ children }: { children?: React.ReactNode }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [name, setName] = React.useState('');
-  const { addProject } = useProject();
-  const { user } = useUser();
-
+  
+  // Project adding logic is currently disabled for the shared workspace model.
+  // This component can be re-enabled if that changes.
   const handleSave = async () => {
     if (name.trim()) {
-      await addProject(name.trim());
+      // await addProject(name.trim());
       setIsOpen(false);
     }
   };
@@ -38,14 +37,13 @@ export function AddProjectDialog({ children }: { children?: React.ReactNode }) {
     }
   }, [isOpen]);
 
-  if (!user) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        {children || <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+        {children || <Button disabled variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
             <PlusCircle className="mr-2" />
-            <span className="group-data-[collapsible=icon]:hidden">Yeni Proje Ekle</span>
+            <span className="group-data-[collapsible=icon]:hidden">Yeni Proje Ekle (Devre Dışı)</span>
         </Button>}
       </DialogTrigger>
       <DialogContent>

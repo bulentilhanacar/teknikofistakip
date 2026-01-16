@@ -4,7 +4,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents an authorized user in the system.",
+      "description": "Represents a user in the system, including their role and approval status.",
       "properties": {
         "id": {
           "type": "string",
@@ -19,15 +19,20 @@
           "type": "string",
           "description": "The role of the user, which determines their permissions.",
           "enum": ["admin", "user"]
+        },
+        "status": {
+          "type": "string",
+          "description": "The approval status of the user.",
+          "enum": ["pending", "approved"]
         }
       },
-      "required": ["id", "email", "role"]
+      "required": ["id", "email", "role", "status"]
     },
     "Project": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Project",
       "type": "object",
-      "description": "Represents a single construction project.",
+      "description": "Represents a single construction project. All approved users share access to all projects.",
       "properties": {
         "id": {
           "type": "string",
@@ -36,13 +41,9 @@
         "name": {
           "type": "string",
           "description": "Name of the project."
-        },
-        "ownerId": {
-          "type": "string",
-          "description": "The UID of the user who owns this project."
         }
       },
-      "required": ["id", "name", "ownerId"]
+      "required": ["id", "name"]
     }
   },
   "firestore": {
@@ -54,7 +55,7 @@
           "schema": {
             "$ref": "#/entities/User"
           },
-          "description": "Stores user data including their role. Access is restricted by security rules.",
+          "description": "Stores user data including their role and approval status. Access is restricted by security rules.",
           "params": [
             {
               "name": "userId",
@@ -70,7 +71,7 @@
           "schema": {
             "$ref": "#/entities/Project"
           },
-          "description": "Stores high-level project information. Access is controlled by roles: admins can access all projects, while users can only access projects where their UID matches the 'ownerId'.",
+          "description": "Stores project information. All approved users have access.",
           "params": [
             {
               "name": "projectId",

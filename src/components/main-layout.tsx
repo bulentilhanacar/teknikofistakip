@@ -10,8 +10,9 @@ import {
   LayoutDashboard,
   ClipboardList,
   Gavel,
-  ChevronDown,
   Shield,
+  Clock,
+  UserCheck,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -25,27 +26,13 @@ import {
 } from "@/components/ui/sidebar";
 import { SiteHeader } from "./site-header";
 import { useProject } from "@/context/project-context";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { AddProjectDialog } from "./add-project-dialog";
-import { Project } from "@/context/types";
 
 
 function ProjectNav() {
   const pathname = usePathname();
   const { 
-    projects, 
     selectedProject, 
-    selectProject,
     isAdmin,
-    user
   } = useProject();
 
   const projectMenuItems = [
@@ -56,28 +43,10 @@ function ProjectNav() {
     { href: "/deductions", label: "Kesinti Yönetimi", icon: Gavel },
   ];
 
-  if (!user) {
-     return (
-        <div className="p-4 text-sm text-sidebar-foreground/80 group-data-[collapsible=icon]:hidden">
-            Lütfen sisteme giriş yapın.
-        </div>
-    )
-  }
-
-  if (!selectedProject && projects && projects.length === 0) {
-    return (
-      <div className="p-4 text-sm text-sidebar-foreground/80 group-data-[collapsible=icon]:hidden">
-        <p className="mb-4">Henüz bir projeniz yok.</p>
-        <AddProjectDialog />
-      </div>
-    );
-  }
-
   if (!selectedProject) {
      return (
       <div className="p-4 text-sm text-sidebar-foreground/80 group-data-[collapsible=icon]:hidden">
-        <p className="mb-4">Lütfen bir proje seçin veya yeni bir tane oluşturun.</p>
-        <AddProjectDialog />
+        <p className="mb-4">Projeler yükleniyor veya henüz proje oluşturulmamış.</p>
       </div>
     );
   }
@@ -85,29 +54,9 @@ function ProjectNav() {
   return (
     <>
       <div className="p-2 group-data-[collapsible=icon]:hidden">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="w-full justify-start items-center gap-2 px-2">
+           <div className="w-full justify-start items-center gap-2 px-2 py-2">
                 <span className="font-semibold text-base truncate flex-1 text-left">{selectedProject.name}</span>
-                <ChevronDown className="h-4 w-4"/>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56">
-            <DropdownMenuLabel>Proje Seçimi</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {projects && projects.map((project) => (
-              <DropdownMenuItem key={project.id} onSelect={() => selectProject(project.id)} className="flex justify-between items-center">
-                <span>{project.name}</span>
-              </DropdownMenuItem>
-            ))}
-             <DropdownMenuSeparator />
-             <AddProjectDialog>
-                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    Yeni Proje Ekle...
-                 </DropdownMenuItem>
-             </AddProjectDialog>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </div>
       </div>
 
        <SidebarMenu>
@@ -148,14 +97,14 @@ function ProjectNav() {
 }
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-  const { loading, selectedProject, user } = useProject();
+  const { loading, user, userAppStatus } = useProject();
 
   const renderContent = () => {
     if (loading) {
       return (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
           <Building2 className="w-16 h-16 mb-4 animate-pulse" />
-          <p className="text-lg">Proje verileri yükleniyor, lütfen bekleyin...</p>
+          <p className="text-lg">Veriler yükleniyor, lütfen bekleyin...</p>
         </div>
       );
     }
@@ -163,25 +112,34 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     if (!user) {
         return (
              <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
-                <Building2 className="w-16 h-16 mb-4" />
+                <UserCheck className="w-16 h-16 mb-4" />
                 <h2 className="text-2xl font-semibold mb-2">İnşaat Takip Uygulamasına Hoş Geldiniz</h2>
-                <p className="text-lg">Projelerinizi yönetmek için lütfen giriş yapın.</p>
+                <p className="text-lg">Sisteme erişim talebinde bulunmak için lütfen giriş yapın.</p>
             </div>
         )
     }
     
-    if (!selectedProject && (!loading && user)) {
+    if (userAppStatus === 'pending') {
        return (
          <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
-            <Building2 className="w-16 h-16 mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">Proje Seçimi Gerekli</h2>
-            <p className="text-lg mb-4">Devam etmek için lütfen bir proje seçin veya yeni bir tane oluşturun.</p>
-            <AddProjectDialog />
+            <Clock className="w-16 h-16 mb-4" />
+            <h2 className="text-2xl font-semibold mb-2">Hesabınız Onay Bekliyor</h2>
+            <p className="text-lg mb-4">Erişim talebiniz alındı. Hesabınız bir admin tarafından onaylandığında sisteme erişebileceksiniz.</p>
         </div>
        )
     }
+    
+    if (userAppStatus === 'approved' || userAppStatus === 'admin') {
+       return <main className="flex-1 p-4 sm:p-6">{children}</main>;
+    }
 
-    return <main className="flex-1 p-4 sm:p-6">{children}</main>;
+    return (
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center">
+            <Building2 className="w-16 h-16 mb-4" />
+            <h2 className="text-2xl font-semibold mb-2">Bilinmeyen Durum</h2>
+            <p className="text-lg">Bir hata oluştu. Lütfen daha sonra tekrar deneyin.</p>
+        </div>
+    )
   };
 
   return (

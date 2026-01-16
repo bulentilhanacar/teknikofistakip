@@ -4,60 +4,46 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Get user role from the 'users' collection
-    function getUserRole(userId) {
-      return exists(/databases/$(database)/documents/users/$(userId))
-        ? get(/databases/$(database)/documents/users/$(userId)).data.role
-        : '';
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
     }
     
-    function isUserInAllowlist(email) {
-      return exists(
-        /databases/$(database)/documents/users_by_email/$(email)
-      );
+    function isApproved(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId))
+        && getUserData(userId).status == 'approved';
+    }
+
+    function isAdmin(userId) {
+       return exists(/databases/$(database)/documents/users/$(userId))
+        && getUserData(userId).role == 'admin';
     }
     
     match /users/{userId} {
-      // Admins can read/write any user document (for role management)
-      allow read, write: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
-      // Users can read their own document
+      // Any authenticated user can create their own user document,
+      // but they can only set their status to 'pending' and role to 'user'.
+      allow create: if request.auth != null 
+                    && request.auth.uid == userId
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.role == 'user';
+
+      // Users can read their own document.
       allow get: if request.auth != null && request.auth.uid == userId;
-      // Users can create their own document on first sign-in
-      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // Only an admin can update a user document (to approve them or change their role).
+      allow update: if request.auth != null && isAdmin(request.auth.uid);
+      
+      // Only an admin can delete users or read the full list.
+      allow delete, list: if request.auth != null && isAdmin(request.auth.uid);
     }
     
-    // A separate collection to quickly check if a user's email is allowed.
-    // This is managed by an admin.
-    match /users_by_email/{email} {
-      allow read: if request.auth != null; // Allow authenticated users to check if they exist
-      allow write: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
-    }
-
     match /projects/{projectId} {
-      // Create: User must be authenticated and exist in the allowed users list.
-      allow create: if request.auth != null 
-                    && isUserInAllowlist(request.auth.token.email)
-                    && request.resource.data.ownerId == request.auth.uid;
-                    
-      // Read: Admin can read all. User can read their own.
-      allow get: if request.auth != null
-                  && (getUserRole(request.auth.uid) == 'admin' || resource.data.ownerId == request.auth.uid);
-                  
-      // List: Admin can list all. User can list their own using a query.
-      allow list: if request.auth != null; // Further filtering happens in the query
-                  
-      // Update, Delete: Admin can update/delete all. User can update/delete their own.
-      allow update, delete: if request.auth != null
-                          && (getUserRole(request.auth.uid) == 'admin' || resource.data.ownerId == request.auth.uid);
+      // An admin or an approved user can read, write, create, delete projects.
+      allow read, write, create, delete: if request.auth != null && (isAdmin(request.auth.uid) || isApproved(request.auth.uid));
     }
 
-    // All sub-collections under a project (contracts, deductions, etc.)
-    // inherit the permissions of the parent project.
     match /projects/{projectId}/{document=**} {
-       allow read, write: if request.auth != null && (
-          getUserRole(request.auth.uid) == 'admin' 
-          || get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid
-       );
+       // An admin or an approved user can access all sub-collections.
+       allow read, write: if request.auth != null && (isAdmin(request.auth.uid) || isApproved(request.auth.uid));
     }
   }
 }
