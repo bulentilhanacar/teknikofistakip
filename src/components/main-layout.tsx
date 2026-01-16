@@ -245,7 +245,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
        return <PendingScreen />;
     }
 
-    if (userAppstatus === 'error') {
+    if (userAppStatus === 'error') {
         return <ErrorScreen />;
     }
     
