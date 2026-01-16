@@ -6,7 +6,7 @@ import { Project } from './types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { useUser } from '@/firebase/provider';
-import { collection, doc, getDoc, setDoc, addDoc, onSnapshot, Unsubscribe, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, addDoc, onSnapshot, Unsubscribe, deleteDoc, query, updateDoc, where } from 'firebase/firestore';
 
 type UserAppStatus = 'loading' | 'pending' | 'approved' | 'admin' | 'error';
 
@@ -19,6 +19,7 @@ interface ProjectContextType {
     userAppStatus: UserAppStatus;
     addProject: (name: string) => Promise<void>;
     deleteProject: (id: string) => Promise<void>;
+    updateProject: (id: string, name: string) => Promise<void>;
     setSelectedProjectById: (id: string | null) => void;
 }
 
@@ -34,7 +35,7 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     const [isAdmin, setIsAdmin] = useState(false);
     const [userAppStatus, setUserAppStatus] = useState<UserAppStatus>('loading');
     
-    const loading = userLoading || (!!user && userAppStatus === 'loading');
+    const loading = userLoading || userAppStatus === 'loading';
 
     const addProject = useCallback(async (name: string) => {
         if (!firestore || !isAdmin) {
@@ -65,6 +66,20 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [firestore, isAdmin, toast]);
 
+    const updateProject = useCallback(async (id: string, name: string) => {
+        if (!firestore || !isAdmin) {
+            toast({ title: "Yetki Hatası", description: "Proje güncelleme yetkiniz yok.", variant: "destructive" });
+            return;
+        }
+        try {
+            await updateDoc(doc(firestore, "projects", id), { name });
+            toast({ title: "Proje Güncellendi" });
+        } catch (error) {
+            console.error("Error updating project: ", error);
+            toast({ title: "Hata", description: "Proje güncellenirken bir sorun oluştu.", variant: "destructive" });
+        }
+    }, [firestore, isAdmin, toast]);
+
     const setSelectedProjectById = useCallback((id: string | null) => {
         if (id === null) {
             setSelectedProject(null);
@@ -80,51 +95,52 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
             setUserAppStatus('loading');
             return;
         }
-        
+
         if (!user) {
-            // No user is logged in, not loading, not an error. Show login screen.
-            setUserAppStatus('pending'); // Effectively, non-logged in is a pending state
+            setUserAppStatus('approved');
             setIsAdmin(false);
+            setProjects(null);
+            setSelectedProject(null);
             return;
         }
-        
-        if (!firestore) return;
+
+        if (!firestore) {
+            setUserAppStatus('error');
+            return;
+        };
 
         let projectsUnsubscribe: Unsubscribe | null = null;
         
         const setupUserAndProjects = async () => {
             setUserAppStatus('loading');
-            const isDesignatedAdmin = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+            const isAdminByEmail = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
             const userRef = doc(firestore, 'users', user.uid);
-            let finalStatus: UserAppStatus = 'pending';
-            let finalIsAdmin = false;
-
+            
             try {
                 const userDoc = await getDoc(userRef);
+                let finalStatus: UserAppStatus = 'pending';
+                let finalIsAdmin = false;
 
                 if (!userDoc.exists()) {
-                    if (isDesignatedAdmin) {
-                        await setDoc(userRef, { email: user.email, role: 'admin', status: 'approved' });
-                        finalIsAdmin = true;
-                        finalStatus = 'admin';
-                    } else {
-                        await setDoc(userRef, { email: user.email, role: 'user', status: 'pending' });
-                        finalStatus = 'pending';
-                    }
+                    const userData = {
+                        email: user.email,
+                        role: isAdminByEmail ? 'admin' : 'user',
+                        status: isAdminByEmail ? 'approved' : 'pending',
+                    };
+                    await setDoc(userRef, userData);
+                    finalIsAdmin = isAdminByEmail;
+                    finalStatus = isAdminByEmail ? 'admin' : 'pending';
                 } else {
                     const userData = userDoc.data();
-                    if (isDesignatedAdmin) {
-                        if (userData.role !== 'admin' || userData.status !== 'approved') {
-                           await setDoc(userRef, { role: 'admin', status: 'approved' }, { merge: true });
-                        }
-                        finalIsAdmin = true;
+                    finalIsAdmin = userData.role === 'admin';
+                    if (finalIsAdmin && userData.status !== 'approved') {
+                        await updateDoc(userRef, { status: 'approved' });
                         finalStatus = 'admin';
                     } else {
-                        finalIsAdmin = false;
-                        finalStatus = userData.status === 'approved' ? 'approved' : 'pending';
+                        finalStatus = userData.status === 'approved' ? (finalIsAdmin ? 'admin' : 'approved') : 'pending';
                     }
                 }
-
+                
                 setIsAdmin(finalIsAdmin);
                 setUserAppStatus(finalStatus);
 
@@ -137,10 +153,11 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
                         if (selectedProject && !allProjects.some(p => p.id === selectedProject.id)) {
                             setSelectedProject(null);
                         }
+
                     }, (error) => {
                         console.error("Error fetching projects: ", error);
-                        toast({ title: "Projeler Yüklenemedi", variant: "destructive" });
                         setProjects([]);
+                        toast({ title: "Projeler Yüklenemedi", variant: "destructive" });
                     });
                 } else {
                     setProjects(null);
@@ -160,7 +177,7 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
                 projectsUnsubscribe();
             }
         };
-    }, [user, userLoading, firestore, toast]);
+    }, [user, userLoading, firestore, toast, selectedProject]);
 
     const value: ProjectContextType = {
         projects,
@@ -171,6 +188,7 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
         userAppStatus,
         addProject,
         deleteProject,
+        updateProject,
         setSelectedProjectById,
     };
 
