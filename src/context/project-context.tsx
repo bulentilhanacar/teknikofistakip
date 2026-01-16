@@ -61,20 +61,16 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
                     setIsAdmin(isDesignatedAdmin);
                     setUserAppStatus(isDesignatedAdmin ? 'admin' : 'pending');
                 } else {
-                    // Existing user.
+                    // Existing user. Read role and status from DB as the source of truth.
                     const userData = userDoc.data();
-                    let userRole = userData.role;
-                    let userStatus = userData.status;
+                    const userRole = userData.role;
+                    const userStatus = userData.status;
                     
-                    if (isDesignatedAdmin && (userRole !== 'admin' || userStatus !== 'approved')) {
-                        await updateDoc(userRef, { role: 'admin', status: 'approved' });
-                        userRole = 'admin';
-                        userStatus = 'approved';
-                    }
+                    const isCurrentUserAdmin = userRole === 'admin';
                     
-                    setIsAdmin(userRole === 'admin');
+                    setIsAdmin(isCurrentUserAdmin);
 
-                    if (userRole === 'admin') {
+                    if (isCurrentUserAdmin) {
                         setUserAppStatus('admin');
                     } else if (userStatus === 'approved') {
                         setUserAppStatus('approved');
