@@ -6,7 +6,9 @@ service cloud.firestore {
     
     // Get user role from the 'users' collection
     function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+      return exists(/databases/$(database)/documents/users/$(userId))
+        ? get(/databases/$(database)/documents/users/$(userId)).data.role
+        : '';
     }
     
     function isUserInAllowlist(email) {
