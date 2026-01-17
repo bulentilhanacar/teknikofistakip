@@ -1,7 +1,10 @@
 
 
+
 export const contractGroups = {
-  "reklam": "Reklam ve Tanıtım",
+  "proje": "Proje",
+  "reklam": "Reklam",
+  "idari-isler": "İdari İşler",
   "tedarikler": "Tedarikler",
   "kaba-isler": "Kaba İşler",
   "ince-isler": "İnce İşler",
