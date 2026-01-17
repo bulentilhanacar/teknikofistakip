@@ -13,6 +13,9 @@ import {
   Shield,
   Clock,
   UserCheck,
+  ChevronDown,
+  PlusCircle,
+  Trash2,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -22,14 +25,23 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarInset,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { SiteHeader } from "./site-header";
 import { useProject } from "@/context/project-context";
 import { useAuth } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog";
+import { AddProjectDialog } from "./add-project-dialog";
 
 // Component for the Login Screen
 const LoginScreen = () => {
@@ -110,6 +122,79 @@ const ProjectContent = ({ children }: { children: React.ReactNode }) => {
     }
 
     return <>{children}</>;
+}
+
+
+const ProjectSelector = () => {
+    const { projects, selectedProject, setSelectedProjectById, isAdmin, deleteProject } = useProject();
+
+    const handleDelete = (e: React.MouseEvent, projectId: string) => {
+        e.stopPropagation();
+        deleteProject(projectId);
+    }
+
+    return (
+        <div className="p-2 group-data-[collapsible=icon]:p-0">
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+                        <div className="flex items-center gap-2 truncate">
+                            {selectedProject ? <Building2 className="h-5 w-5 text-primary" /> : <Building2 className="h-5 w-5" />}
+                            <span className="truncate group-data-[collapsible=icon]:hidden">
+                                {selectedProject ? selectedProject.name : "Proje Seçin..."}
+                            </span>
+                        </div>
+                        <ChevronDown className="h-4 w-4 opacity-50 group-data-[collapsible=icon]:hidden" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[240px]" align="start">
+                    <DropdownMenuLabel>Mevcut Projeler</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {projects && projects.length > 0 ? (
+                        projects.map((project) => (
+                            <DropdownMenuItem key={project.id} onSelect={() => setSelectedProjectById(project.id)} className="group/item flex justify-between items-center pr-1">
+                                <span className="flex-1 truncate">{project.name}</span>
+                                {isAdmin && (
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover/item:opacity-100" onClick={(e) => e.stopPropagation()}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    "{project.name}" projesini ve tüm içeriğini (sözleşmeler, hakedişler vb.) kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>İptal</AlertDialogCancel>
+                                                <AlertDialogAction onClick={(e) => handleDelete(e, project.id)}>Evet, Sil</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                )}
+                            </DropdownMenuItem>
+                        ))
+                    ) : (
+                        <DropdownMenuItem disabled>Proje bulunmuyor</DropdownMenuItem>
+                    )}
+                    {isAdmin && (
+                        <>
+                            <DropdownMenuSeparator />
+                            <AddProjectDialog>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer">
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    <span>Yeni Proje Ekle</span>
+                                </DropdownMenuItem>
+                            </AddProjectDialog>
+                        </>
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+    );
 }
 
 function MainNavigation() {
@@ -202,6 +287,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 </Link>
                 </SidebarHeader>
                 <SidebarContent>
+                    <ProjectSelector />
+                    <SidebarSeparator />
                     <MainNavigation />
                 </SidebarContent>
             </Sidebar>

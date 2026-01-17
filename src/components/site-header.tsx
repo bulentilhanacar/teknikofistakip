@@ -18,10 +18,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, ChevronDown, PlusCircle, Trash2, Building2 } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useProject } from '@/context/project-context';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog";
-import { AddProjectDialog } from "./add-project-dialog";
 
 
 const breadcrumbNameMap: { [key: string]: string } = {
@@ -32,74 +30,6 @@ const breadcrumbNameMap: { [key: string]: string } = {
   '/deductions': 'Kesinti Yönetimi',
   '/admin': 'Admin Paneli',
 };
-
-const ProjectSelector = () => {
-    const { projects, selectedProject, setSelectedProjectById, isAdmin, deleteProject } = useProject();
-
-    const handleDelete = (e: React.MouseEvent, projectId: string) => {
-        e.stopPropagation();
-        deleteProject(projectId);
-    }
-
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-[220px] justify-between hidden md:flex">
-                    {selectedProject ? <Building2 className="h-4 w-4 mr-2 text-primary" /> : null}
-                    <span className="truncate flex-1 text-left">
-                        {selectedProject ? selectedProject.name : "Proje Seçin..."}
-                    </span>
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[280px]" align="start">
-                <DropdownMenuLabel>Mevcut Projeler</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {projects && projects.length > 0 ? (
-                    projects.map((project) => (
-                        <DropdownMenuItem key={project.id} onSelect={() => setSelectedProjectById(project.id)} className="group/item flex justify-between items-center pr-1">
-                            <span className="flex-1 truncate">{project.name}</span>
-                            {isAdmin && (
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover/item:opacity-100" onClick={(e) => e.stopPropagation()}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                "{project.name}" projesini ve tüm içeriğini (sözleşmeler, hakedişler vb.) kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>İptal</AlertDialogCancel>
-                                            <AlertDialogAction onClick={(e) => handleDelete(e, project.id)}>Evet, Sil</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            )}
-                        </DropdownMenuItem>
-                    ))
-                ) : (
-                    <DropdownMenuItem disabled>Proje bulunmuyor</DropdownMenuItem>
-                )}
-                {isAdmin && (
-                    <>
-                        <DropdownMenuSeparator />
-                        <AddProjectDialog>
-                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer">
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                <span>Yeni Proje Ekle</span>
-                            </DropdownMenuItem>
-                        </AddProjectDialog>
-                    </>
-                )}
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
-}
 
 const UserMenu = () => {
     const { user } = useUser();
@@ -152,10 +82,9 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
       <SidebarTrigger className="md:hidden" />
-      <ProjectSelector />
       
       {selectedProject && (
-        <Breadcrumb className="hidden md:flex ml-4">
+        <Breadcrumb className="hidden md:flex">
             <BreadcrumbList>
             <BreadcrumbItem>
                 <BreadcrumbLink asChild>
