@@ -6,7 +6,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useUser, useFirebaseApp } from "@/firebase";
+import { useUser } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { getAuth } from "firebase/auth";
 import {
@@ -18,8 +18,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut } from "lucide-react";
+import { LogOut, ChevronDown, PlusCircle, Trash2, Building2 } from "lucide-react";
 import { useProject } from '@/context/project-context';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog";
+import { AddProjectDialog } from "./add-project-dialog";
+
 
 const breadcrumbNameMap: { [key: string]: string } = {
   '/': 'Finansal Özet',
@@ -30,18 +33,83 @@ const breadcrumbNameMap: { [key: string]: string } = {
   '/admin': 'Admin Paneli',
 };
 
+const ProjectSelector = () => {
+    const { projects, selectedProject, setSelectedProjectById, isAdmin, deleteProject } = useProject();
+
+    const handleDelete = (e: React.MouseEvent, projectId: string) => {
+        e.stopPropagation();
+        deleteProject(projectId);
+    }
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-[220px] justify-between hidden md:flex">
+                    {selectedProject ? <Building2 className="h-4 w-4 mr-2 text-primary" /> : null}
+                    <span className="truncate flex-1 text-left">
+                        {selectedProject ? selectedProject.name : "Proje Seçin..."}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[280px]" align="start">
+                <DropdownMenuLabel>Mevcut Projeler</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {projects && projects.length > 0 ? (
+                    projects.map((project) => (
+                        <DropdownMenuItem key={project.id} onSelect={() => setSelectedProjectById(project.id)} className="group/item flex justify-between items-center pr-1">
+                            <span className="flex-1 truncate">{project.name}</span>
+                            {isAdmin && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover/item:opacity-100" onClick={(e) => e.stopPropagation()}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                "{project.name}" projesini ve tüm içeriğini (sözleşmeler, hakedişler vb.) kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>İptal</AlertDialogCancel>
+                                            <AlertDialogAction onClick={(e) => handleDelete(e, project.id)}>Evet, Sil</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
+                        </DropdownMenuItem>
+                    ))
+                ) : (
+                    <DropdownMenuItem disabled>Proje bulunmuyor</DropdownMenuItem>
+                )}
+                {isAdmin && (
+                    <>
+                        <DropdownMenuSeparator />
+                        <AddProjectDialog>
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer">
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                <span>Yeni Proje Ekle</span>
+                            </DropdownMenuItem>
+                        </AddProjectDialog>
+                    </>
+                )}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+
 const UserMenu = () => {
     const { user } = useUser();
     const { isAdmin } = useProject();
-    const app = useFirebaseApp();
-    const auth = getAuth(app);
+    const auth = getAuth();
 
     const handleSignOut = () => {
         auth.signOut();
     }
     
-    // This component will only be rendered for logged-in users,
-    // so we can safely assume 'user' exists.
     if (!user) {
         return null;
     }
@@ -77,41 +145,47 @@ const UserMenu = () => {
 
 export function SiteHeader() {
   const pathname = usePathname();
-  
+  const { selectedProject } = useProject();
   const pathSegments = pathname.split('/').filter(x => x);
+  const isHomePage = pathname === '/';
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
       <SidebarTrigger className="md:hidden" />
-      <Breadcrumb className="hidden md:flex">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/">Ana Sayfa</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          {pathSegments.map((segment, index) => {
-            const to = `/${pathSegments.slice(0, index + 1).join('/')}`;
-            const isLast = index === pathSegments.length - 1;
-            const name = breadcrumbNameMap[to] || segment.charAt(0).toUpperCase() + segment.slice(1);
-            
-            return (
-              <React.Fragment key={to}>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  {isLast ? (
-                    <BreadcrumbPage>{name}</BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink asChild>
-                      <Link href={to}>{name}</Link>
-                    </BreadcrumbLink>
-                  )}
-                </BreadcrumbItem>
-              </React.Fragment>
-            );
-          })}
-        </BreadcrumbList>
-      </Breadcrumb>
+      <ProjectSelector />
+      
+      {selectedProject && (
+        <Breadcrumb className="hidden md:flex ml-4">
+            <BreadcrumbList>
+            <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                <Link href="/">Ana Sayfa</Link>
+                </BreadcrumbLink>
+            </BreadcrumbItem>
+            {!isHomePage && pathSegments.map((segment, index) => {
+                const to = `/${pathSegments.slice(0, index + 1).join('/')}`;
+                const isLast = index === pathSegments.length - 1;
+                const name = breadcrumbNameMap[to] || segment.charAt(0).toUpperCase() + segment.slice(1);
+                
+                return (
+                <React.Fragment key={to}>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                    {isLast ? (
+                        <BreadcrumbPage>{name}</BreadcrumbPage>
+                    ) : (
+                        <BreadcrumbLink asChild>
+                        <Link href={to}>{name}</Link>
+                        </BreadcrumbLink>
+                    )}
+                    </BreadcrumbItem>
+                </React.Fragment>
+                );
+            })}
+            </BreadcrumbList>
+        </Breadcrumb>
+      )}
+
       <div className="ml-auto">
         <UserMenu />
       </div>

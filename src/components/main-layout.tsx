@@ -13,8 +13,6 @@ import {
   Shield,
   Clock,
   UserCheck,
-  FolderOpen,
-  Trash2,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -25,9 +23,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { SiteHeader } from "./site-header";
@@ -35,10 +30,6 @@ import { useProject } from "@/context/project-context";
 import { useAuth } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { AddProjectDialog } from "./add-project-dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog";
-import { Project } from "@/context/types";
-
 
 // Component for the Login Screen
 const LoginScreen = () => {
@@ -95,11 +86,17 @@ const ErrorScreen = () => (
 
 // Component to show when no project is selected
 const NoProjectSelected = () => {
+    const { isAdmin } = useProject();
     return (
-        <div className="flex flex-col gap-4 items-center justify-center h-full text-muted-foreground">
-            <FolderOpen className="w-12 h-12" />
-            <p className="text-lg">Lütfen çalışmak için bir proje seçin.</p>
-            <p className="text-sm">Kenar çubuğundaki proje listesinden bir proje seçebilir veya yeni bir tane oluşturabilirsiniz.</p>
+        <div className="flex flex-col gap-4 items-center justify-center h-full text-muted-foreground text-center">
+            <Building2 className="w-12 h-12" />
+            <h3 className="text-xl font-semibold text-foreground">Başlamak için bir proje seçin</h3>
+            <p className="text-base max-w-md">
+                {isAdmin 
+                    ? "Yukarıdaki açılır menüden mevcut bir projeyi seçin veya yeni bir proje oluşturun."
+                    : "Lütfen yukarıdaki proje seçim menüsünden üzerinde çalışmak istediğiniz projeyi seçin."
+                }
+            </p>
         </div>
     )
 }
@@ -113,65 +110,6 @@ const ProjectContent = ({ children }: { children: React.ReactNode }) => {
     }
 
     return <>{children}</>;
-}
-
-
-const ProjectSelector = () => {
-    const { projects, selectedProject, setSelectedProjectById, isAdmin, deleteProject } = useProject();
-
-    const handleDelete = (e: React.MouseEvent, projectId: string) => {
-        e.stopPropagation();
-        deleteProject(projectId);
-    }
-
-    return (
-        <SidebarGroup>
-            <SidebarGroupLabel>Projeler</SidebarGroupLabel>
-            {isAdmin && <AddProjectDialog />}
-             <SidebarGroupContent>
-                {projects && projects.length > 0 ? (
-                    projects.map((project: Project) => (
-                        <div key={project.id} className="relative group/item">
-                             <SidebarMenuButton
-                                onClick={() => setSelectedProjectById(project.id)}
-                                isActive={selectedProject?.id === project.id}
-                                tooltip={project.name}
-                            >
-                                <span className="truncate flex-1">{project.name}</span>
-                            </SidebarMenuButton>
-                             {isAdmin && (
-                                <div className="absolute top-1/2 -translate-y-1/2 right-2 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    "{project.name}" projesini ve tüm içeriğini (sözleşmeler, hakedişler vb.) kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>İptal</AlertDialogCancel>
-                                                <AlertDialogAction onClick={(e) => handleDelete(e, project.id)}>Evet, Sil</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                             )}
-                        </div>
-                    ))
-                ) : (
-                    <div className="text-xs text-sidebar-foreground/70 px-2 py-1 group-data-[collapsible=icon]:hidden">
-                        {isAdmin ? "Henüz proje oluşturulmadı." : "Görüntülenecek proje yok."}
-                    </div>
-                )}
-             </SidebarGroupContent>
-        </SidebarGroup>
-    )
 }
 
 function MainNavigation() {
@@ -207,10 +145,10 @@ function MainNavigation() {
           );
         })}
        </SidebarMenu>
-       <SidebarSeparator/>
-       <ProjectSelector />
-       <SidebarSeparator/>
+       
        {isAdmin && (
+         <>
+            <SidebarSeparator/>
              <SidebarMenu>
                 <SidebarMenuItem>
                 <SidebarMenuButton
@@ -225,6 +163,7 @@ function MainNavigation() {
                 </SidebarMenuButton>
                 </SidebarMenuItem>
              </SidebarMenu>
+         </>
         )}
     </>
   );
