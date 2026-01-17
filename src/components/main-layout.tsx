@@ -16,6 +16,7 @@ import {
   ChevronDown,
   PlusCircle,
   Trash2,
+  Edit,
 } from "lucide-react";
 import {
   SidebarProvider,
@@ -26,6 +27,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarSeparator,
+  SidebarInset,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -42,6 +44,8 @@ import { Button } from "@/components/ui/button";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog";
 import { AddProjectDialog } from "./add-project-dialog";
+import { RenameProjectDialog } from "./rename-project-dialog";
+
 
 // Component for the Login Screen
 const LoginScreen = () => {
@@ -126,12 +130,31 @@ const ProjectContent = ({ children }: { children: React.ReactNode }) => {
 
 
 const ProjectSelector = () => {
-    const { projects, selectedProject, setSelectedProjectById, isAdmin, deleteProject } = useProject();
+    const { projects, selectedProject, setSelectedProjectById, isAdmin, deleteProject, updateProject } = useProject();
+    
+    const [isRenameOpen, setIsRenameOpen] = React.useState(false);
+    const [renameName, setRenameName] = React.useState("");
+    const [projectToRename, setProjectToRename] = React.useState<any>(null);
+
 
     const handleDelete = (e: React.MouseEvent, projectId: string) => {
         e.stopPropagation();
         deleteProject(projectId);
     }
+    
+    const handleRenameClick = (e: React.MouseEvent, project: any) => {
+        e.stopPropagation();
+        setProjectToRename(project);
+        setRenameName(project.name);
+        setIsRenameOpen(true);
+    };
+
+    const handleSaveRename = () => {
+        if (projectToRename) {
+            updateProject(projectToRename.id, renameName);
+        }
+    };
+
 
     return (
         <div className="p-2 group-data-[collapsible=icon]:p-0">
@@ -155,25 +178,30 @@ const ProjectSelector = () => {
                             <DropdownMenuItem key={project.id} onSelect={() => setSelectedProjectById(project.id)} className="group/item flex justify-between items-center pr-1">
                                 <span className="flex-1 truncate">{project.name}</span>
                                 {isAdmin && (
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover/item:opacity-100" onClick={(e) => e.stopPropagation()}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    "{project.name}" projesini ve tüm içeriğini (sözleşmeler, hakedişler vb.) kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>İptal</AlertDialogCancel>
-                                                <AlertDialogAction onClick={(e) => handleDelete(e, project.id)}>Evet, Sil</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
+                                    <div className="flex items-center opacity-0 group-hover/item:opacity-100">
+                                         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={(e) => handleRenameClick(e, project)}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={(e) => e.stopPropagation()}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        "{project.name}" projesini ve tüm içeriğini (sözleşmeler, hakedişler vb.) kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>İptal</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={(e) => handleDelete(e, project.id)}>Evet, Sil</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
                                 )}
                             </DropdownMenuItem>
                         ))
@@ -193,6 +221,7 @@ const ProjectSelector = () => {
                     )}
                 </DropdownMenuContent>
             </DropdownMenu>
+            {projectToRename && <RenameProjectDialog project={projectToRename} name={renameName} setName={setRenameName} onSave={handleSaveRename} isOpen={isRenameOpen} onOpenChange={setIsRenameOpen} />}
         </div>
     );
 }
